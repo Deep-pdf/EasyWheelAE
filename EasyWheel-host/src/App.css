@@ -1,0 +1,14 @@
+html,
+body,
+#root {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    font-family: "Segoe UI", sans-serif;
+
+    background: #101010;
+
+    color: white;
+}
