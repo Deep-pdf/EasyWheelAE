@@ -1,16 +1,13 @@
 [package]
 name = "easywheel-host"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "EasyWheel Host — Windows background service for EasyWheelAE"
+authors = ["EasyWheelAE"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+# The `_lib` suffix prevents a name collision between the library crate and
+# the binary crate on Windows. See https://github.com/rust-lang/cargo/issues/8519
 name = "easywheel_host_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -18,8 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
+# `tray-icon` enables TrayIconBuilder, Menu, and tray event APIs.
+tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-

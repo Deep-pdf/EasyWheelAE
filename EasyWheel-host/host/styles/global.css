@@ -1,0 +1,22 @@
+/*
+ * global.css
+ *
+ * Single global stylesheet for EasyWheel Host.
+ * Scope: full-viewport shell reset only.
+ * All component-level styles belong in dedicated CSS modules.
+ */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  font-family: "Segoe UI", system-ui, sans-serif;
+
+  background-color: #101010;
+  color: #ffffff;
+}

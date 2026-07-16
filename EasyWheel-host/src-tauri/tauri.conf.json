@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "easywheel-host",
+  "productName": "EasyWheel Host",
   "version": "0.1.0",
-  "identifier": "com.deep.easywheel-host",
+  "identifier": "com.easywheelae.host",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "easywheel-host",
+        "label": "main",
+        "title": "EasyWheel Host",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "visible": false
       }
     ],
     "security": {
