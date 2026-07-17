@@ -3,11 +3,21 @@
  *
  * Styles for the EasyWheel transparent overlay window.
  *
- * Phase 4 responsibility: debug panel + SVG visualization on a fully
- * transparent background.
+ * Phase 4: Full-screen transparent canvas hosting the SVG radial wheel.
+ * Debug panel styles from Phase 3 are removed entirely.
+ *
+ * Design principles:
+ * - Every element is pointer-events: none — the overlay never captures input.
+ * - The transparent chain must be unbroken from html → body → #root →
+ *   .overlay-root. A single opaque ancestor blocks the window transparency.
+ * - Wheel elements use CSS classes rather than inline styles so that future
+ *   theme changes are a CSS-only operation.
  */
 
-/* Reset the shell so the transparent window is a clean canvas. */
+/* ---------------------------------------------------------------------------
+   Shell reset — transparent window canvas
+   --------------------------------------------------------------------------- */
+
 html,
 body,
 #root {
@@ -16,9 +26,6 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-
-  /* Transparent background is required at every level of the DOM tree.
-     A single opaque ancestor would block the window transparency. */
   background: transparent;
 }
 
@@ -28,13 +35,12 @@ body,
   width: 100%;
   height: 100%;
   background: transparent;
-  /* Prevent the overlay from ever capturing mouse input. */
   pointer-events: none;
 }
 
-/* -------------------------------------------------------------------------
-   SVG canvas — covers the entire viewport
-   ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   SVG canvas — full-viewport, pointer-passthrough
+   --------------------------------------------------------------------------- */
 
 .overlay-svg {
   position: absolute;
@@ -46,49 +52,55 @@ body,
   overflow: visible;
 }
 
-/* -------------------------------------------------------------------------
-   Debug panel — top-left readout
-   ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Wheel — sector slices
+   --------------------------------------------------------------------------- */
 
-.debug-panel {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  background: rgba(0, 0, 0, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 8px;
-  padding: 16px 20px;
-
-  font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
-  font-size: 0.8125rem; /* 13px */
-  pointer-events: none;
-  user-select: none;
+/*
+ * Default sector — dark, translucent.
+ * The fill uses a navy-black base with high translucency so the content
+ * beneath the overlay remains visible.
+ */
+.wheel-sector {
+  fill: rgba(12, 12, 22, 0.80);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+  transition: fill 80ms ease-out;
 }
 
-/* A labelled group of values (e.g. "Origin / X: 820 / Y: 412"). */
-.debug-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/*
+ * Active sector — indigo accent.
+ * Electric indigo (#6366f1) at high opacity for a crisp, modern highlight.
+ * The short transition keeps the highlight feeling responsive without lag.
+ */
+.wheel-sector--active {
+  fill: rgba(99, 102, 241, 0.88);
+  stroke: rgba(139, 92, 246, 0.9);
+  stroke-width: 1.5;
 }
 
-/* Section heading — slightly muted white. */
-.debug-label {
-  font-size: 0.6875rem; /* 11px */
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  margin-bottom: 2px;
+/* ---------------------------------------------------------------------------
+   Wheel — structural circles
+   --------------------------------------------------------------------------- */
+
+/* Outer bounding ring — thin, barely visible frame. */
+.wheel-outer-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1;
 }
 
-/* Individual data line — full white for maximum contrast. */
-.debug-value {
-  color: #ffffff;
-  line-height: 1.6;
+/*
+ * Dead zone circle — slightly lighter than the sector fill to distinguish
+ * the center well from the interactive ring.
+ */
+.wheel-dead-zone {
+  fill: rgba(18, 18, 32, 0.85);
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
 }
 
+/* Center anchor dot — small, bright reference point at the origin. */
+.wheel-center-dot {
+  fill: rgba(255, 255, 255, 0.70);
+}

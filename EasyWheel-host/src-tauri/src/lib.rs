@@ -2,6 +2,7 @@
 // No business logic is permitted in this file beyond application orchestration.
 mod app_state;
 mod commands;
+mod geometry_manager;
 mod host_config;
 mod hotkey_manager;
 mod input_manager;
@@ -69,7 +70,10 @@ pub fn run() {
             Ok(())
         })
         // Commands are registered here as the handler list grows in future phases.
-        .invoke_handler(tauri::generate_handler![commands::get_pointer_state])
+        .invoke_handler(tauri::generate_handler![
+            commands::get_pointer_state,
+            commands::get_geometry_state,
+        ])
         .run(tauri::generate_context!())
         .expect("Fatal: Tauri application failed to start.");
 }

@@ -12,10 +12,18 @@
 //! spawns a dedicated `hotkey-listener` thread to avoid blocking the Tauri
 //! setup thread. The spawned thread runs for the entire application lifetime.
 //!
-//! # Activation key
+//! # Activation chord
 //!
-//! The activation key is read from `host_config::ACTIVATION_KEY`. This
-//! module never defines its own key value.
+//! The activation gesture is a **modifier + key chord** defined in
+//! `host_config`:
+//!
+//! - `ACTIVATION_MODIFIER` — must be held down first (e.g. `Key::Alt`).
+//! - `ACTIVATION_KEY`      — the trigger key pressed while the modifier is
+//!   held (e.g. `Key::F1`).
+//!
+//! The overlay shows on the rising edge of `ACTIVATION_KEY` (only while
+//! `ACTIVATION_MODIFIER` is down). It hides when either key is released.
+//! This module never defines its own key values.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -24,10 +32,19 @@ use tauri::{AppHandle, Runtime};
 
 use crate::{host_config, overlay_manager::OverlayManager};
 
-/// Tracks whether the activation key is currently held down.
+/// Tracks whether the modifier key (e.g. Alt) is currently held down.
+///
+/// Set on `KeyPress` of `ACTIVATION_MODIFIER`, cleared on its `KeyRelease`.
+/// The atomicity prevents races between the hotkey thread and any future
+/// background thread that might read this value.
+static MODIFIER_DOWN: AtomicBool = AtomicBool::new(false);
+
+/// Tracks whether the activation chord is currently active (both modifier
+/// and trigger key are held).
 ///
 /// Prevents repeated `show()` calls caused by Windows key-repeat messages.
-/// Cleared on `KeyRelease` so the next `KeyPress` edge is recognised again.
+/// Cleared on `KeyRelease` of either key so the next rising edge is
+/// recognised again correctly.
 static KEY_DOWN: AtomicBool = AtomicBool::new(false);
 
 /// Manages the global keyboard listener.
@@ -38,14 +55,15 @@ static KEY_DOWN: AtomicBool = AtomicBool::new(false);
 /// # Responsibilities
 ///
 /// - Register the system-wide keyboard listener.
-/// - Translate `KeyPress` and `KeyRelease` edges into overlay commands.
-/// - Prevent repeated triggers while the activation key is held.
+/// - Track modifier state independently of the trigger key.
+/// - Detect the rising edge of the activation chord.
+/// - Detect release of either key and hide the overlay.
 /// - Delegate all overlay operations to `OverlayManager`.
 ///
 /// # Out of Scope
 ///
 /// This module does not manage windows, maintain application state,
-/// or define the activation key.
+/// perform geometry calculations, or define any key values.
 pub struct HotkeyManager;
 
 impl HotkeyManager {
@@ -54,11 +72,6 @@ impl HotkeyManager {
     /// The listener captures `AppHandle` and uses it to drive `OverlayManager`
     /// on every qualifying key event. If the thread fails to spawn, the error
     /// is logged and the application continues running without hotkey support.
-    ///
-    /// # Type bounds
-    ///
-    /// `R: Runtime + 'static` is required because the captured `AppHandle<R>`
-    /// must be `'static` to satisfy `std::thread::spawn`'s closure bound.
     pub fn register<R: Runtime + 'static>(app: &AppHandle<R>) {
         let handle = app.clone();
 
@@ -68,8 +81,10 @@ impl HotkeyManager {
         {
             Ok(_) => {
                 println!(
-                    "[EasyWheel Host] Info: Hotkey registered. Listening for {:?}.",
-                    host_config::ACTIVATION_KEY
+                    "[EasyWheel Host] Info: Hotkey registered. \
+                     Listening for {:?} + {:?}.",
+                    host_config::ACTIVATION_MODIFIER,
+                    host_config::ACTIVATION_KEY,
                 );
             }
             Err(e) => {
@@ -99,26 +114,57 @@ impl HotkeyManager {
 
     /// Processes a single keyboard event from the global hook.
     ///
-    /// Only reacts to the configured `ACTIVATION_KEY`. For `KeyPress`, the
-    /// `KEY_DOWN` atomic swap ensures the overlay is shown only on the first
-    /// edge — subsequent key-repeat messages are discarded. For `KeyRelease`,
-    /// the swap clears the flag and triggers `hide()`.
+    /// # Modifier tracking
+    ///
+    /// `KeyPress(ACTIVATION_MODIFIER)` sets `MODIFIER_DOWN`.
+    /// `KeyRelease(ACTIVATION_MODIFIER)` clears it and, if the chord was
+    /// active, hides the overlay immediately so releasing Alt alone is
+    /// sufficient to dismiss the wheel.
+    ///
+    /// # Trigger key
+    ///
+    /// `KeyPress(ACTIVATION_KEY)` shows the overlay only when `MODIFIER_DOWN`
+    /// is set and this is the rising edge (key-repeat messages are discarded).
+    /// `KeyRelease(ACTIVATION_KEY)` hides the overlay regardless of modifier
+    /// state.
     fn handle_event<R: Runtime>(app: &AppHandle<R>, event: &Event) {
         match &event.event_type {
-            EventType::KeyPress(key) if *key == host_config::ACTIVATION_KEY => {
-                // swap(true) returns previous value; only act on the rising edge.
-                if !KEY_DOWN.swap(true, Ordering::Relaxed) {
-                    println!("[EasyWheel Host] Info: Hotkey pressed.");
-                    OverlayManager::show(app);
-                }
+            // ---------------------------------------------------------------
+            // Modifier key tracking
+            // ---------------------------------------------------------------
+            EventType::KeyPress(key) if *key == host_config::ACTIVATION_MODIFIER => {
+                MODIFIER_DOWN.store(true, Ordering::Relaxed);
             }
-            EventType::KeyRelease(key) if *key == host_config::ACTIVATION_KEY => {
-                // swap(false) returns previous value; only act if key was actually down.
+            EventType::KeyRelease(key) if *key == host_config::ACTIVATION_MODIFIER => {
+                MODIFIER_DOWN.store(false, Ordering::Relaxed);
+                // If the chord was active, releasing the modifier dismisses
+                // the overlay even if the trigger key is still physically held.
                 if KEY_DOWN.swap(false, Ordering::Relaxed) {
-                    println!("[EasyWheel Host] Info: Hotkey released.");
+                    println!("[EasyWheel Host] Info: Modifier released — hiding overlay.");
                     OverlayManager::hide(app);
                 }
             }
+
+            // ---------------------------------------------------------------
+            // Trigger key — only fires when modifier is already held
+            // ---------------------------------------------------------------
+            EventType::KeyPress(key) if *key == host_config::ACTIVATION_KEY => {
+                if MODIFIER_DOWN.load(Ordering::Relaxed) {
+                    // swap(true) returns previous value; only act on the rising edge.
+                    if !KEY_DOWN.swap(true, Ordering::Relaxed) {
+                        println!("[EasyWheel Host] Info: Hotkey chord pressed (modifier + trigger).");
+                        OverlayManager::show(app);
+                    }
+                }
+            }
+            EventType::KeyRelease(key) if *key == host_config::ACTIVATION_KEY => {
+                // swap(false) returns previous value; only act if chord was active.
+                if KEY_DOWN.swap(false, Ordering::Relaxed) {
+                    println!("[EasyWheel Host] Info: Trigger key released — hiding overlay.");
+                    OverlayManager::hide(app);
+                }
+            }
+
             _ => {}
         }
     }
