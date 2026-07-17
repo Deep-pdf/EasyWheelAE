@@ -1,0 +1,47 @@
+/*
+ * Overlay.css
+ *
+ * Styles for the EasyWheel transparent overlay window.
+ *
+ * Phase 3 responsibility: render centered white text on a fully
+ * transparent background. No other visual elements are present.
+ */
+
+/* Reset the shell so the transparent window is a clean canvas. */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  /* Transparent background is required at every level of the DOM tree.
+     A single opaque ancestor would block the window transparency. */
+  background: transparent;
+}
+
+/* Full-viewport flex container that centres the label. */
+.overlay-root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  /* Prevent the container itself from being a click target. */
+  pointer-events: none;
+}
+
+/* Centred overlay label. */
+.overlay-label {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #ffffff;
+  /* Subtle drop shadow improves legibility over any background. */
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  /* Prevent text selection on a non-interactive overlay. */
+  user-select: none;
+}

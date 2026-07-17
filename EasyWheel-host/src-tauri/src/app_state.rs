@@ -5,13 +5,12 @@
 ///
 /// # Extensibility
 ///
-/// This struct is the single authoritative location for shared application
-/// state. Fields are added here as each phase introduces new runtime state.
-/// No other module may introduce global singletons — all shared state must
-/// live in `AppState`. Planned additions:
+/// This struct is the single authoritative location for cross-module shared
+/// state. Single-owner state (e.g., overlay visibility, hotkey key-down flag)
+/// lives as atomics inside the module that owns it, not here.
 ///
-/// - Phase 3: `hotkey_active: Mutex<bool>`
-/// - Phase 3: `overlay_visible: Mutex<bool>`
+/// Planned additions:
+///
 /// - Phase 5: `settings: Mutex<Settings>`
 pub struct AppState;
 

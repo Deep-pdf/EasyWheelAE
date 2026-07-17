@@ -17,6 +17,21 @@
         "width": 800,
         "height": 600,
         "visible": false
+      },
+      {
+        "label": "overlay",
+        "url": "overlay.html",
+        "title": "EasyWheel Overlay",
+        "width": 1920,
+        "height": 1080,
+        "center": true,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false
       }
     ],
     "security": {

@@ -2,6 +2,9 @@
 // No business logic is permitted in this file beyond application orchestration.
 mod app_state;
 mod commands;
+mod host_config;
+mod hotkey_manager;
+mod overlay_manager;
 mod tray;
 mod window_manager;
 
@@ -25,8 +28,10 @@ use tauri::Manager;
 ///    is first shown to guarantee the handler covers every show/hide cycle.
 /// 3. **Hide main window** — doubly guaranteed by `"visible": false` in
 ///    `tauri.conf.json`. The code-level hide is a defensive second layer.
-/// 4. **Create system tray** — last, because it makes the application
-///    visible to the user. Everything must be ready before the tray appears.
+/// 4. **Create system tray** — makes the application visible to the user.
+/// 5. **Create overlay** — must exist before the hotkey listener starts.
+/// 6. **Register hotkey** — last, because it begins dispatching events
+///    immediately. The overlay must be ready to receive them.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -50,6 +55,12 @@ pub fn run() {
                 eprintln!("[EasyWheel Host] Fatal: System tray creation failed — {e}");
                 e
             })?;
+
+            // Step 5 — Verify the overlay window and ensure it starts hidden.
+            overlay_manager::OverlayManager::create(&handle);
+
+            // Step 6 — Install the global keyboard hook. Non-fatal on failure.
+            hotkey_manager::HotkeyManager::register(&handle);
 
             println!(
                 "[EasyWheel Host] Info: Initialisation complete. Running in system tray."

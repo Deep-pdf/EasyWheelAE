@@ -19,3 +19,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# `rdev` provides a cross-platform low-level keyboard/mouse hook.
+# On Windows it uses SetWindowsHookEx(WH_KEYBOARD_LL), which fires globally
+# for all key events regardless of which application has focus.
+rdev = "0.5"
