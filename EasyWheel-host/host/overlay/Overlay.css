@@ -3,8 +3,8 @@
  *
  * Styles for the EasyWheel transparent overlay window.
  *
- * Phase 3 responsibility: render centered white text on a fully
- * transparent background. No other visual elements are present.
+ * Phase 4 responsibility: debug panel + SVG visualization on a fully
+ * transparent background.
  */
 
 /* Reset the shell so the transparent window is a clean canvas. */
@@ -22,26 +22,73 @@ body,
   background: transparent;
 }
 
-/* Full-viewport flex container that centres the label. */
+/* Full-viewport positioning context for absolutely placed children. */
 .overlay-root {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   width: 100%;
   height: 100%;
   background: transparent;
-  /* Prevent the container itself from being a click target. */
+  /* Prevent the overlay from ever capturing mouse input. */
   pointer-events: none;
 }
 
-/* Centred overlay label. */
-.overlay-label {
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 2rem;
-  font-weight: 600;
-  color: #ffffff;
-  /* Subtle drop shadow improves legibility over any background. */
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  /* Prevent text selection on a non-interactive overlay. */
+/* -------------------------------------------------------------------------
+   SVG canvas — covers the entire viewport
+   ------------------------------------------------------------------------- */
+
+.overlay-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* -------------------------------------------------------------------------
+   Debug panel — top-left readout
+   ------------------------------------------------------------------------- */
+
+.debug-panel {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  padding: 16px 20px;
+
+  font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+  font-size: 0.8125rem; /* 13px */
+  pointer-events: none;
   user-select: none;
 }
+
+/* A labelled group of values (e.g. "Origin / X: 820 / Y: 412"). */
+.debug-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Section heading — slightly muted white. */
+.debug-label {
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 2px;
+}
+
+/* Individual data line — full white for maximum contrast. */
+.debug-value {
+  color: #ffffff;
+  line-height: 1.6;
+}
+

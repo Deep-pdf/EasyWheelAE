@@ -8,6 +8,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 
+use crate::input_manager::InputManager;
+
 /// Tauri window label for the overlay, as declared in `tauri.conf.json`.
 /// This is the single source of truth — update both if the label changes.
 const OVERLAY_LABEL: &str = "overlay";
@@ -75,8 +77,14 @@ impl OverlayManager {
 
         match Self::get_window(app) {
             Some(window) => {
+                // Start tracking before showing so the origin is captured
+                // as close to the key-press moment as possible.
+                InputManager::start();
+
                 if let Err(e) = window.show() {
                     eprintln!("[EasyWheel Host] Error: Failed to show overlay — {e}");
+                    // Roll back tracking if the window failed to appear.
+                    InputManager::stop();
                 } else {
                     VISIBLE.store(true, Ordering::Relaxed);
                     println!("[EasyWheel Host] Info: Overlay visible.");
@@ -99,6 +107,10 @@ impl OverlayManager {
         if !VISIBLE.load(Ordering::Relaxed) {
             return;
         }
+
+        // Stop tracking immediately so no background CPU is consumed
+        // while the overlay is hidden.
+        InputManager::stop();
 
         match Self::get_window(app) {
             Some(window) => {

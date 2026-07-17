@@ -4,6 +4,7 @@ mod app_state;
 mod commands;
 mod host_config;
 mod hotkey_manager;
+mod input_manager;
 mod overlay_manager;
 mod tray;
 mod window_manager;
@@ -68,7 +69,7 @@ pub fn run() {
             Ok(())
         })
         // Commands are registered here as the handler list grows in future phases.
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![commands::get_pointer_state])
         .run(tauri::generate_context!())
         .expect("Fatal: Tauri application failed to start.");
 }
