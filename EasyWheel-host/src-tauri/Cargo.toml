@@ -39,5 +39,7 @@ winapi = { version = "0.3", features = [
     "processthreadsapi",
     "handleapi",
     "winbase",
+    "tlhelp32",
+    "minwindef",
 ] }
 

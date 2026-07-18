@@ -13,9 +13,12 @@
     "windows": [
       {
         "label": "main",
-        "title": "EasyWheel Host",
-        "width": 800,
-        "height": 600,
+        "title": "EasyWheel — Settings",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
         "visible": false
       },
       {

@@ -98,7 +98,11 @@ impl ProfileManager {
         let matched = self
             .profiles
             .iter()
-            .find(|p| p.executable.to_ascii_lowercase() == exe_lower);
+            .find(|p| {
+                p.executable
+                    .split(',')
+                    .any(|part| part.trim().eq_ignore_ascii_case(&exe_lower))
+            });
 
         match matched {
             Some(profile) => {

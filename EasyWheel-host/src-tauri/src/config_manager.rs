@@ -152,6 +152,43 @@ impl ConfigManager {
         }
     }
 
+    /// Replaces the in-memory configuration with `config` and persists it.
+    ///
+    /// This is the Settings UI save path. Called by the `save_config` Tauri
+    /// command after the frontend has validated and submitted a new config.
+    ///
+    /// Steps:
+    /// 1. Write `config` into the `CONFIG` static (blocks briefly on the mutex).
+    /// 2. Persist to `%APPDATA%\EasyWheelAE\config.json`.
+    ///
+    /// Returns `Err(String)` only if the APPDATA directory is unavailable.
+    /// A disk write failure is logged but treated as non-fatal so the
+    /// in-memory state remains updated.
+    pub fn update_and_save(config: AppConfig) -> Result<(), String> {
+        // Step 1 — Update the in-memory snapshot.
+        if let Some(mutex) = CONFIG.get() {
+            let mut guard = mutex.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = config;
+        } else {
+            // CONFIG not yet initialised — this should never happen since
+            // lib.rs calls load() before anything else.
+            return Err("ConfigManager not initialised. Call load() first.".to_string());
+        }
+
+        // Step 2 — Persist to disk.
+        match Self::config_path() {
+            Some(path) => {
+                let snapshot = Self::get();
+                Self::write_to_disk(&path, &snapshot);
+                println!("[ConfigManager] Info: Configuration updated and saved via Settings UI.");
+                Ok(())
+            }
+            None => Err(
+                "Cannot save — %APPDATA% directory is unavailable.".to_string()
+            ),
+        }
+    }
+
     /// Reloads the configuration from disk into the in-memory store.
     ///
     /// Exposes the hook required for future hot-reload support (Phase 6).

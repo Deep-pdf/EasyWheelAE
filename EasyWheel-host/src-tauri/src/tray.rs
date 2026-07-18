@@ -69,6 +69,7 @@ impl TrayManager {
     /// EasyWheel Host          ← disabled title row
     /// ─────────────────────
     /// ⚙  Open Settings
+    /// ↺  Reload Configuration
     /// 🔄  Restart Host
     /// ─────────────────────
     /// ❌  Exit
@@ -78,6 +79,8 @@ impl TrayManager {
         let sep1 = PredefinedMenuItem::separator(app)?;
         let open_settings =
             MenuItem::with_id(app, "open_settings", "⚙  Open Settings", true, None::<&str>)?;
+        let reload_config =
+            MenuItem::with_id(app, "reload_config", "↺  Reload Configuration", true, None::<&str>)?;
         let restart =
             MenuItem::with_id(app, "restart", "🔄  Restart Host", true, None::<&str>)?;
         let sep2 = PredefinedMenuItem::separator(app)?;
@@ -85,7 +88,7 @@ impl TrayManager {
 
         Menu::with_items(
             app,
-            &[&title, &sep1, &open_settings, &restart, &sep2, &exit],
+            &[&title, &sep1, &open_settings, &reload_config, &restart, &sep2, &exit],
         )
     }
 
@@ -111,15 +114,17 @@ impl TrayManager {
     }
 
     /// Dispatches tray context menu item selection events.
-    ///
-    /// Each menu item ID corresponds to a specific action. Unknown IDs are
-    /// silently ignored — this is intentional to allow Tauri internal menu
-    /// events (e.g., from `PredefinedMenuItem`) to pass through without error.
     fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
         match id {
             "open_settings" => {
                 println!("[EasyWheel Host] Info: Tray menu — 'Open Settings' selected.");
                 WindowManager::show_and_focus(app);
+            }
+            "reload_config" => {
+                println!("[EasyWheel Host] Info: Tray menu — 'Reload Configuration' selected.");
+                crate::config_manager::ConfigManager::reload();
+                crate::action_manager::ActionManager::rebuild();
+                println!("[EasyWheel Host] Info: Configuration reloaded.");
             }
             "restart" => {
                 println!("[EasyWheel Host] Info: Tray menu — 'Restart Host' selected.");
