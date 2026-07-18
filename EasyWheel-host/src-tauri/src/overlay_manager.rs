@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 
+use crate::action_manager::ActionManager;
 use crate::input_manager::InputManager;
 
 /// Tauri window label for the overlay, as declared in `tauri.conf.json`.
@@ -103,6 +104,11 @@ impl OverlayManager {
     ///
     /// No-op if the overlay is already hidden. Logs the transition on
     /// success and an error message on failure; never panics.
+    ///
+    /// After stopping input tracking, reads the last known sector and
+    /// dispatches it to `ActionManager`. The sector read must occur before
+    /// the window hides to ensure the foreground-application query still
+    /// reflects the user's intended target application.
     pub fn hide<R: Runtime>(app: &AppHandle<R>) {
         if !VISIBLE.load(Ordering::Relaxed) {
             return;
@@ -111,6 +117,12 @@ impl OverlayManager {
         // Stop tracking immediately so no background CPU is consumed
         // while the overlay is hidden.
         InputManager::stop();
+
+        // Capture last sector before the window hides. The foreground
+        // application query in ActionManager still returns the correct app
+        // at this point because the overlay itself is not a foreground window
+        // (it is click-through and transparent).
+        let last_sector = InputManager::get_last_sector();
 
         match Self::get_window(app) {
             Some(window) => {
@@ -127,6 +139,16 @@ impl OverlayManager {
                     OVERLAY_LABEL
                 );
             }
+        }
+
+        // Execute the action for the selected sector.
+        // This runs after hide() so the overlay is not visible during
+        // execution. For Phase 5 (terminal output only) the ordering is
+        // cosmetically irrelevant but establishes the correct pattern for
+        // future phases that may interact with the foreground application.
+        match last_sector {
+            Some(sector) => ActionManager::execute_for_sector(sector),
+            None => println!("[EasyWheel Host] Info: Released in dead zone — no action."),
         }
     }
 

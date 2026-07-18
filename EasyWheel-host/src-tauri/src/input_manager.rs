@@ -22,7 +22,7 @@
 //! The frontend is responsible for converting to window-local CSS pixels by
 //! subtracting the window's physical position and dividing by `devicePixelRatio`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -70,6 +70,13 @@ static STATE: OnceLock<Mutex<PointerState>> = OnceLock::new();
 /// Cleared by `stop()` to signal a clean exit.
 static TRACKING: AtomicBool = AtomicBool::new(false);
 
+/// The sector index that was active at the moment tracking was last running.
+///
+/// Updated by `GeometryManager` via `InputManager::set_last_sector()` on
+/// every geometry compute while tracking is active. `255` is the sentinel
+/// value meaning "dead zone or no data" — consistent with `GeometryState`.
+static LAST_SECTOR: AtomicU8 = AtomicU8::new(255);
+
 // ---------------------------------------------------------------------------
 // InputManager
 // ---------------------------------------------------------------------------
@@ -107,6 +114,10 @@ impl InputManager {
         if TRACKING.load(Ordering::Relaxed) {
             return;
         }
+
+        // Reset last sector so a stale value from the previous session is
+        // never handed to ActionManager if the user releases immediately.
+        LAST_SECTOR.store(255, Ordering::Relaxed);
 
         let origin = Self::read_cursor().unwrap_or_else(|| {
             eprintln!(
@@ -158,6 +169,11 @@ impl InputManager {
     /// Clears `TRACKING`. The tracker thread exits on its next loop iteration.
     /// Also marks STATE as inactive so the frontend suppresses rendering until
     /// the next `start()` call delivers fresh data.
+    ///
+    /// The `LAST_SECTOR` value is intentionally **not** cleared here. It is
+    /// read by `OverlayManager::hide()` immediately after calling `stop()`,
+    /// so it must remain valid through the hide sequence. It is reset to 255
+    /// at the start of the next `start()` call.
     pub fn stop() {
         TRACKING.store(false, Ordering::Relaxed);
         // Mark inactive immediately so the frontend's next poll returns
@@ -165,6 +181,25 @@ impl InputManager {
         let mut guard = Self::state().lock().unwrap_or_else(|e| e.into_inner());
         guard.active = false;
         println!("[EasyWheel Host] Info: Tracking stopped.");
+    }
+
+    /// Records the most recently computed sector index.
+    ///
+    /// Called by `GeometryManager::compute()` on every frame while tracking
+    /// is active. `255` signals the dead zone (cursor inside the dead-zone
+    /// radius). This matches the sentinel used in `GeometryState::sector`.
+    pub fn set_last_sector(sector: u8) {
+        LAST_SECTOR.store(sector, Ordering::Relaxed);
+    }
+
+    /// Returns the sector index that was active when tracking last ran.
+    ///
+    /// Returns `None` when the cursor was in the dead zone (sector == 255)
+    /// or when no tracking session has occurred yet. `OverlayManager::hide()`
+    /// uses this to decide whether to dispatch an action.
+    pub fn get_last_sector() -> Option<u8> {
+        let s = LAST_SECTOR.load(Ordering::Relaxed);
+        if s == 255 { None } else { Some(s) }
     }
 
     /// Returns a snapshot clone of the current `PointerState`.

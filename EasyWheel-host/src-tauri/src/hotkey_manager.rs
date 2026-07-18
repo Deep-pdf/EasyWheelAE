@@ -27,10 +27,10 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use rdev::{listen, Event, EventType};
+use rdev::{listen, Event, EventType, Key};
 use tauri::{AppHandle, Runtime};
 
-use crate::{host_config, overlay_manager::OverlayManager};
+use crate::{config_manager::ConfigManager, overlay_manager::OverlayManager};
 
 /// Tracks whether the modifier key (e.g. Alt) is currently held down.
 ///
@@ -69,27 +69,51 @@ pub struct HotkeyManager;
 impl HotkeyManager {
     /// Installs the global keyboard listener on a dedicated background thread.
     ///
-    /// The listener captures `AppHandle` and uses it to drive `OverlayManager`
-    /// on every qualifying key event. If the thread fails to spawn, the error
-    /// is logged and the application continues running without hotkey support.
+    /// Resolves the activation key chord from `ConfigManager` at call time.
+    /// Falls back to `Alt + F1` with a warning if either key string is
+    /// unrecognised. The resolved keys are captured by value into the listener
+    /// closure, so config changes take effect only after a restart (Phase 6
+    /// will add dynamic reload support).
     pub fn register<R: Runtime + 'static>(app: &AppHandle<R>) {
         let handle = app.clone();
 
+        // Resolve activation keys from the runtime config.
+        let config = ConfigManager::get();
+
+        let modifier = ConfigManager::parse_rdev_key(&config.global.activation_modifier)
+            .unwrap_or_else(|| {
+                eprintln!(
+                    "[HotkeyManager] Warning: Unrecognised activation_modifier '{}'. \
+                     Falling back to Alt.",
+                    config.global.activation_modifier
+                );
+                Key::Alt
+            });
+
+        let trigger = ConfigManager::parse_rdev_key(&config.global.activation_key)
+            .unwrap_or_else(|| {
+                eprintln!(
+                    "[HotkeyManager] Warning: Unrecognised activation_key '{}'. \
+                     Falling back to F1.",
+                    config.global.activation_key
+                );
+                Key::F1
+            });
+
         match std::thread::Builder::new()
             .name("hotkey-listener".into())
-            .spawn(move || Self::run_listener(handle))
+            .spawn(move || Self::run_listener(handle, modifier, trigger))
         {
             Ok(_) => {
                 println!(
-                    "[EasyWheel Host] Info: Hotkey registered. \
+                    "[HotkeyManager] Info: Hotkey registered. \
                      Listening for {:?} + {:?}.",
-                    host_config::ACTIVATION_MODIFIER,
-                    host_config::ACTIVATION_KEY,
+                    modifier, trigger,
                 );
             }
             Err(e) => {
                 eprintln!(
-                    "[EasyWheel Host] Error: Failed to spawn hotkey listener thread — {e}. \
+                    "[HotkeyManager] Error: Failed to spawn hotkey listener thread — {e}. \
                      Hotkey activation will be unavailable."
                 );
             }
@@ -101,12 +125,12 @@ impl HotkeyManager {
     /// `rdev::listen` blocks indefinitely and processes OS keyboard hook
     /// messages via an internal `GetMessage`/`DispatchMessage` loop on
     /// Windows. It only returns on a fatal hook error.
-    fn run_listener<R: Runtime + 'static>(handle: AppHandle<R>) {
+    fn run_listener<R: Runtime + 'static>(handle: AppHandle<R>, modifier: Key, trigger: Key) {
         if let Err(e) = listen(move |event: Event| {
-            Self::handle_event(&handle, &event);
+            Self::handle_event(&handle, &event, modifier, trigger);
         }) {
             eprintln!(
-                "[EasyWheel Host] Error: Global keyboard listener terminated unexpectedly — \
+                "[HotkeyManager] Error: Global keyboard listener terminated unexpectedly — \
                  {e:?}. Hotkey activation is no longer available."
             );
         }
@@ -116,51 +140,50 @@ impl HotkeyManager {
     ///
     /// # Modifier tracking
     ///
-    /// `KeyPress(ACTIVATION_MODIFIER)` sets `MODIFIER_DOWN`.
-    /// `KeyRelease(ACTIVATION_MODIFIER)` clears it and, if the chord was
-    /// active, hides the overlay immediately so releasing Alt alone is
-    /// sufficient to dismiss the wheel.
+    /// `KeyPress(modifier)` sets `MODIFIER_DOWN`.
+    /// `KeyRelease(modifier)` clears it and, if the chord was active, hides
+    /// the overlay immediately so releasing the modifier alone is sufficient
+    /// to dismiss the wheel.
     ///
     /// # Trigger key
     ///
-    /// `KeyPress(ACTIVATION_KEY)` shows the overlay only when `MODIFIER_DOWN`
-    /// is set and this is the rising edge (key-repeat messages are discarded).
-    /// `KeyRelease(ACTIVATION_KEY)` hides the overlay regardless of modifier
-    /// state.
-    fn handle_event<R: Runtime>(app: &AppHandle<R>, event: &Event) {
+    /// `KeyPress(trigger)` shows the overlay only when `MODIFIER_DOWN` is set
+    /// and this is the rising edge (key-repeat messages are discarded).
+    /// `KeyRelease(trigger)` hides the overlay regardless of modifier state.
+    fn handle_event<R: Runtime>(app: &AppHandle<R>, event: &Event, modifier: Key, trigger: Key) {
         match &event.event_type {
-            // ---------------------------------------------------------------
+            // -----------------------------------------------------------
             // Modifier key tracking
-            // ---------------------------------------------------------------
-            EventType::KeyPress(key) if *key == host_config::ACTIVATION_MODIFIER => {
+            // -----------------------------------------------------------
+            EventType::KeyPress(key) if *key == modifier => {
                 MODIFIER_DOWN.store(true, Ordering::Relaxed);
             }
-            EventType::KeyRelease(key) if *key == host_config::ACTIVATION_MODIFIER => {
+            EventType::KeyRelease(key) if *key == modifier => {
                 MODIFIER_DOWN.store(false, Ordering::Relaxed);
                 // If the chord was active, releasing the modifier dismisses
                 // the overlay even if the trigger key is still physically held.
                 if KEY_DOWN.swap(false, Ordering::Relaxed) {
-                    println!("[EasyWheel Host] Info: Modifier released — hiding overlay.");
+                    println!("[HotkeyManager] Info: Modifier released — hiding overlay.");
                     OverlayManager::hide(app);
                 }
             }
 
-            // ---------------------------------------------------------------
+            // -----------------------------------------------------------
             // Trigger key — only fires when modifier is already held
-            // ---------------------------------------------------------------
-            EventType::KeyPress(key) if *key == host_config::ACTIVATION_KEY => {
+            // -----------------------------------------------------------
+            EventType::KeyPress(key) if *key == trigger => {
                 if MODIFIER_DOWN.load(Ordering::Relaxed) {
                     // swap(true) returns previous value; only act on the rising edge.
                     if !KEY_DOWN.swap(true, Ordering::Relaxed) {
-                        println!("[EasyWheel Host] Info: Hotkey chord pressed (modifier + trigger).");
+                        println!("[HotkeyManager] Info: Hotkey chord pressed (modifier + trigger).");
                         OverlayManager::show(app);
                     }
                 }
             }
-            EventType::KeyRelease(key) if *key == host_config::ACTIVATION_KEY => {
+            EventType::KeyRelease(key) if *key == trigger => {
                 // swap(false) returns previous value; only act if chord was active.
                 if KEY_DOWN.swap(false, Ordering::Relaxed) {
-                    println!("[EasyWheel Host] Info: Trigger key released — hiding overlay.");
+                    println!("[HotkeyManager] Info: Trigger key released — hiding overlay.");
                     OverlayManager::hide(app);
                 }
             }

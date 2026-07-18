@@ -42,7 +42,7 @@
 
 use serde::Serialize;
 
-use crate::{host_config, input_manager::InputManager};
+use crate::{config_manager::ConfigManager, input_manager::InputManager};
 
 // ---------------------------------------------------------------------------
 // Public data model
@@ -130,6 +130,12 @@ impl GeometryManager {
             return GeometryState::default();
         }
 
+        // Read wheel geometry values from the runtime configuration.
+        // ConfigManager::get() is a mutex clone — negligible at 60 Hz.
+        let config = ConfigManager::get();
+        let dead_zone_radius = config.global.dead_zone_radius;
+        let sector_count = config.global.sector_count;
+
         let dx = ptr.delta_x;
         let dy = ptr.delta_y;
         let distance = ptr.distance;
@@ -144,23 +150,27 @@ impl GeometryManager {
             angle_deg_raw
         };
 
-        let in_dead_zone = distance < host_config::DEAD_ZONE_RADIUS;
+        let in_dead_zone = distance < dead_zone_radius;
 
         // Map angle to a sector index.
-        // Each sector spans `360 / SECTOR_COUNT` degrees.  Adding half a
+        // Each sector spans `360 / sector_count` degrees.  Adding half a
         // sector width before dividing centres sector 0 on 0° (East).
         let sector = if in_dead_zone {
             255u8
         } else {
-            let sector_span = 360.0 / f64::from(host_config::SECTOR_COUNT);
+            let sector_span = 360.0 / f64::from(sector_count);
             let half_span = sector_span / 2.0;
-            ((angle_deg + half_span) / sector_span) as u8 % host_config::SECTOR_COUNT
+            ((angle_deg + half_span) / sector_span) as u8 % sector_count
         };
 
-        // ---------------------------------------------------------------
+        // Record the current sector so ActionManager can read it at key-release
+        // without needing to re-derive geometry.
+        InputManager::set_last_sector(sector);
+
+        // -------------------------------------------------------------------
         // Terminal debug output — only while tracking is active.
         // Never displayed in the overlay UI.
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
         println!(
             "[EasyWheel] Geometry | Origin({:.0},{:.0}) → Current({:.0},{:.0}) \
              | Dist:{:.1}px | Angle:{:.1}° | Sector:{} | DeadZone:{}",
