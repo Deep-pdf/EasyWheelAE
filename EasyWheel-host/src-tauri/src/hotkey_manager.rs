@@ -26,6 +26,7 @@
 //! This module never defines its own key values.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use rdev::{listen, Event, EventType, Key};
 use tauri::{AppHandle, Runtime};
@@ -46,6 +47,10 @@ static MODIFIER_DOWN: AtomicBool = AtomicBool::new(false);
 /// Cleared on `KeyRelease` of either key so the next rising edge is
 /// recognised again correctly.
 static KEY_DOWN: AtomicBool = AtomicBool::new(false);
+
+/// Active modifier and trigger keys currently parsed from configuration.
+/// Updated at runtime dynamically without restarting the event listener thread.
+static ACTIVE_KEYS: Mutex<(Key, Key)> = Mutex::new((Key::Alt, Key::F1));
 
 /// Manages the global keyboard listener.
 ///
@@ -69,15 +74,37 @@ pub struct HotkeyManager;
 impl HotkeyManager {
     /// Installs the global keyboard listener on a dedicated background thread.
     ///
-    /// Resolves the activation key chord from `ConfigManager` at call time.
-    /// Falls back to `Alt + F1` with a warning if either key string is
-    /// unrecognised. The resolved keys are captured by value into the listener
-    /// closure, so config changes take effect only after a restart (Phase 6
-    /// will add dynamic reload support).
+    /// Resolves the activation key chord from `ConfigManager` and subscribes to
+    /// configuration updates so they are hot-reloaded dynamically.
     pub fn register<R: Runtime + 'static>(app: &AppHandle<R>) {
         let handle = app.clone();
 
-        // Resolve activation keys from the runtime config.
+        // Load initial keys into the static variable.
+        Self::update_keys();
+
+        match std::thread::Builder::new()
+            .name("hotkey-listener".into())
+            .spawn(move || Self::run_listener(handle))
+        {
+            Ok(_) => {
+                println!(
+                    "[HotkeyManager] Info: Hotkey registered."
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "[HotkeyManager] Error: Failed to spawn hotkey listener thread — {e}. \
+                     Hotkey activation will be unavailable."
+                );
+            }
+        }
+    }
+
+    /// Reloads activation keys from the current configuration.
+    ///
+    /// Triggered automatically on configuration save or reload since it is registered
+    /// as a subscriber to `ConfigManager` updates.
+    pub fn update_keys() {
         let config = ConfigManager::get();
 
         let modifier = ConfigManager::parse_rdev_key(&config.global.activation_modifier)
@@ -100,24 +127,15 @@ impl HotkeyManager {
                 Key::F1
             });
 
-        match std::thread::Builder::new()
-            .name("hotkey-listener".into())
-            .spawn(move || Self::run_listener(handle, modifier, trigger))
         {
-            Ok(_) => {
-                println!(
-                    "[HotkeyManager] Info: Hotkey registered. \
-                     Listening for {:?} + {:?}.",
-                    modifier, trigger,
-                );
-            }
-            Err(e) => {
-                eprintln!(
-                    "[HotkeyManager] Error: Failed to spawn hotkey listener thread — {e}. \
-                     Hotkey activation will be unavailable."
-                );
-            }
+            let mut guard = ACTIVE_KEYS.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = (modifier, trigger);
         }
+
+        println!(
+            "[HotkeyManager] Info: Active hotkey updated to {:?} + {:?}",
+            modifier, trigger
+        );
     }
 
     /// Runs `rdev::listen` on the calling thread.
@@ -125,9 +143,9 @@ impl HotkeyManager {
     /// `rdev::listen` blocks indefinitely and processes OS keyboard hook
     /// messages via an internal `GetMessage`/`DispatchMessage` loop on
     /// Windows. It only returns on a fatal hook error.
-    fn run_listener<R: Runtime + 'static>(handle: AppHandle<R>, modifier: Key, trigger: Key) {
+    fn run_listener<R: Runtime + 'static>(handle: AppHandle<R>) {
         if let Err(e) = listen(move |event: Event| {
-            Self::handle_event(&handle, &event, modifier, trigger);
+            Self::handle_event(&handle, &event);
         }) {
             eprintln!(
                 "[HotkeyManager] Error: Global keyboard listener terminated unexpectedly — \
@@ -150,7 +168,12 @@ impl HotkeyManager {
     /// `KeyPress(trigger)` shows the overlay only when `MODIFIER_DOWN` is set
     /// and this is the rising edge (key-repeat messages are discarded).
     /// `KeyRelease(trigger)` hides the overlay regardless of modifier state.
-    fn handle_event<R: Runtime>(app: &AppHandle<R>, event: &Event, modifier: Key, trigger: Key) {
+    fn handle_event<R: Runtime>(app: &AppHandle<R>, event: &Event) {
+        let (modifier, trigger) = {
+            let guard = ACTIVE_KEYS.lock().unwrap_or_else(|e| e.into_inner());
+            *guard
+        };
+
         match &event.event_type {
             // -----------------------------------------------------------
             // Modifier key tracking

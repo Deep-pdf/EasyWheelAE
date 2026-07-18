@@ -48,6 +48,9 @@ use crate::models::config::AppConfig;
 /// Shared configuration state. Initialised exactly once by `load()`.
 static CONFIG: OnceLock<Mutex<AppConfig>> = OnceLock::new();
 
+/// List of subscriber callbacks notified on configuration changes.
+static SUBSCRIBERS: Mutex<Vec<fn()>> = Mutex::new(Vec::new());
+
 // ---------------------------------------------------------------------------
 // ConfigManager
 // ---------------------------------------------------------------------------
@@ -60,6 +63,20 @@ static CONFIG: OnceLock<Mutex<AppConfig>> = OnceLock::new();
 pub struct ConfigManager;
 
 impl ConfigManager {
+    /// Registers a subscriber callback function that will be executed whenever
+    /// the configuration is updated or reloaded.
+    pub fn subscribe(callback: fn()) {
+        let mut guard = SUBSCRIBERS.lock().unwrap_or_else(|e| e.into_inner());
+        guard.push(callback);
+    }
+
+    /// Invokes all registered subscriber callback functions.
+    fn notify_subscribers() {
+        let guard = SUBSCRIBERS.lock().unwrap_or_else(|e| e.into_inner());
+        for sub in guard.iter() {
+            sub();
+        }
+    }
     // -----------------------------------------------------------------------
     // Public API
     // -----------------------------------------------------------------------
@@ -89,13 +106,27 @@ impl ConfigManager {
                 if path.exists() {
                     Self::read_from_disk(&path)
                 } else {
-                    println!(
-                        "[ConfigManager] Info: Config file not found. \
-                         Generating default configuration."
-                    );
-                    let default = AppConfig::default();
-                    Self::write_to_disk(&path, &default);
-                    default
+                    // Try migrating from legacy config.json if it exists
+                    let mut legacy_path = path.clone();
+                    legacy_path.set_file_name("config.json");
+                    if legacy_path.exists() {
+                        println!("[ConfigManager] Info: Migrating legacy config.json to easywheel.json...");
+                        if let Err(e) = std::fs::rename(&legacy_path, &path) {
+                            eprintln!("[ConfigManager] Warning: Failed to rename legacy config: {e}");
+                        }
+                    }
+
+                    if path.exists() {
+                        Self::read_from_disk(&path)
+                    } else {
+                        println!(
+                            "[ConfigManager] Info: Config file not found. \
+                             Generating default configuration."
+                        );
+                        let default = AppConfig::default();
+                        Self::write_to_disk(&path, &default);
+                        default
+                    }
                 }
             }
             None => {
@@ -110,6 +141,7 @@ impl ConfigManager {
         CONFIG.get_or_init(|| Mutex::new(config));
 
         println!("[ConfigManager] Info: Configuration loaded successfully.");
+        Self::notify_subscribers();
     }
 
     /// Returns a cloned snapshot of the current `AppConfig`.
@@ -181,6 +213,7 @@ impl ConfigManager {
                 let snapshot = Self::get();
                 Self::write_to_disk(&path, &snapshot);
                 println!("[ConfigManager] Info: Configuration updated and saved via Settings UI.");
+                Self::notify_subscribers();
                 Ok(())
             }
             None => Err(
@@ -217,9 +250,12 @@ impl ConfigManager {
         let fresh = Self::read_from_disk(&path);
 
         if let Some(mutex) = CONFIG.get() {
-            let mut guard = mutex.lock().unwrap_or_else(|e| e.into_inner());
-            *guard = fresh;
+            {
+                let mut guard = mutex.lock().unwrap_or_else(|e| e.into_inner());
+                *guard = fresh;
+            }
             println!("[ConfigManager] Info: Configuration reloaded from disk.");
+            Self::notify_subscribers();
         } else {
             eprintln!(
                 "[ConfigManager] Warning: Reload called before initial load — \
@@ -308,10 +344,11 @@ impl ConfigManager {
     fn config_path() -> Option<PathBuf> {
         dirs::data_dir().map(|mut p| {
             p.push("EasyWheelAE");
-            p.push("config.json");
+            p.push("easywheel.json");
             p
         })
     }
+
 
     /// Reads and parses `AppConfig` from `path`.
     ///

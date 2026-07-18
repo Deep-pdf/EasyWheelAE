@@ -33,9 +33,6 @@ const DEAD_ZONE_RADIUS = 100;
 /** Number of equal sectors. Must divide 360 evenly. */
 const SECTOR_COUNT = 8;
 
-/** Angular span of one sector in degrees. */
-const SECTOR_SPAN = 360 / SECTOR_COUNT;
-
 /** Half-gap in degrees applied to each side of a sector arc for visual separation. */
 const SECTOR_GAP = 1.5;
 
@@ -117,6 +114,13 @@ export interface WheelRendererProps {
   sector: number;
   /** `true` when the cursor is within the dead-zone radius. */
   inDeadZone: boolean;
+
+  // --- Dynamic configuration values ---
+  wheelRadius?: number;
+  deadZoneRadius?: number;
+  sectorCount?: number;
+  highlightColor?: string;
+  defaultColor?: string;
 }
 
 /**
@@ -127,7 +131,19 @@ export interface WheelRendererProps {
  * `pointer-events: none` is set at every level — the overlay never
  * intercepts mouse input from applications running beneath it.
  */
-function WheelRenderer({ cx, cy, sector, inDeadZone }: WheelRendererProps): React.JSX.Element {
+function WheelRenderer({
+  cx,
+  cy,
+  sector,
+  inDeadZone,
+  wheelRadius = WHEEL_RADIUS,
+  deadZoneRadius = DEAD_ZONE_RADIUS,
+  sectorCount = SECTOR_COUNT,
+  highlightColor,
+  defaultColor,
+}: WheelRendererProps): React.JSX.Element {
+  const sectorSpan = 360 / sectorCount;
+
   return (
     <svg
       className="overlay-svg"
@@ -137,19 +153,24 @@ function WheelRenderer({ cx, cy, sector, inDeadZone }: WheelRendererProps): Reac
       {/* ------------------------------------------------------------------ */}
       {/* Sectors — annular slices rendered back-to-front                     */}
       {/* ------------------------------------------------------------------ */}
-      {Array.from({ length: SECTOR_COUNT }, (_, i) => {
-        // Sector i is centred at i * SECTOR_SPAN degrees.
+      {Array.from({ length: sectorCount }, (_, i) => {
+        // Sector i is centred at i * sectorSpan degrees.
         // Half the gap is trimmed from each edge for visual separation.
-        const centre = i * SECTOR_SPAN;
-        const startAngle = centre - SECTOR_SPAN / 2 + SECTOR_GAP;
-        const endAngle = centre + SECTOR_SPAN / 2 - SECTOR_GAP;
+        const centre = i * sectorSpan;
+        const startAngle = centre - sectorSpan / 2 + SECTOR_GAP;
+        const endAngle = centre + sectorSpan / 2 - SECTOR_GAP;
         const isActive = !inDeadZone && sector === i;
 
         return (
           <path
             key={i}
-            d={annularSectorPath(cx, cy, DEAD_ZONE_RADIUS + 2, WHEEL_RADIUS, startAngle, endAngle)}
+            d={annularSectorPath(cx, cy, deadZoneRadius + 2, wheelRadius, startAngle, endAngle)}
             className={isActive ? "wheel-sector wheel-sector--active" : "wheel-sector"}
+            style={{
+              fill: isActive
+                ? highlightColor || "rgba(99, 102, 241, 0.88)"
+                : defaultColor || "rgba(12, 12, 22, 0.80)",
+            }}
           />
         );
       })}
@@ -160,7 +181,7 @@ function WheelRenderer({ cx, cy, sector, inDeadZone }: WheelRendererProps): Reac
       <circle
         cx={cx}
         cy={cy}
-        r={WHEEL_RADIUS}
+        r={wheelRadius}
         className="wheel-outer-ring"
       />
 
@@ -170,7 +191,7 @@ function WheelRenderer({ cx, cy, sector, inDeadZone }: WheelRendererProps): Reac
       <circle
         cx={cx}
         cy={cy}
-        r={DEAD_ZONE_RADIUS}
+        r={deadZoneRadius}
         className="wheel-dead-zone"
       />
 

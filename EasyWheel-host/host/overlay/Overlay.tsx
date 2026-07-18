@@ -34,6 +34,12 @@ interface GeometryState {
   in_dead_zone: boolean;
   /** `false` between tracking sessions — suppresses render until fresh data. */
   active: boolean;
+  wheel_radius: number;
+  dead_zone_radius: number;
+  sector_count: number;
+  highlight_color: string;
+  default_color: string;
+  wheel_opacity: number;
 }
 
 const DEFAULT_STATE: GeometryState = {
@@ -44,6 +50,12 @@ const DEFAULT_STATE: GeometryState = {
   sector: 255,
   in_dead_zone: true,
   active: false,
+  wheel_radius: 120,
+  dead_zone_radius: 40,
+  sector_count: 8,
+  highlight_color: "#FFFFFF33",
+  default_color: "#FFFFFF11",
+  wheel_opacity: 0.8,
 };
 
 // ---------------------------------------------------------------------------
@@ -136,7 +148,7 @@ function Overlay(): React.JSX.Element {
   const center = toCssPx(geo.origin_x, geo.origin_y, windowOffset);
 
   return (
-    <div className="overlay-root">
+    <div className="overlay-root" style={{ opacity: geo.wheel_opacity }}>
       {/*
        * Suppress rendering entirely until tracking is active.
        * The brief gap between window.show() and the first fresh poll
@@ -149,6 +161,11 @@ function Overlay(): React.JSX.Element {
           cy={center.y}
           sector={geo.sector}
           inDeadZone={geo.in_dead_zone}
+          wheelRadius={geo.wheel_radius}
+          deadZoneRadius={geo.dead_zone_radius}
+          sectorCount={geo.sector_count}
+          highlightColor={geo.highlight_color}
+          defaultColor={geo.default_color}
         />
       )}
     </div>

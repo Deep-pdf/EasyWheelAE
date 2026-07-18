@@ -31,6 +31,8 @@ export interface GlobalSettings {
   highlight_color: string;
   /** CSS hex colour for inactive sectors, e.g. "#FFFFFF11" */
   default_color: string;
+  /** Opacity of the wheel overlay (0.0 to 1.0) */
+  wheel_opacity: number;
 }
 
 export interface Profile {

@@ -85,6 +85,14 @@ pub struct GeometryState {
     /// sessions so the frontend can suppress the wheel render before the first
     /// fresh `start()` call populates the state.
     pub active: bool,
+
+    // --- Configuration values added for dynamic hot-reload ---
+    pub wheel_radius: f64,
+    pub dead_zone_radius: f64,
+    pub sector_count: u8,
+    pub highlight_color: String,
+    pub default_color: String,
+    pub wheel_opacity: f64,
 }
 
 impl Default for GeometryState {
@@ -97,6 +105,12 @@ impl Default for GeometryState {
             sector: 255,
             in_dead_zone: true,
             active: false,
+            wheel_radius: 120.0,
+            dead_zone_radius: 40.0,
+            sector_count: 8,
+            highlight_color: "#FFFFFF33".to_string(),
+            default_color: "#FFFFFF11".to_string(),
+            wheel_opacity: 0.8,
         }
     }
 }
@@ -196,6 +210,12 @@ impl GeometryManager {
             sector,
             in_dead_zone,
             active: true,
+            wheel_radius: config.global.wheel_radius,
+            dead_zone_radius: config.global.dead_zone_radius,
+            sector_count: config.global.sector_count,
+            highlight_color: config.global.highlight_color.clone(),
+            default_color: config.global.default_color.clone(),
+            wheel_opacity: config.global.wheel_opacity,
         }
     }
 }

@@ -86,6 +86,9 @@ pub struct GlobalSettings {
     /// CSS colour for non-highlighted sectors.
     /// Example: `"#FFFFFF11"`
     pub default_color: String,
+
+    /// Opacity of the wheel overlay (0.0 to 1.0).
+    pub wheel_opacity: f64,
 }
 
 impl Default for AppConfig {
@@ -107,6 +110,7 @@ impl Default for AppConfig {
             sector_count: 8,
             highlight_color: "#FFFFFF33".to_string(),
             default_color: "#FFFFFF11".to_string(),
+            wheel_opacity: 0.8,
         };
 
         // -----------------------------------------------------------------------

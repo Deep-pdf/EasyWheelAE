@@ -41,6 +41,10 @@ pub fn run() {
             // Step 1 — Load configuration.
             config_manager::ConfigManager::load();
 
+            // Subscribe managers to config updates.
+            config_manager::ConfigManager::subscribe(action_manager::ActionManager::rebuild);
+            config_manager::ConfigManager::subscribe(hotkey_manager::HotkeyManager::update_keys);
+
             // Step 2 — Register global application state.
             app.manage(app_state::AppState::new());
 

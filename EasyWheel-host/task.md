@@ -1,58 +1,23 @@
-# Phase 6 — Task List
+# Phase 6.5 — Task List
 
-## Rust Backend
-- [x] Cargo.toml — add tlhelp32 winapi feature
-- [x] action_manager.rs — Mutex<Option<>> rebuild support
-- [x] config_manager.rs — add update_and_save()
-- [x] commands.rs — 5 new commands + RunningApp + validate_config
-- [x] tray.rs — Reload Configuration menu item
-- [x] lib.rs — register new commands
-- [x] tauri.conf.json — update window dimensions
-- [x] capabilities/default.json — update permissions
+## Backend integration
+- [x] Rename configuration file from `config.json` to `easywheel.json` in `config_manager.rs`
+- [x] Add backward compatibility migration path from legacy `config.json` to `easywheel.json`
+- [x] Implement subscription list (`SUBSCRIBERS`) inside `ConfigManager`
+- [x] Invoke subscribers during configuration load, save, and reload
+- [x] Subscribe `ActionManager::rebuild` to flush active caches on config change
+- [x] Add `ACTIVE_KEYS` static to `HotkeyManager` and dynamic lookup during hook event dispatch
+- [x] Subscribe `HotkeyManager::update_keys` to reload keyboard hooks on config change
+- [x] Enhance `validate_config` in `commands.rs` to validate hex colors, modifier/trigger keys, minimum sector count, and duplicate executables mapped across profiles
 
-## Frontend Setup
-- [x] npm install tailwindcss @tailwindcss/vite
-- [x] vite.config.ts — add Tailwind plugin
-- [x] host/styles/settings.css — design tokens + Tailwind
+## Frontend integration
+- [x] Implement debounced auto-save (400ms) within `ConfigContext.tsx`
+- [x] Enforce window title changes depending on dirty state (`EasyWheel — Settings *` when modified)
+- [x] Ensure saving is cleared only after successful save
+- [x] Propagate dynamic configuration values (`wheel_radius`, `dead_zone_radius`, `sector_count`, `highlight_color`, `default_color`) to the overlay `GeometryState`
+- [x] Update `Overlay.tsx` to read dynamic geometry and colors from `GeometryState` and pass them as props to `WheelRenderer`
+- [x] Refactor `WheelRenderer.tsx` to accept dynamic geometries and colors as props instead of hardcoded constants
 
-## Types & IPC
-- [x] host/settings/types.ts
-- [x] host/ipc/settings.ts
-- [x] host/settings/context/ConfigContext.tsx
-
-## UI Primitives
-- [x] components/ui/Button.tsx
-- [x] components/ui/Modal.tsx
-- [x] components/ui/SearchBar.tsx
-- [x] components/ui/HotkeyRecorder.tsx
-- [x] components/ui/ColorPicker.tsx
-- [x] components/ui/Slider.tsx
-- [x] components/ui/ValidationMessage.tsx
-
-## Wheel Components
-- [x] components/wheel/WheelEditor.tsx
-- [x] components/wheel/WheelPreview.tsx
-
-## Profile / Action Components
-- [x] components/actions/ActionPicker.tsx
-- [x] components/profiles/RunningAppsDialog.tsx
-
-## Layout
-- [x] components/layout/Sidebar.tsx
-- [x] components/layout/PageLayout.tsx
-
-## Pages
-- [x] pages/GeneralPage.tsx
-- [x] pages/ProfilesPage.tsx
-- [x] pages/ActionsPage.tsx
-- [x] pages/AppearancePage.tsx
-- [x] pages/AboutPage.tsx
-
-## Assembly
-- [x] settings/SettingsApp.tsx
-- [x] host/App.tsx (update)
-- [x] host/styles/global.css (verified)
-
-## Verify
-- [x] cargo build passes
-- [x] npm run tauri build / dev builds successfully
+## Verification
+- [x] Verify frontend TSC and Vite builds successfully without errors
+- [x] Verify backend cargo check passes successfully without warnings or errors

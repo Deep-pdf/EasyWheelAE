@@ -24,6 +24,7 @@ export function AppearancePage(): React.JSX.Element {
       setDeadZoneRadius(config.global.dead_zone_radius);
       setHighlightColor(config.global.highlight_color);
       setDefaultColor(config.global.default_color);
+      setBgOpacity(Math.round((config.global.wheel_opacity ?? 0.8) * 100));
     }
   }, [config]);
 
@@ -42,6 +43,7 @@ export function AppearancePage(): React.JSX.Element {
       dead_zone_radius: deadZoneRadius,
       highlight_color: highlightColor,
       default_color: defaultColor,
+      wheel_opacity: bgOpacity / 100,
     });
     // Triggers actual saveChanges sequence
     setTimeout(() => {

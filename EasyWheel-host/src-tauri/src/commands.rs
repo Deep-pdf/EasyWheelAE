@@ -280,24 +280,51 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
         );
     }
 
-    // Sector count must be non-zero and divide 360 evenly.
-    if g.sector_count == 0 || 360u32 % u32::from(g.sector_count) != 0 {
+    // Wheel opacity check.
+    if g.wheel_opacity < 0.0 || g.wheel_opacity > 1.0 {
+        return Err("Wheel opacity must be between 0.0 and 1.0.".to_string());
+    }
+
+    // Sector count must be at least 4 and divide 360 evenly.
+    if g.sector_count < 4 {
+        return Err("Sector count must be at least 4.".to_string());
+    }
+    if 360u32 % u32::from(g.sector_count) != 0 {
         return Err(format!(
-            "Invalid sector count {}. Must evenly divide 360 (e.g. 4, 6, 8, 12).",
+            "Invalid sector count {}. Must evenly divide 360 (e.g. 4, 6, 8, 12, 16).",
             g.sector_count
         ));
     }
 
-    // Activation keys must not be empty.
-    if g.activation_modifier.trim().is_empty() {
-        return Err("Activation modifier key cannot be empty.".to_string());
+    // Validate hotkeys
+    if ConfigManager::parse_rdev_key(&g.activation_modifier).is_none() {
+        return Err(format!("Invalid activation modifier key '{}'.", g.activation_modifier));
     }
-    if g.activation_key.trim().is_empty() {
-        return Err("Activation key cannot be empty.".to_string());
+    if ConfigManager::parse_rdev_key(&g.activation_key).is_none() {
+        return Err(format!("Invalid activation trigger key '{}'.", g.activation_key));
     }
+
+    // Validate colors (must be hex format e.g. #RGB, #RGBA, #RRGGBB, #RRGGBBAA)
+    let validate_color = |color: &str, field_name: &str| -> Result<(), String> {
+        let trimmed = color.trim();
+        if !trimmed.starts_with('#') {
+            return Err(format!("{} '{}' must start with '#'.", field_name, color));
+        }
+        let len = trimmed.len();
+        if len != 4 && len != 5 && len != 7 && len != 9 {
+            return Err(format!("{} '{}' must be in hex format: #RGB, #RGBA, #RRGGBB, or #RRGGBBAA.", field_name, color));
+        }
+        if !trimmed[1..].chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(format!("{} '{}' contains invalid hex characters.", field_name, color));
+        }
+        Ok(())
+    };
+    validate_color(&g.highlight_color, "Highlight color")?;
+    validate_color(&g.default_color, "Default color")?;
 
     // Profile name uniqueness and non-emptiness.
     let mut seen_names = std::collections::HashSet::new();
+    let mut seen_exes = std::collections::HashSet::new();
     for profile in &config.profiles {
         let trimmed = profile.name.trim();
         if trimmed.is_empty() {
@@ -306,11 +333,28 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
         if !seen_names.insert(trimmed.to_ascii_lowercase()) {
             return Err(format!("Duplicate profile name: '{}'.", profile.name));
         }
-        if profile.executable.trim().is_empty() {
+
+        let exe_trimmed = profile.executable.trim();
+        if exe_trimmed.is_empty() {
             return Err(format!(
                 "Profile '{}' has an empty executable name.",
                 profile.name
             ));
+        }
+
+        // Validate duplicate executables mapping
+        let parts: Vec<&str> = exe_trimmed.split(',').map(|s| s.trim()).collect();
+        for part in parts {
+            let part_lower = part.to_ascii_lowercase();
+            if part_lower.is_empty() {
+                continue;
+            }
+            if !seen_exes.insert(part_lower.clone()) {
+                return Err(format!(
+                    "Duplicate target executable '{}' is mapped in multiple profiles (found in '{}').",
+                    part, profile.name
+                ));
+            }
         }
     }
 

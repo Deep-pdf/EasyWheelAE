@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppConfig, GlobalSettings, Profile } from '../types';
 import { getConfig, saveConfig, reloadConfig as ipcReloadConfig } from '../../ipc/settings';
 
@@ -30,9 +31,13 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
   const [error, setError] = useState<string | null>(null);
   const [activePage, setActivePage] = useState<SettingsPage>('general');
 
+  // Prevent initial load triggering auto-save
+  const initialLoadRef = useRef(true);
+
   // Load configuration on mount
   const fetchConfig = useCallback(async () => {
     try {
+      initialLoadRef.current = true;
       const data = await getConfig();
       setConfig(data);
       setOriginalConfig(JSON.parse(JSON.stringify(data)));
@@ -48,17 +53,53 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
     fetchConfig();
   }, [fetchConfig]);
 
-  // Check if current config differs from original config
+  // Handle unsaved changes window title indicator
   useEffect(() => {
-    if (config && originalConfig) {
-      const isDifferent = JSON.stringify(config) !== JSON.stringify(originalConfig);
-      setDirty(isDifferent);
-    } else {
+    const title = dirty ? "EasyWheel — Settings *" : "EasyWheel — Settings";
+    getCurrentWindow()
+      .setTitle(title)
+      .catch((err) => console.error("Failed to set window title:", err));
+  }, [dirty]);
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!config || !originalConfig) {
       setDirty(false);
+      return;
+    }
+
+    const isDifferent = JSON.stringify(config) !== JSON.stringify(originalConfig);
+    setDirty(isDifferent);
+
+    if (isDifferent) {
+      // If we are currently initialising/loading config, skip auto-saving
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        return;
+      }
+
+      const timer = setTimeout(async () => {
+        setSaving(true);
+        setError(null);
+        try {
+          await saveConfig(config);
+          setOriginalConfig(JSON.parse(JSON.stringify(config)));
+          setDirty(false);
+          console.log("[ConfigContext] Auto-saved configuration successfully.");
+        } catch (e: unknown) {
+          const msg = typeof e === 'string' ? e : e instanceof Error ? e.message : String(e);
+          setError(`Auto-save failed: ${msg}`);
+        } finally {
+          setSaving(false);
+        }
+      }, 400); // 400ms debounce window
+
+      return () => clearTimeout(timer);
     }
   }, [config, originalConfig]);
 
   const updateGlobal = useCallback((updatedFields: Partial<GlobalSettings>) => {
+    initialLoadRef.current = false;
     setConfig((prev) => {
       if (!prev) return null;
       return {
@@ -87,6 +128,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
 
       success = true;
       setError(null);
+      initialLoadRef.current = false;
       return {
         ...prev,
         profiles: [...prev.profiles, profile],
@@ -113,6 +155,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
 
       success = true;
       setError(null);
+      initialLoadRef.current = false;
       return {
         ...prev,
         profiles: prev.profiles.map((p) => {
@@ -138,6 +181,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
         return prev;
       }
       setError(null);
+      initialLoadRef.current = false;
       return {
         ...prev,
         profiles: prev.profiles.filter((p) => p.name.toLowerCase() !== name.toLowerCase()),
@@ -145,6 +189,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
     });
   }, []);
 
+  // Explicit save action
   const saveChanges = useCallback(async (): Promise<boolean> => {
     if (!config) return false;
     setSaving(true);
@@ -163,6 +208,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
     }
   }, [config]);
 
+  // Centralized reload action
   const reload = useCallback(async () => {
     try {
       await ipcReloadConfig();
