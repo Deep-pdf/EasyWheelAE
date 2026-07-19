@@ -12,6 +12,22 @@
 /// Configuration state is owned by `ConfigManager` via a module-level
 /// `OnceLock<Mutex<AppConfig>>`. It is not stored here because it must be
 /// accessible from threads that do not have access to the Tauri `AppHandle`.
+use tauri::AppHandle;
+use std::sync::OnceLock;
+
+/// Global Tauri application handle reference.
+static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+
+/// Sets the global application handle.
+pub fn set_app_handle(handle: AppHandle) {
+    let _ = APP_HANDLE.set(handle);
+}
+
+/// Retrieves the global application handle, if set.
+pub fn get_app_handle() -> Option<&'static AppHandle> {
+    APP_HANDLE.get()
+}
+
 pub struct AppState;
 
 impl AppState {

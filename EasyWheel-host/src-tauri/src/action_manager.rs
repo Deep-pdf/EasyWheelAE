@@ -136,7 +136,7 @@ impl ActionManager {
                     "[ActionManager] Profile: {} | Sector: {} | Action: {} | Display: {}",
                     profile_name, sector, definition.id, definition.display_name
                 );
-                Self::execute_action(definition);
+                Self::execute_action(sector, &profile_name, &exe, definition);
             }
             None => {
                 eprintln!(
@@ -165,17 +165,31 @@ impl ActionManager {
         println!("[ActionManager] Info: Statics reset — will re-initialise from config on next execution.");
     }
 
-    /// Executes the given action definition.
-    ///
-    /// Phase 5/6: placeholder implementation — prints the action name to the
-    /// terminal. No Adobe integration, no system calls.
-    ///
-    /// Future phases will dispatch to a real execution backend (script runner,
-    /// IPC client, shell command, etc.) based on `definition.parameters`.
-    fn execute_action(definition: &ActionDefinition) {
-        println!(
-            "[ActionManager] Executing Action: {} ({})",
-            definition.display_name, definition.id
-        );
+    /// Executes the given action definition by forwarding to the dispatcher.
+    fn execute_action(
+        sector: u8,
+        profile_name: &str,
+        exe: &str,
+        definition: &ActionDefinition,
+    ) {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let context = crate::models::command_context::CommandContext {
+            action_id: definition.id.clone(),
+            selected_sector: sector,
+            current_profile: profile_name.to_string(),
+            executable_name: exe.to_string(),
+            timestamp,
+            modifier_keys: Vec::new(),
+            mouse_position: None,
+            selection: None,
+        };
+
+        if let Err(e) = crate::command_dispatcher::CommandDispatcher::dispatch(context) {
+            eprintln!("[ActionManager] Error: Command dispatch failed: {}", e);
+        }
     }
 }

@@ -10,5 +10,6 @@
 //! - [`config`]  — [`AppConfig`] / [`GlobalSettings`]: full config schema.
 
 pub mod action;
+pub mod command_context;
 pub mod config;
 pub mod profile;

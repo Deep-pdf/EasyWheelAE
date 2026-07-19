@@ -14,6 +14,9 @@ mod overlay_manager;
 mod profile_manager;
 mod tray;
 mod window_manager;
+mod command_dispatcher;
+mod provider_registry;
+mod providers;
 
 // `Manager` must be explicitly imported for `app.manage()` to resolve.
 use tauri::Manager;
@@ -47,6 +50,10 @@ pub fn run() {
 
             // Step 2 — Register global application state.
             app.manage(app_state::AppState::new());
+            app_state::set_app_handle(handle.clone());
+
+            // Register default command execution providers.
+            providers::register_defaults();
 
             // Step 3 — Intercept window close events.
             window_manager::WindowManager::register_close_handler(&handle);
