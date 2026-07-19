@@ -40,7 +40,6 @@ use crate::{
     action_registry::ActionRegistry,
     foreground_application::ForegroundApplicationService,
     config_manager::ConfigManager,
-    models::action::ActionDefinition,
     profile_manager::ProfileManager,
 };
 
@@ -95,7 +94,7 @@ impl ActionManager {
 
         // Step 2 — Resolve the active profile.
         let profile_name;
-        let action_id;
+        let configured_cmd;
         {
             let mut guard = PROFILES.lock().unwrap_or_else(|e| e.into_inner());
             if guard.is_none() {
@@ -105,14 +104,14 @@ impl ActionManager {
             let pm = guard.as_ref().unwrap();
             let profile = pm.resolve(&exe);
             profile_name = profile.name.clone();
-            action_id = profile.sector_assignments.get(&sector).cloned();
+            configured_cmd = profile.sector_assignments.get(&sector).cloned();
         }
 
         println!("[ActionManager] Info: Active profile: '{}'.", profile_name);
 
-        // Step 3 — Look up the action ID for this sector.
-        let action_id = match action_id {
-            Some(id) => id,
+        // Step 3 — Look up the configured command for this sector.
+        let configured_cmd = match configured_cmd {
+            Some(cmd) => cmd,
             None => {
                 println!(
                     "[ActionManager] Info: Profile '{}' has no assignment for sector {}. \
@@ -123,29 +122,32 @@ impl ActionManager {
             }
         };
 
-        // Step 4 — Resolve the action definition from the registry.
-        let mut guard = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.is_none() {
-            let config = ConfigManager::get();
-            *guard = Some(ActionRegistry::new(config.action_library));
-        }
+        // Construct CommandContext
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
 
-        match guard.as_ref().unwrap().get(&action_id) {
-            Some(definition) => {
-                println!(
-                    "[ActionManager] Profile: {} | Sector: {} | Action: {} | Display: {}",
-                    profile_name, sector, definition.id, definition.display_name
-                );
-                Self::execute_action(sector, &profile_name, &exe, definition);
-            }
-            None => {
-                eprintln!(
-                    "[ActionManager] Warning: Action '{}' assigned to sector {} \
-                     in profile '{}' does not exist in the action library. \
-                     Check config.json for a typo.",
-                    action_id, sector, profile_name
-                );
-            }
+        let context = crate::models::command_context::CommandContext {
+            action_id: configured_cmd.command_id.clone(),
+            selected_sector: sector,
+            current_profile: profile_name.clone(),
+            executable_name: exe,
+            timestamp,
+            modifier_keys: Vec::new(),
+            mouse_position: None,
+            selection: None,
+            parameters: configured_cmd.parameters.clone(),
+        };
+
+        println!(
+            "[ActionManager] Profile: {} | Sector: {} | Command: {}",
+            profile_name, sector, configured_cmd.command_id
+        );
+
+        // Dispatch action via CommandDispatcher
+        if let Err(e) = crate::command_dispatcher::CommandDispatcher::dispatch(context) {
+            eprintln!("[ActionManager] Error: Command dispatch failed: {}", e);
         }
     }
 
@@ -163,33 +165,5 @@ impl ActionManager {
             *p = None;
         }
         println!("[ActionManager] Info: Statics reset — will re-initialise from config on next execution.");
-    }
-
-    /// Executes the given action definition by forwarding to the dispatcher.
-    fn execute_action(
-        sector: u8,
-        profile_name: &str,
-        exe: &str,
-        definition: &ActionDefinition,
-    ) {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-
-        let context = crate::models::command_context::CommandContext {
-            action_id: definition.id.clone(),
-            selected_sector: sector,
-            current_profile: profile_name.to_string(),
-            executable_name: exe.to_string(),
-            timestamp,
-            modifier_keys: Vec::new(),
-            mouse_position: None,
-            selection: None,
-        };
-
-        if let Err(e) = crate::command_dispatcher::CommandDispatcher::dispatch(context) {
-            eprintln!("[ActionManager] Error: Command dispatch failed: {}", e);
-        }
     }
 }

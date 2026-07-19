@@ -35,12 +35,17 @@ export interface GlobalSettings {
   wheel_opacity: number;
 }
 
+export interface ConfiguredCommand {
+  command_id: string;
+  parameters: Record<string, any>;
+}
+
 export interface Profile {
   name: string;
   /** Executable filename, e.g. "AfterFX.exe" */
   executable: string;
-  /** Maps sector index (as string) → action ID */
-  sector_assignments: Record<string, string>;
+  /** Maps sector index (as string) → Action ID or Configured Command object */
+  sector_assignments: Record<string, string | ConfiguredCommand>;
 }
 
 export interface ActionDefinition {

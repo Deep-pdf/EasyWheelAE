@@ -26,14 +26,11 @@ rdev = "0.5"
 # `dirs` resolves platform-specific user directories (e.g. %APPDATA%) without
 # hardcoding paths. Used by ConfigManager to locate the config file.
 dirs = "5"
+# `rfd` provides native file/folder picker dialogs.
+rfd = "0.15"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-# `winapi` provides Win32 bindings for:
-# - InputManager:                GetCursorPos          (winuser)
-# - ForegroundApplicationService: GetForegroundWindow   (winuser)
-#                                 OpenProcess           (processthreadsapi)
-#                                 QueryFullProcessImageNameW (winuser)
-#                                 CloseHandle           (handleapi)
+# `winapi` provides Win32 bindings for window, processes, and shell operations.
 winapi = { version = "0.3", features = [
     "winuser",
     "processthreadsapi",
@@ -41,5 +38,5 @@ winapi = { version = "0.3", features = [
     "winbase",
     "tlhelp32",
     "minwindef",
+    "shellapi",
 ] }
-

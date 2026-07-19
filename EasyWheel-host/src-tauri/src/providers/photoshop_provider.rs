@@ -1,8 +1,14 @@
+use serde::Deserialize;
 use crate::models::command_context::CommandContext;
 use crate::providers::provider::CommandProvider;
 
-/// Command provider placeholder for Adobe Photoshop actions.
+/// Command provider for Adobe Photoshop actions.
 pub struct PhotoshopProvider;
+
+#[derive(Debug, Clone, Deserialize)]
+struct PSCommandParams {
+    command: String,
+}
 
 impl CommandProvider for PhotoshopProvider {
     fn can_execute(&self, action_id: &str) -> bool {
@@ -15,19 +21,31 @@ impl CommandProvider for PhotoshopProvider {
 
     fn supported_actions(&self) -> Vec<&'static str> {
         vec![
+            // Legacy Actions
             "brush",
             "eraser",
             "gradient",
             "crop",
-            "duplicate", // Support default profile action
+            "duplicate",
+            // Parameterized Command
+            "photoshop_command",
         ]
     }
 
     fn execute(&self, context: &CommandContext) -> Result<(), String> {
-        println!(
-            "[PhotoshopProvider] Info: Photoshop Provider Executing {}",
-            context.action_id
-        );
+        if context.action_id == "photoshop_command" {
+            let params: PSCommandParams = serde_json::from_value(context.parameters.clone())
+                .map_err(|e| format!("Invalid parameters for photoshop_command: {}", e))?;
+            println!(
+                "[PhotoshopProvider] Info: Photoshop Provider Executing {}",
+                params.command
+            );
+        } else {
+            println!(
+                "[PhotoshopProvider] Info: Photoshop Provider Executing {}",
+                context.action_id
+            );
+        }
         Ok(())
     }
 }

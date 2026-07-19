@@ -1,22 +1,68 @@
-//! `Profile` — per-application sector-to-action assignment map.
-//!
-//! A `Profile` binds a specific foreground application (identified by its
-//! executable filename) to a set of sector assignments. Each sector index
-//! maps to an action ID that is looked up in the global action library at
-//! execution time.
-//!
-//! # Design Rules
-//!
-//! - Profiles are identified by **executable filename**, never window title.
-//! - Sector assignments store **action IDs**, never `ActionDefinition` structs.
-//! - The Desktop profile (`executable == "explorer.exe"`) is the mandatory
-//!   fallback. `ProfileManager` guarantees it always exists.
-//! - Not every sector needs an assignment. An absent sector key means
-//!   "no action" for that sector — this is a valid, intentional state.
-
 use std::collections::HashMap;
+use serde::{Deserialize, Deserializer, Serialize};
 
-use serde::{Deserialize, Serialize};
+/// Represents a command configured on a wheel sector, supporting both
+/// legacy string (Action ID) and new parameterized command (JSON object) formats.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConfiguredCommand {
+    /// The programmatic type or ID of the command (e.g. `"launch_app"` or `"easy_ease"`).
+    pub command_id: String,
+
+    /// Freeform JSON parameter key-value pairs.
+    pub parameters: serde_json::Value,
+}
+
+impl ConfiguredCommand {
+    /// Creates a new `ConfiguredCommand` with parameters.
+    #[allow(dead_code)]
+    pub fn new(command_id: &str, parameters: serde_json::Value) -> Self {
+        Self {
+            command_id: command_id.to_string(),
+            parameters,
+        }
+    }
+
+    /// Creates a legacy or parameter-less `ConfiguredCommand`.
+    pub fn legacy(command_id: &str) -> Self {
+        Self {
+            command_id: command_id.to_string(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ConfiguredCommand {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            Legacy(String),
+            New {
+                command_id: String,
+                #[serde(default = "empty_json_object")]
+                parameters: serde_json::Value,
+            },
+        }
+
+        fn empty_json_object() -> serde_json::Value {
+            serde_json::Value::Object(serde_json::Map::new())
+        }
+
+        match Helper::deserialize(deserializer)? {
+            Helper::Legacy(id) => Ok(ConfiguredCommand {
+                command_id: id,
+                parameters: empty_json_object(),
+            }),
+            Helper::New { command_id, parameters } => Ok(ConfiguredCommand {
+                command_id,
+                parameters,
+            }),
+        }
+    }
+}
 
 /// A per-application wheel profile.
 ///
@@ -25,22 +71,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
     /// Human-readable name shown in the Settings UI.
-    ///
-    /// Example: `"Desktop"`, `"Adobe After Effects"`, `"VS Code"`
     pub name: String,
 
     /// Executable filename used to identify the foreground application.
-    ///
-    /// Comparison is **case-insensitive** on Windows.
-    ///
-    /// Example: `"explorer.exe"`, `"AfterFX.exe"`, `"Code.exe"`
     pub executable: String,
 
-    /// Mapping from sector index (0 to SECTOR_COUNT-1) to action ID.
-    ///
-    /// Absent keys mean the sector has no assigned action — no warning is
-    /// emitted for intentionally unassigned sectors.
-    ///
-    /// Example: `{ 0: "easy_ease", 2: "trim_paths", 5: "graph_editor" }`
-    pub sector_assignments: HashMap<u8, String>,
+    /// Mapping from sector index (0 to SECTOR_COUNT-1) to configured command.
+    pub sector_assignments: HashMap<u8, ConfiguredCommand>,
 }

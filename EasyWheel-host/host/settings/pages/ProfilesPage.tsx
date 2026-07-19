@@ -7,7 +7,8 @@ import { RunningAppsDialog } from '../components/profiles/RunningAppsDialog';
 import { SearchBar } from '../components/ui/SearchBar';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import type { Profile, RunningApp } from '../types';
+import type { Profile, RunningApp, ConfiguredCommand } from '../types';
+import { getSectorCommand, getCommandDisplayName, getCommandDescription } from '../utils/commandHelper';
 
 export function ProfilesPage(): React.JSX.Element {
   const { config, addProfile, updateProfile, deleteProfile } = useConfig();
@@ -35,15 +36,25 @@ export function ProfilesPage(): React.JSX.Element {
     ) || config.profiles[0];
   }, [config, selectedProfileName]);
 
-  // Actions list for ActionPicker
-  const actionLibrary = config?.action_library || [];
 
-  // Currently assigned action for selected sector
-  const assignedAction = useMemo(() => {
+
+  // Currently assigned command for selected sector
+  const currentCommand = useMemo(() => {
     if (!activeProfile || selectedSector === null) return null;
-    const actionId = activeProfile.sector_assignments[selectedSector.toString()];
-    return actionLibrary.find((a) => a.id === actionId) || null;
-  }, [activeProfile, selectedSector, actionLibrary]);
+    return getSectorCommand(activeProfile.sector_assignments, selectedSector);
+  }, [activeProfile, selectedSector]);
+
+  // Compute display name, description, and category for the assigned sector command
+  const assignedAction = useMemo(() => {
+    if (!currentCommand || !config) return null;
+    const legacy = config.action_library.find((a) => a.id === currentCommand.command_id);
+    return {
+      id: currentCommand.command_id,
+      display_name: getCommandDisplayName(currentCommand, config),
+      description: getCommandDescription(currentCommand, config),
+      category: legacy ? legacy.category : 'Custom',
+    };
+  }, [currentCommand, config]);
 
   const filteredProfiles = useMemo(() => {
     if (!config) return [];
@@ -66,12 +77,12 @@ export function ProfilesPage(): React.JSX.Element {
     setSelectedSector(sector);
   };
 
-  const handleActionSelect = (actionId: string) => {
+  const handleActionSelect = (cmd: ConfiguredCommand) => {
     if (selectedSector === null) return;
     
     const updatedAssignments = {
       ...activeProfile.sector_assignments,
-      [selectedSector.toString()]: actionId,
+      [selectedSector.toString()]: cmd,
     };
 
     updateProfile(activeProfile.name, {
@@ -437,9 +448,8 @@ export function ProfilesPage(): React.JSX.Element {
       <ActionPicker
         isOpen={isActionPickerOpen}
         onClose={() => setIsActionPickerOpen(false)}
-        actions={actionLibrary}
-        onSelect={handleActionSelect}
-        currentActionId={activeProfile.sector_assignments[selectedSector?.toString() || '']}
+        onSelectCommand={handleActionSelect}
+        currentCommand={currentCommand}
       />
 
       {/* Running App selector Modal */}

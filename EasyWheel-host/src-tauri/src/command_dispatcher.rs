@@ -80,8 +80,29 @@ mod tests {
             modifier_keys: vec![],
             mouse_position: None,
             selection: None,
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(win_ctx);
+        assert!(res.is_ok());
+
+        // 1.5. Test Windows Provider parameterized launch_app
+        let launch_ctx = CommandContext {
+            action_id: "launch_app".to_string(),
+            selected_sector: 2,
+            current_profile: "Desktop".to_string(),
+            executable_name: "explorer.exe".to_string(),
+            timestamp: 0,
+            modifier_keys: vec![],
+            mouse_position: None,
+            selection: None,
+            parameters: serde_json::json!({
+                "path": "calc.exe",
+                "arguments": "",
+                "working_directory": "",
+                "run_as_admin": false
+            }),
+        };
+        let res = CommandDispatcher::dispatch(launch_ctx);
         assert!(res.is_ok());
 
         // 2. Test After Effects Provider action
@@ -94,6 +115,7 @@ mod tests {
             modifier_keys: vec![],
             mouse_position: None,
             selection: None,
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(ae_ctx);
         assert!(res.is_ok());
@@ -108,6 +130,7 @@ mod tests {
             modifier_keys: vec![],
             mouse_position: None,
             selection: None,
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(ps_ctx);
         assert!(res.is_ok());
@@ -122,6 +145,7 @@ mod tests {
             modifier_keys: vec![],
             mouse_position: None,
             selection: None,
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(unknown_ctx);
         assert!(res.is_err());

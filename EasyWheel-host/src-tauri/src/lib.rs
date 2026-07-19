@@ -88,6 +88,9 @@ pub fn run() {
             commands::reload_config,
             commands::get_running_apps,
             commands::open_settings,
+            commands::pick_executable,
+            commands::pick_file,
+            commands::pick_folder,
         ])
         .run(tauri::generate_context!())
         .expect("Fatal: Tauri application failed to start.");

@@ -141,6 +141,31 @@ pub fn open_settings(app: tauri::AppHandle) {
     WindowManager::show_and_focus(&app);
 }
 
+/// Opens a native dialog to pick an executable file (.exe).
+#[tauri::command]
+pub fn pick_executable() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("Executable", &["exe"])
+        .pick_file()
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
+/// Opens a native dialog to pick any file.
+#[tauri::command]
+pub fn pick_file() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_file()
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
+/// Opens a native dialog to pick a folder.
+#[tauri::command]
+pub fn pick_folder() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_folder()
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
 // ---------------------------------------------------------------------------
 // Private — Windows process enumeration
 // ---------------------------------------------------------------------------
@@ -358,7 +383,7 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
         }
     }
 
-    // Sector assignments must reference existing action IDs.
+    // Sector assignments must reference existing action IDs or be valid parameterized commands.
     let valid_ids: std::collections::HashSet<&str> = config
         .action_library
         .iter()
@@ -366,12 +391,118 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
         .collect();
 
     for profile in &config.profiles {
-        for action_id in profile.sector_assignments.values() {
-            if !valid_ids.contains(action_id.as_str()) {
-                return Err(format!(
-                    "Profile '{}' references unknown action ID '{}'.",
-                    profile.name, action_id
-                ));
+        for (sector, cmd) in &profile.sector_assignments {
+            let cmd_id = &cmd.command_id;
+            let params = &cmd.parameters;
+
+            match cmd_id.as_str() {
+                "launch_app" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { path: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: launch_app parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.path.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: Executable path cannot be empty.", profile.name, sector));
+                    }
+                    let has_separator = p.path.contains('\\') || p.path.contains('/');
+                    if has_separator {
+                        let path = std::path::Path::new(&p.path);
+                        if !path.exists() || !path.is_file() {
+                            return Err(format!("Profile '{}', sector {}: Executable path '{}' does not exist or is not a file.", profile.name, sector, p.path));
+                        }
+                    }
+                }
+                "open_website" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { url: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: open_website parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.url.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: Website URL cannot be empty.", profile.name, sector));
+                    }
+                    if !p.url.starts_with("http://") && !p.url.starts_with("https://") {
+                        return Err(format!("Profile '{}', sector {}: Invalid URL format '{}'. URL must start with http:// or https://.", profile.name, sector, p.url));
+                    }
+                }
+                "open_folder" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { path: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: open_folder parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.path.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: Folder path cannot be empty.", profile.name, sector));
+                    }
+                    let path = std::path::Path::new(&p.path);
+                    if !path.exists() || !path.is_dir() {
+                        return Err(format!("Profile '{}', sector {}: Folder path '{}' does not exist or is not a directory.", profile.name, sector, p.path));
+                    }
+                }
+                "open_file" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { path: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: open_file parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.path.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: File path cannot be empty.", profile.name, sector));
+                    }
+                    let path = std::path::Path::new(&p.path);
+                    if !path.exists() || !path.is_file() {
+                        return Err(format!("Profile '{}', sector {}: File path '{}' does not exist or is not a file.", profile.name, sector, p.path));
+                    }
+                }
+                "run_script" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { path: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: run_script parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.path.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: Script path cannot be empty.", profile.name, sector));
+                    }
+                    let path = std::path::Path::new(&p.path);
+                    if !path.exists() || !path.is_file() {
+                        return Err(format!("Profile '{}', sector {}: Script file path '{}' does not exist or is not a file.", profile.name, sector, p.path));
+                    }
+                }
+                "send_shortcut" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { keys: Vec<String> }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: send_shortcut parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.keys.is_empty() {
+                        return Err(format!("Profile '{}', sector {}: Keyboard shortcut keys cannot be empty.", profile.name, sector));
+                    }
+                    for key in &p.keys {
+                        if crate::config_manager::ConfigManager::parse_rdev_key(key).is_none() {
+                            return Err(format!("Profile '{}', sector {}: Keyboard shortcut contains invalid key '{}'.", profile.name, sector, key));
+                        }
+                    }
+                }
+                "after_effects_command" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { command: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: after_effects_command parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.command.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: After Effects command selection cannot be empty.", profile.name, sector));
+                    }
+                }
+                "photoshop_command" => {
+                    #[derive(serde::Deserialize)]
+                    struct Temp { command: String }
+                    let p: Temp = serde_json::from_value(params.clone())
+                        .map_err(|e| format!("Profile '{}', sector {}: photoshop_command parameters are invalid: {}", profile.name, sector, e))?;
+                    if p.command.trim().is_empty() {
+                        return Err(format!("Profile '{}', sector {}: Photoshop command selection cannot be empty.", profile.name, sector));
+                    }
+                }
+                _ => {
+                    if !valid_ids.contains(cmd_id.as_str()) {
+                        return Err(format!(
+                            "Profile '{}', sector {}: References unknown action/command ID '{}'.",
+                            profile.name, sector, cmd_id
+                        ));
+                    }
+                }
             }
         }
     }

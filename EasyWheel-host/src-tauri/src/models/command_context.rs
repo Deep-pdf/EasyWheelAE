@@ -29,4 +29,7 @@ pub struct CommandContext {
 
     /// Future placeholder: Current selected text/layer programmatic reference.
     pub selection: Option<String>,
+
+    /// Dynamic command parameters as a JSON Value.
+    pub parameters: serde_json::Value,
 }

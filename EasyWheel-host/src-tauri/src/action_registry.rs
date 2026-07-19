@@ -24,11 +24,13 @@ use std::collections::HashMap;
 use crate::models::action::ActionDefinition;
 
 /// Owns and indexes every registered action by its stable ID.
+#[allow(dead_code)]
 pub struct ActionRegistry {
     /// Internal index: action ID → `ActionDefinition`.
     actions: HashMap<String, ActionDefinition>,
 }
 
+#[allow(dead_code)]
 impl ActionRegistry {
     /// Constructs an `ActionRegistry` from a flat list of action definitions.
     ///

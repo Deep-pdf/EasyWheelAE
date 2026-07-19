@@ -85,9 +85,31 @@ export function WheelEditor({
           const isHovered = hoveredSector === i;
           
           // Action mapping
-          const actionId = profile.sector_assignments[i.toString()];
-          const action = config.action_library.find((a) => a.id === actionId);
-          const displayName = action ? action.display_name : '';
+          const assignment = profile.sector_assignments[i.toString()];
+          let displayName = '';
+          if (assignment) {
+            if (typeof assignment === 'string') {
+              const action = config.action_library.find((a) => a.id === assignment);
+              displayName = action ? action.display_name : assignment;
+            } else {
+              const action = config.action_library.find((a) => a.id === assignment.command_id);
+              if (action) {
+                displayName = action.display_name;
+              } else {
+                switch (assignment.command_id) {
+                  case 'launch_app': displayName = 'Launch App'; break;
+                  case 'open_website': displayName = 'Open Website'; break;
+                  case 'open_folder': displayName = 'Open Folder'; break;
+                  case 'open_file': displayName = 'Open File'; break;
+                  case 'run_script': displayName = 'Run Script'; break;
+                  case 'send_shortcut': displayName = 'Send Shortcut'; break;
+                  case 'after_effects_command': displayName = 'After Effects'; break;
+                  case 'photoshop_command': displayName = 'Photoshop'; break;
+                  default: displayName = assignment.command_id;
+                }
+              }
+            }
+          }
 
           // Label placement helper
           const labelR = (innerR + outerR) / 2;
