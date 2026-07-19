@@ -47,9 +47,9 @@ export function ProfilesPage(): React.JSX.Element {
   // Compute display name, description, and category for the assigned sector command
   const assignedAction = useMemo(() => {
     if (!currentCommand || !config) return null;
-    const legacy = config.action_library.find((a) => a.id === currentCommand.command_id);
+    const legacy = config.action_library.find((a) => a.id === currentCommand.command);
     return {
-      id: currentCommand.command_id,
+      id: currentCommand.command,
       display_name: getCommandDisplayName(currentCommand, config),
       description: getCommandDescription(currentCommand, config),
       category: legacy ? legacy.category : 'Custom',

@@ -36,7 +36,8 @@ export interface GlobalSettings {
 }
 
 export interface ConfiguredCommand {
-  command_id: string;
+  command: string;
+  label: string;
   parameters: Record<string, any>;
 }
 

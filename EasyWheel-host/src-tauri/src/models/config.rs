@@ -207,11 +207,11 @@ impl Default for AppConfig {
                 name: "Desktop".to_string(),
                 executable: "explorer.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("open_explorer")),
-                    (1, ConfiguredCommand::legacy("browser")),
-                    (2, ConfiguredCommand::legacy("calculator")),
-                    (3, ConfiguredCommand::legacy("clipboard")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
+                    (1, ConfiguredCommand::legacy("browser", "Browser")),
+                    (2, ConfiguredCommand::legacy("calculator", "Calculator")),
+                    (3, ConfiguredCommand::legacy("clipboard", "Clipboard")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
             // Adobe After Effects
@@ -219,13 +219,13 @@ impl Default for AppConfig {
                 name: "Adobe After Effects".to_string(),
                 executable: "AfterFX.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("easy_ease")),
-                    (1, ConfiguredCommand::legacy("pre_compose")),
-                    (2, ConfiguredCommand::legacy("trim_paths")),
-                    (3, ConfiguredCommand::legacy("duplicate")),
-                    (4, ConfiguredCommand::legacy("parent")),
-                    (5, ConfiguredCommand::legacy("graph_editor")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("easy_ease", "Easy Ease")),
+                    (1, ConfiguredCommand::legacy("pre_compose", "Pre-Compose")),
+                    (2, ConfiguredCommand::legacy("trim_paths", "Trim Paths")),
+                    (3, ConfiguredCommand::legacy("duplicate", "Duplicate")),
+                    (4, ConfiguredCommand::legacy("parent", "Parent")),
+                    (5, ConfiguredCommand::legacy("graph_editor", "Graph Editor")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
             // Adobe Photoshop
@@ -233,9 +233,9 @@ impl Default for AppConfig {
                 name: "Adobe Photoshop".to_string(),
                 executable: "Photoshop.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("duplicate")),
-                    (1, ConfiguredCommand::legacy("open_explorer")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
+                    (1, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
             // Adobe Premiere Pro
@@ -243,9 +243,9 @@ impl Default for AppConfig {
                 name: "Adobe Premiere Pro".to_string(),
                 executable: "Premiere Pro.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("duplicate")),
-                    (1, ConfiguredCommand::legacy("easy_ease")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
+                    (1, ConfiguredCommand::legacy("easy_ease", "Easy Ease")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
             // Visual Studio Code
@@ -253,10 +253,10 @@ impl Default for AppConfig {
                 name: "VS Code".to_string(),
                 executable: "Code.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("open_explorer")),
-                    (1, ConfiguredCommand::legacy("browser")),
-                    (2, ConfiguredCommand::legacy("calculator")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
+                    (1, ConfiguredCommand::legacy("browser", "Browser")),
+                    (2, ConfiguredCommand::legacy("calculator", "Calculator")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
             // Google Chrome
@@ -264,9 +264,9 @@ impl Default for AppConfig {
                 name: "Chrome".to_string(),
                 executable: "chrome.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("browser")),
-                    (1, ConfiguredCommand::legacy("clipboard")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("browser", "Browser")),
+                    (1, ConfiguredCommand::legacy("clipboard", "Clipboard")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
             // Blender
@@ -274,8 +274,8 @@ impl Default for AppConfig {
                 name: "Blender".to_string(),
                 executable: "blender.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("duplicate")),
-                    (7, ConfiguredCommand::legacy("settings")),
+                    (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
+                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
             },
         ];

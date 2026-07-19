@@ -40,6 +40,8 @@ interface GeometryState {
   highlight_color: string;
   default_color: string;
   wheel_opacity: number;
+  /** Array of display labels for each sector. */
+  sector_labels: string[];
 }
 
 const DEFAULT_STATE: GeometryState = {
@@ -56,6 +58,7 @@ const DEFAULT_STATE: GeometryState = {
   highlight_color: "#FFFFFF33",
   default_color: "#FFFFFF11",
   wheel_opacity: 0.8,
+  sector_labels: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -166,6 +169,7 @@ function Overlay(): React.JSX.Element {
           sectorCount={geo.sector_count}
           highlightColor={geo.highlight_color}
           defaultColor={geo.default_color}
+          sectorLabels={geo.sector_labels}
         />
       )}
     </div>

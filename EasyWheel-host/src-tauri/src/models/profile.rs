@@ -6,26 +6,32 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Debug, Clone, Serialize)]
 pub struct ConfiguredCommand {
     /// The programmatic type or ID of the command (e.g. `"launch_app"` or `"easy_ease"`).
+    #[serde(rename = "command", alias = "command_id")]
     pub command_id: String,
+
+    /// The customizable user display label for the sector.
+    pub label: String,
 
     /// Freeform JSON parameter key-value pairs.
     pub parameters: serde_json::Value,
 }
 
 impl ConfiguredCommand {
-    /// Creates a new `ConfiguredCommand` with parameters.
+    /// Creates a new `ConfiguredCommand` with parameters and a label.
     #[allow(dead_code)]
-    pub fn new(command_id: &str, parameters: serde_json::Value) -> Self {
+    pub fn new(command_id: &str, label: &str, parameters: serde_json::Value) -> Self {
         Self {
             command_id: command_id.to_string(),
+            label: label.to_string(),
             parameters,
         }
     }
 
-    /// Creates a legacy or parameter-less `ConfiguredCommand`.
-    pub fn legacy(command_id: &str) -> Self {
+    /// Creates a legacy or parameter-less `ConfiguredCommand` with a default label.
+    pub fn legacy(command_id: &str, label: &str) -> Self {
         Self {
             command_id: command_id.to_string(),
+            label: label.to_string(),
             parameters: serde_json::Value::Object(serde_json::Map::new()),
         }
     }
@@ -41,7 +47,10 @@ impl<'de> Deserialize<'de> for ConfiguredCommand {
         enum Helper {
             Legacy(String),
             New {
+                #[serde(rename = "command", alias = "command_id")]
                 command_id: String,
+                #[serde(default)]
+                label: String,
                 #[serde(default = "empty_json_object")]
                 parameters: serde_json::Value,
             },
@@ -54,10 +63,12 @@ impl<'de> Deserialize<'de> for ConfiguredCommand {
         match Helper::deserialize(deserializer)? {
             Helper::Legacy(id) => Ok(ConfiguredCommand {
                 command_id: id,
+                label: String::new(),
                 parameters: empty_json_object(),
             }),
-            Helper::New { command_id, parameters } => Ok(ConfiguredCommand {
+            Helper::New { command_id, label, parameters } => Ok(ConfiguredCommand {
                 command_id,
+                label,
                 parameters,
             }),
         }

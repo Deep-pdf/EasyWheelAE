@@ -93,6 +93,9 @@ pub struct GeometryState {
     pub highlight_color: String,
     pub default_color: String,
     pub wheel_opacity: f64,
+
+    /// Array of display labels for the active profile sectors.
+    pub sector_labels: Vec<String>,
 }
 
 impl Default for GeometryState {
@@ -111,6 +114,7 @@ impl Default for GeometryState {
             highlight_color: "#FFFFFF33".to_string(),
             default_color: "#FFFFFF11".to_string(),
             wheel_opacity: 0.8,
+            sector_labels: Vec::new(),
         }
     }
 }
@@ -202,6 +206,38 @@ impl GeometryManager {
             in_dead_zone,
         );
 
+        let exe = crate::foreground_application::ForegroundApplicationService::get_executable();
+        let exe_lower = exe.to_ascii_lowercase();
+
+        let matched_profile = config.profiles
+            .iter()
+            .find(|p| {
+                p.executable
+                    .split(',')
+                    .any(|part| part.trim().eq_ignore_ascii_case(&exe_lower))
+            })
+            .or_else(|| {
+                config.profiles.iter().find(|p| {
+                    p.executable.to_ascii_lowercase() == "explorer.exe"
+                })
+            })
+            .unwrap_or(&config.profiles[0]);
+
+        let mut sector_labels = vec![String::new(); sector_count as usize];
+        for i in 0..sector_count {
+            if let Some(cmd) = matched_profile.sector_assignments.get(&i) {
+                if cmd.label.is_empty() {
+                    if let Some(action) = config.action_library.iter().find(|a| a.id == cmd.command_id) {
+                        sector_labels[i as usize] = action.display_name.clone();
+                    } else {
+                        sector_labels[i as usize] = cmd.command_id.clone();
+                    }
+                } else {
+                    sector_labels[i as usize] = cmd.label.clone();
+                }
+            }
+        }
+
         GeometryState {
             origin_x: ptr.origin_x,
             origin_y: ptr.origin_y,
@@ -216,6 +252,7 @@ impl GeometryManager {
             highlight_color: config.global.highlight_color.clone(),
             default_color: config.global.default_color.clone(),
             wheel_opacity: config.global.wheel_opacity,
+            sector_labels,
         }
     }
 }

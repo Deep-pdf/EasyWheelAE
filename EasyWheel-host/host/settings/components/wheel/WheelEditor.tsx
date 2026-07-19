@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { AppConfig, Profile } from '../../types';
+import { getSectorCommand, getCommandDisplayName } from '../../utils/commandHelper';
 
 interface WheelEditorProps {
   config: AppConfig;
@@ -85,31 +86,8 @@ export function WheelEditor({
           const isHovered = hoveredSector === i;
           
           // Action mapping
-          const assignment = profile.sector_assignments[i.toString()];
-          let displayName = '';
-          if (assignment) {
-            if (typeof assignment === 'string') {
-              const action = config.action_library.find((a) => a.id === assignment);
-              displayName = action ? action.display_name : assignment;
-            } else {
-              const action = config.action_library.find((a) => a.id === assignment.command_id);
-              if (action) {
-                displayName = action.display_name;
-              } else {
-                switch (assignment.command_id) {
-                  case 'launch_app': displayName = 'Launch App'; break;
-                  case 'open_website': displayName = 'Open Website'; break;
-                  case 'open_folder': displayName = 'Open Folder'; break;
-                  case 'open_file': displayName = 'Open File'; break;
-                  case 'run_script': displayName = 'Run Script'; break;
-                  case 'send_shortcut': displayName = 'Send Shortcut'; break;
-                  case 'after_effects_command': displayName = 'After Effects'; break;
-                  case 'photoshop_command': displayName = 'Photoshop'; break;
-                  default: displayName = assignment.command_id;
-                }
-              }
-            }
-          }
+          const cmd = getSectorCommand(profile.sector_assignments, i);
+          const displayName = cmd ? getCommandDisplayName(cmd, config) : '';
 
           // Label placement helper
           const labelR = (innerR + outerR) / 2;
@@ -141,17 +119,14 @@ export function WheelEditor({
               {/* Text placement inside slice */}
               {displayName && (
                 <text
-                  x={labelPos.x}
-                  y={labelPos.y}
+                  x={0}
+                  y={0}
                   textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="fill-zinc-300 text-[10px] font-medium pointer-events-none tracking-wide select-none transition-colors duration-150 group-hover:fill-white"
-                  style={{
-                    transformOrigin: `${labelPos.x}px ${labelPos.y}px`,
-                    transform: `rotate(${centre > 90 && centre < 270 ? centre + 180 : centre}deg)`,
-                  }}
+                  dominantBaseline="central"
+                  transform={`translate(${labelPos.x}, ${labelPos.y}) rotate(${centre > 90 && centre < 270 ? centre + 180 : centre})`}
+                  className="fill-zinc-300 text-[10px] font-bold pointer-events-none tracking-wide select-none transition-colors duration-150 group-hover:fill-white"
                 >
-                  {displayName.length > 12 ? `${displayName.substring(0, 10)}...` : displayName}
+                  {displayName.length > 11 ? `${displayName.substring(0, 8)}...` : displayName}
                 </text>
               )}
 
@@ -161,8 +136,8 @@ export function WheelEditor({
                   x={labelPos.x}
                   y={labelPos.y}
                   textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="fill-zinc-600 text-xs font-mono font-medium pointer-events-none"
+                  dominantBaseline="central"
+                  className="fill-zinc-600 text-[9px] pointer-events-none"
                 >
                   {i}
                 </text>

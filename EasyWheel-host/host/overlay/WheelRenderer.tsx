@@ -121,6 +121,9 @@ export interface WheelRendererProps {
   sectorCount?: number;
   highlightColor?: string;
   defaultColor?: string;
+  
+  /** Array of display labels for each sector. */
+  sectorLabels?: string[];
 }
 
 /**
@@ -141,6 +144,7 @@ function WheelRenderer({
   sectorCount = SECTOR_COUNT,
   highlightColor,
   defaultColor,
+  sectorLabels = [],
 }: WheelRendererProps): React.JSX.Element {
   const sectorSpan = 360 / sectorCount;
 
@@ -160,18 +164,38 @@ function WheelRenderer({
         const startAngle = centre - sectorSpan / 2 + SECTOR_GAP;
         const endAngle = centre + sectorSpan / 2 - SECTOR_GAP;
         const isActive = !inDeadZone && sector === i;
+        
+        const labelR = (deadZoneRadius + wheelRadius) / 2;
+        const labelPos = polarToCartesian(cx, cy, labelR, centre);
+        const displayName = sectorLabels[i];
+        
+        let rotation = centre;
+        if (centre > 90 && centre < 270) {
+          rotation = centre + 180;
+        }
 
         return (
-          <path
-            key={i}
-            d={annularSectorPath(cx, cy, deadZoneRadius + 2, wheelRadius, startAngle, endAngle)}
-            className={isActive ? "wheel-sector wheel-sector--active" : "wheel-sector"}
-            style={{
-              fill: isActive
-                ? highlightColor || "rgba(99, 102, 241, 0.88)"
-                : defaultColor || "rgba(12, 12, 22, 0.80)",
-            }}
-          />
+          <g key={i}>
+            <path
+              d={annularSectorPath(cx, cy, deadZoneRadius + 2, wheelRadius, startAngle, endAngle)}
+              className={isActive ? "wheel-sector wheel-sector--active" : "wheel-sector"}
+              style={{
+                fill: isActive
+                  ? highlightColor || "rgba(99, 102, 241, 0.88)"
+                  : defaultColor || "rgba(12, 12, 22, 0.80)",
+              }}
+            />
+            {displayName && (
+              <text
+                x={0}
+                y={0}
+                transform={`translate(${labelPos.x}, ${labelPos.y}) rotate(${rotation})`}
+                className="wheel-sector-label"
+              >
+                {displayName.length > 11 ? `${displayName.substring(0, 8)}...` : displayName}
+              </text>
+            )}
+          </g>
         );
       })}
 

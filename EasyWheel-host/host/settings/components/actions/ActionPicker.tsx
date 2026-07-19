@@ -29,6 +29,86 @@ const COMMAND_TYPES: CommandTypeOption[] = [
   { id: 'photoshop_command', name: 'Photoshop Command', description: 'Trigger built-in Photoshop editor functions.', category: 'Adobe Integration' },
 ];
 
+function generateDefaultLabel(commandId: string, params: Record<string, any>): string {
+  switch (commandId) {
+    case 'launch_app': {
+      if (!params.path) return '';
+      const parts = params.path.split(/[/\\]/);
+      const filename = parts[parts.length - 1];
+      const filenameLower = filename.toLowerCase();
+      if (filenameLower.includes('afterfx.exe')) return 'After Effects';
+      if (filenameLower.includes('chrome.exe')) return 'Google Chrome';
+      if (filenameLower.includes('code.exe')) return 'VS Code';
+      if (filenameLower.includes('photoshop.exe')) return 'Photoshop';
+      if (filenameLower.includes('calc.exe')) return 'Calculator';
+      if (filenameLower.includes('explorer.exe')) return 'Explorer';
+      // Strip extension
+      return filename.replace(/\.[^/.]+$/, '');
+    }
+    case 'open_website': {
+      if (!params.url) return '';
+      try {
+        const urlObj = new URL(params.url.startsWith('http') ? params.url : 'https://' + params.url);
+        return urlObj.hostname.replace('www.', '');
+      } catch {
+        return 'Website';
+      }
+    }
+    case 'open_folder': {
+      if (!params.path) return '';
+      const parts = params.path.split(/[/\\]/);
+      return parts[parts.length - 1] || 'Folder';
+    }
+    case 'open_file': {
+      if (!params.path) return '';
+      const parts = params.path.split(/[/\\]/);
+      return parts[parts.length - 1] || 'File';
+    }
+    case 'run_script': {
+      if (!params.path) return '';
+      const parts = params.path.split(/[/\\]/);
+      return parts[parts.length - 1] || 'Script';
+    }
+    case 'send_shortcut': {
+      if (!params.keys || params.keys.length === 0) return '';
+      return params.keys.map((k: string) => {
+        if (k === 'ControlLeft' || k === 'ControlRight') return 'Ctrl';
+        if (k === 'ShiftLeft' || k === 'ShiftRight') return 'Shift';
+        if (k === 'Alt') return 'Alt';
+        if (k === 'MetaLeft') return 'Win';
+        if (k.startsWith('Key')) return k.substring(3);
+        if (k.startsWith('Num')) return k.substring(3);
+        return k;
+      }).join('+');
+    }
+    case 'after_effects_command': {
+      const cmd = params.command || 'easy_ease';
+      switch (cmd) {
+        case 'easy_ease': return 'Easy Ease';
+        case 'pre_compose': return 'Pre-Compose';
+        case 'trim_paths': return 'Trim Paths';
+        case 'graph_editor': return 'Graph Editor';
+        case 'duplicate_layer': return 'Duplicate';
+        case 'parent': return 'Parent';
+        default: return cmd;
+      }
+    }
+    case 'photoshop_command': {
+      const cmd = params.command || 'brush';
+      switch (cmd) {
+        case 'brush': return 'Brush';
+        case 'eraser': return 'Eraser';
+        case 'gradient': return 'Gradient';
+        case 'crop': return 'Crop';
+        case 'duplicate': return 'Duplicate';
+        default: return cmd;
+      }
+    }
+    default:
+      return '';
+  }
+}
+
 export function ActionPicker({
   isOpen,
   onClose,
@@ -37,6 +117,10 @@ export function ActionPicker({
 }: ActionPickerProps): React.JSX.Element {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Label configuration states
+  const [customLabel, setCustomLabel] = useState('');
+  const [isLabelCustomized, setIsLabelCustomized] = useState(false);
 
   // Parameter states
   const [launchPath, setLaunchPath] = useState('');
@@ -63,35 +147,39 @@ export function ActionPicker({
   useEffect(() => {
     if (isOpen) {
       if (currentCommand) {
-        setSelectedType(currentCommand.command_id);
+        setSelectedType(currentCommand.command);
+        setCustomLabel(currentCommand.label || '');
+        setIsLabelCustomized(!!currentCommand.label);
         const p = currentCommand.parameters || {};
         
         // Populate inputs based on type
-        if (currentCommand.command_id === 'launch_app') {
+        if (currentCommand.command === 'launch_app') {
           setLaunchPath(p.path || '');
           setLaunchArgs(p.arguments || '');
           setLaunchDir(p.working_directory || '');
           setLaunchAdmin(p.run_as_admin || false);
-        } else if (currentCommand.command_id === 'open_website') {
+        } else if (currentCommand.command === 'open_website') {
           setWebUrl(p.url || '');
           setWebBrowser(p.browser || 'default');
-        } else if (currentCommand.command_id === 'open_folder') {
+        } else if (currentCommand.command === 'open_folder') {
           setFolderPath(p.path || '');
-        } else if (currentCommand.command_id === 'open_file') {
+        } else if (currentCommand.command === 'open_file') {
           setFilePath(p.path || '');
-        } else if (currentCommand.command_id === 'run_script') {
+        } else if (currentCommand.command === 'run_script') {
           setScriptPath(p.path || '');
           setScriptArgs(p.arguments || '');
-        } else if (currentCommand.command_id === 'send_shortcut') {
+        } else if (currentCommand.command === 'send_shortcut') {
           setShortcutKeys(p.keys || []);
-        } else if (currentCommand.command_id === 'after_effects_command') {
+        } else if (currentCommand.command === 'after_effects_command') {
           setAeCommand(p.command || 'easy_ease');
-        } else if (currentCommand.command_id === 'photoshop_command') {
+        } else if (currentCommand.command === 'photoshop_command') {
           setPsCommand(p.command || 'brush');
         }
       } else {
         setSelectedType(null);
         setErrorMsg(null);
+        setCustomLabel('');
+        setIsLabelCustomized(false);
         resetStates();
       }
     }
@@ -114,6 +202,39 @@ export function ActionPicker({
     setPsCommand('brush');
     setErrorMsg(null);
   };
+
+  // Helper to compute dynamic default label
+  const computeDefaultLabel = () => {
+    if (!selectedType) return '';
+    let params: Record<string, any> = {};
+    if (selectedType === 'launch_app') params = { path: launchPath };
+    else if (selectedType === 'open_website') params = { url: webUrl };
+    else if (selectedType === 'open_folder') params = { path: folderPath };
+    else if (selectedType === 'open_file') params = { path: filePath };
+    else if (selectedType === 'run_script') params = { path: scriptPath };
+    else if (selectedType === 'send_shortcut') params = { keys: shortcutKeys };
+    else if (selectedType === 'after_effects_command') params = { command: aeCommand };
+    else if (selectedType === 'photoshop_command') params = { command: psCommand };
+    return generateDefaultLabel(selectedType, params);
+  };
+
+  // Automatically update the display label if the user has not overridden it
+  useEffect(() => {
+    if (!isLabelCustomized && selectedType) {
+      setCustomLabel(computeDefaultLabel());
+    }
+  }, [
+    selectedType,
+    launchPath,
+    webUrl,
+    folderPath,
+    filePath,
+    scriptPath,
+    shortcutKeys,
+    aeCommand,
+    psCommand,
+    isLabelCustomized
+  ]);
 
   // Browse click handlers invoking native Tauri file dialogs
   const handleBrowseExecutable = async () => {
@@ -258,8 +379,11 @@ export function ActionPicker({
         break;
     }
 
+    const finalLabel = customLabel.trim() || computeDefaultLabel();
+
     onSelectCommand({
-      command_id: selectedType,
+      command: selectedType,
+      label: finalLabel,
       parameters,
     });
     onClose();
@@ -309,6 +433,22 @@ export function ActionPicker({
         ) : (
           /* View 2: Parameter Editor */
           <div className="flex flex-col gap-4">
+            
+            {/* Customizable Display Label Input */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-zinc-400 font-medium">Display Label</label>
+              <input
+                type="text"
+                value={customLabel}
+                onChange={(e) => {
+                  setCustomLabel(e.target.value);
+                  setIsLabelCustomized(true);
+                }}
+                placeholder="Enter custom label..."
+                className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary"
+              />
+            </div>
+
             {selectedType === 'launch_app' && (
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">

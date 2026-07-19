@@ -104,3 +104,15 @@ body,
 .wheel-center-dot {
   fill: rgba(255, 255, 255, 0.70);
 }
+
+/* Sector labels — clean typography, centered. */
+.wheel-sector-label {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  fill: #f4f4f5;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  user-select: none;
+}

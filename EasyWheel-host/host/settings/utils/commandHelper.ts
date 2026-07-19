@@ -11,13 +11,14 @@ export function getSectorCommand(
   const val = sectorAssignments[sector.toString()];
   if (!val) return null;
   if (typeof val === 'string') {
-    return { command_id: val, parameters: {} };
+    return { command: val, label: '', parameters: {} };
   }
   return val;
 }
 
 /**
  * Computes a human-readable display name for any command/action.
+ * Always prioritises the custom label if set.
  */
 export function getCommandDisplayName(
   cmd: ConfiguredCommand | null,
@@ -25,11 +26,15 @@ export function getCommandDisplayName(
 ): string {
   if (!cmd) return 'Unassigned';
   
+  if (cmd.label && cmd.label.trim()) {
+    return cmd.label;
+  }
+  
   // Try looking it up in the action library first
-  const legacy = config.action_library.find((a) => a.id === cmd.command_id);
+  const legacy = config.action_library.find((a) => a.id === cmd.command);
   if (legacy) return legacy.display_name;
 
-  switch (cmd.command_id) {
+  switch (cmd.command) {
     case 'launch_app': return 'Launch Application';
     case 'open_website': return 'Open Website';
     case 'open_folder': return 'Open Folder';
@@ -38,7 +43,7 @@ export function getCommandDisplayName(
     case 'send_shortcut': return 'Send Shortcut';
     case 'after_effects_command': return 'After Effects Command';
     case 'photoshop_command': return 'Photoshop Command';
-    default: return cmd.command_id;
+    default: return cmd.command;
   }
 }
 
@@ -51,11 +56,11 @@ export function getCommandDescription(
 ): string {
   if (!cmd) return 'No command assigned to this sector.';
   
-  const legacy = config.action_library.find((a) => a.id === cmd.command_id);
+  const legacy = config.action_library.find((a) => a.id === cmd.command);
   if (legacy) return legacy.description;
 
   const p = cmd.parameters || {};
-  switch (cmd.command_id) {
+  switch (cmd.command) {
     case 'launch_app':
       return `Launch: ${p.path || 'Not Configured'} ${p.arguments || ''}`;
     case 'open_website':
