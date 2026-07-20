@@ -17,6 +17,21 @@ The two applications are intentionally decoupled. EasyWheel Host never imports A
 
 ---
 
+## Core Features (Host Application)
+
+- **System Tray & Global Hotkeys**: Runs as a background service with a tray icon. Intercepts custom hotkeys via a global keyboard hook to trigger the overlay instantly.
+- **Dynamic Radial Overlay**: Shows a transparent, hardware-accelerated radial command wheel centered on the mouse cursor with smooth CSS transitions.
+- **Context-Aware Profiles**: Detects active foreground applications and automatically switches the active radial layout profile.
+- **Extensible Action Providers**:
+  - **Windows Provider**: Launch applications, trigger keyboard shortcuts, run shell scripts, open folders/URLs.
+  - **Adobe Providers**: Out-of-the-box hooks for After Effects and Photoshop commands.
+- **Premium Settings Panel**: A comprehensive dashboard featuring:
+  - **General Settings**: App startup, tray controls, and hotkey configuration.
+  - **Appearance Settings**: Custom HSL color theme pickers, sizes, and radius fine-tuning.
+  - **Profile Management**: Sector assignments, action bindings, and custom profiles.
+
+---
+
 ## Repository Structure
 
 ```
@@ -75,7 +90,7 @@ EasyWheelAE/
 │   ├── tsconfig.node.json        # TypeScript config for Vite config file
 │   └── vite.config.ts            # Vite bundler configuration
 │
-└── EasyWheel-ae/                 # Adobe extension (Phase 3+, not started)
+└── EasyWheel-ae/                 # Adobe extension (Phase 4+, not started)
 ```
 
 ---
@@ -139,11 +154,11 @@ npx tsc --noEmit
 | Phase | Status | Scope |
 |---|---|---|
 | **Phase 1** | ✅ Complete | Clean production foundation — project structure, architecture, scaffolding |
-| **Phase 2** | 🔲 Planned | System tray, global hotkey, overlay window, mouse tracking |
-| **Phase 3** | 🔲 Planned | Radial wheel UI, slice rendering, action dispatch |
-| **Phase 4** | 🔲 Planned | EasyWheel AE extension, IPC integration with After Effects |
-| **Phase 5** | 🔲 Planned | Settings UI, persistent configuration, launch-on-startup |
-| **Phase 6** | 🔲 Planned | Installer, code signing, release packaging |
+| **Phase 2** | ✅ Complete | System tray, global hotkey, overlay window, mouse tracking |
+| **Phase 3** | ✅ Complete | Radial wheel UI, slice rendering, action dispatch |
+| **Phase 4** | 🔲 Planned  | EasyWheel AE extension, IPC integration with After Effects |
+| **Phase 5** | ✅ Complete | Settings UI, persistent configuration, profile and layout managers |
+| **Phase 6** | 🔲 Planned  | Installer, code signing, release packaging |
 
 ---
 
