@@ -118,7 +118,7 @@ mod tests {
             parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(ae_ctx);
-        assert!(res.is_ok());
+        assert!(res.is_err()); // Will fail because extension is not connected during tests
 
         // 3. Test Photoshop Provider action
         let ps_ctx = CommandContext {

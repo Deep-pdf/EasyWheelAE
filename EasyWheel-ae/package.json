@@ -1,0 +1,14 @@
+{
+  "name": "easywheel-ae",
+  "version": "1.0.0",
+  "description": "After Effects Extension for EasyWheelAE",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

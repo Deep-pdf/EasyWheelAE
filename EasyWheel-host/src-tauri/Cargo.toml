@@ -39,4 +39,6 @@ winapi = { version = "0.3", features = [
     "tlhelp32",
     "minwindef",
     "shellapi",
+    "sysinfoapi",
+    "minwinbase",
 ] }

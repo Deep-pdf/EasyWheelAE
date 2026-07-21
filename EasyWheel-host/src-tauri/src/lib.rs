@@ -17,6 +17,8 @@ mod window_manager;
 mod command_dispatcher;
 mod provider_registry;
 mod providers;
+mod ae_bridge;
+mod ipc;
 
 // `Manager` must be explicitly imported for `app.manage()` to resolve.
 use tauri::Manager;
@@ -54,6 +56,9 @@ pub fn run() {
 
             // Register default command execution providers.
             providers::register_defaults();
+
+            // Start After Effects communication bridge.
+            ae_bridge::AEBridge::start();
 
             // Step 3 — Intercept window close events.
             window_manager::WindowManager::register_close_handler(&handle);
