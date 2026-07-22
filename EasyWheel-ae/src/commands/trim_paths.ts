@@ -1,4 +1,5 @@
-import { Command } from '../command_registry';
+import { Command } from '../bridge/registry';
+import { Logger } from '../bridge/logger';
 
 /**
  * Placeholder implementation of trim_paths command.
@@ -6,7 +7,7 @@ import { Command } from '../command_registry';
 export const trimPathsCommand: Command = {
   id: 'trim_paths',
   execute: async (_parameters: any, _profile: string) => {
-    console.log('Received trim_paths');
+    Logger.info('trim_paths', 'Received trim_paths');
     return {
       success: true,
       message: 'trim_paths executed successfully.'

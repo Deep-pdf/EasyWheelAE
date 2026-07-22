@@ -1,13 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.preComposeCommand = void 0;
+const logger_1 = require("../bridge/logger");
 /**
  * Placeholder implementation of pre_compose command.
  */
 exports.preComposeCommand = {
     id: 'pre_compose',
     execute: async (_parameters, _profile) => {
-        console.log('Received pre_compose');
+        logger_1.Logger.info('pre_compose', 'Received pre_compose');
         return {
             success: true,
             message: 'pre_compose executed successfully.'

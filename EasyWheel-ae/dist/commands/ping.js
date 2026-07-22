@@ -9,7 +9,7 @@ exports.pingCommand = {
     execute: async (_parameters, _profile) => {
         return {
             success: true,
-            message: 'AE Bridge Alive'
+            message: 'Bridge Alive'
         };
     }
 };

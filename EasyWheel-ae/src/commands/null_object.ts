@@ -1,4 +1,5 @@
-import { Command } from '../command_registry';
+import { Command } from '../bridge/registry';
+import { Logger } from '../bridge/logger';
 
 /**
  * Placeholder implementation of null_object command.
@@ -6,7 +7,7 @@ import { Command } from '../command_registry';
 export const nullObjectCommand: Command = {
   id: 'null_object',
   execute: async (_parameters: any, _profile: string) => {
-    console.log('Received null_object');
+    Logger.info('null_object', 'Received null_object');
     return {
       success: true,
       message: 'null_object executed successfully.'

@@ -1,4 +1,4 @@
-import { Command } from '../command_registry';
+import { Command } from '../bridge/registry';
 
 /**
  * Implementation of the echo command, returning the received payload parameters for debugging.

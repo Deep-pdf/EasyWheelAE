@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const command_registry_1 = require("./command_registry");
-const connection_1 = require("./connection");
+const registry_1 = require("./bridge/registry");
+const connection_manager_1 = require("./bridge/connection_manager");
 const easy_ease_1 = require("./commands/easy_ease");
 const pre_compose_1 = require("./commands/pre_compose");
 const trim_paths_1 = require("./commands/trim_paths");
@@ -10,16 +10,16 @@ const duplicate_layer_1 = require("./commands/duplicate_layer");
 const null_object_1 = require("./commands/null_object");
 const ping_1 = require("./commands/ping");
 const echo_1 = require("./commands/echo");
-// 1. Register all commands
-command_registry_1.CommandRegistry.register(ping_1.pingCommand);
-command_registry_1.CommandRegistry.register(echo_1.echoCommand);
-command_registry_1.CommandRegistry.register(easy_ease_1.easyEaseCommand);
-command_registry_1.CommandRegistry.register(pre_compose_1.preComposeCommand);
-command_registry_1.CommandRegistry.register(trim_paths_1.trimPathsCommand);
-command_registry_1.CommandRegistry.register(graph_editor_1.graphEditorCommand);
-command_registry_1.CommandRegistry.register(duplicate_layer_1.duplicateLayerCommand);
-command_registry_1.CommandRegistry.register(null_object_1.nullObjectCommand);
-// 2. Start connection manager
-const connectionManager = new connection_1.AEConnectionManager();
-connectionManager.start();
-console.log('[EasyWheelAE] Extension initialized.');
+const logger_1 = require("./bridge/logger");
+// 1. Register all placeholder commands
+registry_1.CommandRegistry.register(ping_1.pingCommand);
+registry_1.CommandRegistry.register(echo_1.echoCommand);
+registry_1.CommandRegistry.register(easy_ease_1.easyEaseCommand);
+registry_1.CommandRegistry.register(pre_compose_1.preComposeCommand);
+registry_1.CommandRegistry.register(trim_paths_1.trimPathsCommand);
+registry_1.CommandRegistry.register(graph_editor_1.graphEditorCommand);
+registry_1.CommandRegistry.register(duplicate_layer_1.duplicateLayerCommand);
+registry_1.CommandRegistry.register(null_object_1.nullObjectCommand);
+// 2. Boot connection manager
+connection_manager_1.connectionManager.start();
+logger_1.Logger.info('Main', 'EasyWheelAE Extension initialized.');

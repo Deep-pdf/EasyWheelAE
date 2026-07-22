@@ -1,4 +1,5 @@
-import { Command } from '../command_registry';
+import { Command } from '../bridge/registry';
+import { Logger } from '../bridge/logger';
 
 /**
  * Placeholder implementation of duplicate_layer command.
@@ -6,7 +7,7 @@ import { Command } from '../command_registry';
 export const duplicateLayerCommand: Command = {
   id: 'duplicate_layer',
   execute: async (_parameters: any, _profile: string) => {
-    console.log('Received duplicate_layer');
+    Logger.info('duplicate_layer', 'Received duplicate_layer');
     return {
       success: true,
       message: 'duplicate_layer executed successfully.'
