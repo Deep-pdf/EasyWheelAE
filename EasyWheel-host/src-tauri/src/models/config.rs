@@ -55,6 +55,9 @@ fn default_adobe_port() -> u16 { 23435 }
 fn default_adobe_timeout() -> u64 { 2000 }
 fn default_adobe_retry_interval() -> u64 { 5000 }
 fn default_adobe_max_retries() -> u32 { 5 }
+fn default_adobe_enabled() -> bool { true }
+fn default_adobe_heartbeat_interval() -> u64 { 5000 }
+fn default_adobe_max_queue_size() -> usize { 100 }
 
 /// Global, application-wide settings.
 ///
@@ -95,6 +98,11 @@ pub struct GlobalSettings {
     /// Opacity of the wheel overlay (0.0 to 1.0).
     pub wheel_opacity: f64,
 
+    /// Whether After Effects bridge is enabled.
+    /// Default: true
+    #[serde(default = "default_adobe_enabled")]
+    pub adobe_enabled: bool,
+
     /// TCP Port to connect to the Adobe After Effects extension.
     /// Default: 23435
     #[serde(default = "default_adobe_port")]
@@ -110,10 +118,20 @@ pub struct GlobalSettings {
     #[serde(default = "default_adobe_retry_interval")]
     pub adobe_retry_interval_ms: u64,
 
+    /// Heartbeat interval in milliseconds.
+    /// Default: 5000
+    #[serde(default = "default_adobe_heartbeat_interval")]
+    pub adobe_heartbeat_interval_ms: u64,
+
     /// Maximum connection retries.
     /// Default: 5
     #[serde(default = "default_adobe_max_retries")]
     pub adobe_max_retries: u32,
+
+    /// Maximum queue size for outgoing requests when disconnected.
+    /// Default: 100
+    #[serde(default = "default_adobe_max_queue_size")]
+    pub adobe_max_queue_size: usize,
 }
 
 impl Default for AppConfig {
@@ -136,10 +154,13 @@ impl Default for AppConfig {
             highlight_color: "#FFFFFF33".to_string(),
             default_color: "#FFFFFF11".to_string(),
             wheel_opacity: 0.8,
+            adobe_enabled: true,
             adobe_port: 23435,
             adobe_timeout_ms: 2000,
             adobe_retry_interval_ms: 5000,
+            adobe_heartbeat_interval_ms: 5000,
             adobe_max_retries: 5,
+            adobe_max_queue_size: 100,
         };
 
         // -----------------------------------------------------------------------

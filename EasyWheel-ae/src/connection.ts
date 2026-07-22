@@ -1,92 +1,105 @@
-import * as net from 'net';
+import * as fs from 'fs';
+import * as path from 'path';
+import { WebSocketServer, WebSocket } from 'ws';
 import { CommandHandler } from './command_handler';
 
 /**
- * Manages the TCP Server socket connection inside the After Effects CEP extension.
+ * Manages the WebSocket Server connection inside the After Effects CEP extension.
  */
 export class AEConnectionManager {
-  private server: net.Server | null = null;
-  private activeSockets = new Set<net.Socket>();
-  private port: number;
+  private wss: WebSocketServer | null = null;
+  private activeSockets = new Set<WebSocket>();
 
-  constructor(port: number = 23435) {
-    this.port = port;
+  constructor() {}
+
+  /**
+   * Reads the global config file to resolve the configured port.
+   * Fallback to default 23435 if not found.
+   */
+  private getConfigPort(): number {
+    try {
+      const appData = process.env.APPDATA;
+      if (!appData) {
+        return 23435;
+      }
+      
+      const configPath = path.join(appData, 'EasyWheelAE', 'easywheel.json');
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(content);
+        if (config && config.global && typeof config.global.adobePort === 'number') {
+          return config.global.adobePort;
+        }
+      }
+    } catch (e) {
+      console.error('[AEConnectionManager] Error reading config port:', e);
+    }
+    return 23435;
   }
 
   /**
-   * Starts the TCP server listening for incoming connections from the Host.
+   * Starts the WebSocket server listening on the configured port.
    */
   public start() {
-    if (this.server) {
+    if (this.wss) {
       console.warn('[AEConnectionManager] Server is already running.');
       return;
     }
 
-    // Resolve node net module dynamically for CEP compatibility
-    const netModule = typeof window !== 'undefined' && (window as any).require
-      ? (window as any).require('net')
-      : require('net');
+    const port = this.getConfigPort();
 
-    this.server = netModule.createServer((socket: net.Socket) => {
-      console.log(`[AEConnectionManager] Connection Established: ${socket.remoteAddress}:${socket.remotePort}`);
-      this.activeSockets.add(socket);
+    this.wss = new WebSocketServer({ port, host: '127.0.0.1' });
 
-      let buffer = '';
+    this.wss.on('connection', (ws: WebSocket) => {
+      console.log('[AEConnectionManager] Client Connected');
+      this.activeSockets.add(ws);
 
-      socket.on('data', async (data) => {
-        buffer += data.toString('utf8');
-        let boundary = buffer.indexOf('\n');
+      ws.on('message', async (data) => {
+        const messageStr = data.toString('utf8');
         
-        while (boundary !== -1) {
-          const line = buffer.substring(0, boundary).trim();
-          buffer = buffer.substring(boundary + 1);
-          
-          if (line) {
-            const response = await CommandHandler.handle(line);
-            const payload = JSON.stringify(response) + '\n';
-            if (!socket.destroyed) {
-              socket.write(payload, 'utf8');
-            }
-          }
-          boundary = buffer.indexOf('\n');
+        const response = await CommandHandler.handle(messageStr);
+        const payload = JSON.stringify(response);
+        
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(payload);
         }
       });
 
-      socket.on('close', () => {
-        console.log('[AEConnectionManager] Client disconnected.');
-        this.activeSockets.delete(socket);
+      ws.on('close', () => {
+        console.log('[AEConnectionManager] Client Disconnected');
+        this.activeSockets.delete(ws);
       });
 
-      socket.on('error', (err) => {
+      ws.on('error', (err) => {
         console.error('[AEConnectionManager] Socket error:', err);
-        this.activeSockets.delete(socket);
+        this.activeSockets.delete(ws);
       });
     });
 
-    this.server!.on('error', (err: any) => {
+    this.wss.on('error', (err: any) => {
       console.error('[AEConnectionManager] Server error:', err);
       this.stop();
     });
 
-    this.server!.listen(this.port, '127.0.0.1', () => {
-      console.log(`[AEConnectionManager] Server listening on 127.0.0.1:${this.port}`);
-    });
+    console.log(`[AEConnectionManager] WebSocket Server listening on 127.0.0.1:${port}`);
   }
 
   /**
-   * Stops the TCP server and closes all active client sockets.
+   * Stops the server and closes all active sockets.
    */
   public stop() {
-    for (const socket of this.activeSockets) {
-      socket.destroy();
+    for (const ws of this.activeSockets) {
+      try {
+        ws.close();
+      } catch (e) {}
     }
     this.activeSockets.clear();
 
-    if (this.server) {
-      this.server.close(() => {
+    if (this.wss) {
+      this.wss.close(() => {
         console.log('[AEConnectionManager] Server stopped.');
       });
-      this.server = null;
+      this.wss = null;
     }
   }
 }

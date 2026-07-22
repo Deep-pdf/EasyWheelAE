@@ -21,6 +21,7 @@ class CommandHandler {
             // 1. Protocol Validation
             if (request.version !== 1) {
                 return {
+                    version: 1,
                     requestId,
                     success: false,
                     errorCode: 'unsupported_protocol_version',
@@ -31,6 +32,7 @@ class CommandHandler {
             // 2. Format Validation
             if (!request.command) {
                 return {
+                    version: 1,
                     requestId,
                     success: false,
                     errorCode: 'malformed_request',
@@ -43,6 +45,7 @@ class CommandHandler {
             if (!command) {
                 console.error(`[CommandHandler] Unknown Command: ${request.command}`);
                 return {
+                    version: 1,
                     requestId,
                     success: false,
                     errorCode: 'unknown_command',
@@ -55,6 +58,7 @@ class CommandHandler {
             const result = await command.execute(request.parameters || {}, request.profile || '');
             console.log(`[CommandHandler] Command Executed: ${request.command} (Success: ${result.success})`);
             return {
+                version: 1,
                 requestId,
                 success: result.success,
                 errorCode: result.errorCode,
@@ -65,6 +69,7 @@ class CommandHandler {
         catch (error) {
             console.error('[CommandHandler] Error processing request:', error);
             return {
+                version: 1,
                 requestId,
                 success: false,
                 errorCode: 'internal_error',

@@ -14,6 +14,7 @@ export interface CommandRequest {
  * Represents a command response sent back to the EasyWheel Host.
  */
 export interface CommandResponse {
+  version: number;
   requestId: string;
   success: boolean;
   errorCode?: string;

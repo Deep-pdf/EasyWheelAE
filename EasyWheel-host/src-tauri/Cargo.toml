@@ -28,6 +28,8 @@ rdev = "0.5"
 dirs = "5"
 # `rfd` provides native file/folder picker dialogs.
 rfd = "0.15"
+# WebSocket library
+tungstenite = "0.21.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # `winapi` provides Win32 bindings for window, processes, and shell operations.

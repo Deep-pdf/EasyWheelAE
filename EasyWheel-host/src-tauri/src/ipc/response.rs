@@ -4,6 +4,9 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandResponse {
+    /// Protocol version.
+    pub version: u32,
+
     /// Unique identifier matching the request ID.
     pub request_id: String,
 

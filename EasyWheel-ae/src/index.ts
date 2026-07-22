@@ -7,7 +7,12 @@ import { graphEditorCommand } from './commands/graph_editor';
 import { duplicateLayerCommand } from './commands/duplicate_layer';
 import { nullObjectCommand } from './commands/null_object';
 
+import { pingCommand } from './commands/ping';
+import { echoCommand } from './commands/echo';
+
 // 1. Register all commands
+CommandRegistry.register(pingCommand);
+CommandRegistry.register(echoCommand);
 CommandRegistry.register(easyEaseCommand);
 CommandRegistry.register(preComposeCommand);
 CommandRegistry.register(trimPathsCommand);
@@ -16,7 +21,7 @@ CommandRegistry.register(duplicateLayerCommand);
 CommandRegistry.register(nullObjectCommand);
 
 // 2. Start connection manager
-const connectionManager = new AEConnectionManager(23435);
+const connectionManager = new AEConnectionManager();
 connectionManager.start();
 
 console.log('[EasyWheelAE] Extension initialized.');

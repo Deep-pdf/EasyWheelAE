@@ -118,7 +118,11 @@ mod tests {
             parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(ae_ctx);
-        assert!(res.is_err()); // Will fail because extension is not connected during tests
+        if crate::ae_bridge::AEBridge::global().is_connected() {
+            assert!(res.is_ok());
+        } else {
+            assert!(res.is_err());
+        }
 
         // 3. Test Photoshop Provider action
         let ps_ctx = CommandContext {
