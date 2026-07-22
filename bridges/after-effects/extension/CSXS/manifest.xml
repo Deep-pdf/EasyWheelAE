@@ -1,65 +1,61 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.easywheel.ae" ExtensionBundleVersion="1.0.0"
-    ExtensionBundleName="EasyWheelAE"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="http://www.adobe.com/schema/manifest/manifest.7.0.xsd">
-    <AuthorList>
-        <Author>EasyWheel Team</Author>
-    </AuthorList>
-    <ExtensionList>
-        <Extension Id="com.easywheel.ae" Version="1.0.0" />
-    </ExtensionList>
-    <ExecutionEnvironment>
-        <HostList>
-            <!-- After Effects (AEFT) support starting from version 16.0 onwards (covering After Effects 2021, 2023, etc.) -->
-            <Host Name="AEFT" Version="[16.0,99.9]" />
-        </HostList>
-        <LocaleList>
-            <Locale Code="All" />
-        </LocaleList>
-        <RequiredRuntimeList>
-            <RequiredRuntime Name="CSXS" Version="9.0" />
-        </RequiredRuntimeList>
-    </ExecutionEnvironment>
-    <DispatchInfoList>
-        <Extension Id="com.easywheel.ae">
-            <DispatchInfo>
-                <Resources>
-                    <MainPath>client/index.html</MainPath>
-                    <ScriptPath>jsx/bootstrap.jsx</ScriptPath>
-                    <CEFCommandLine>
-                        <Parameter>--enable-nodejs</Parameter>
-                        <Parameter>--mixed-context</Parameter>
-                    </CEFCommandLine>
-                </Resources>
-                <Lifecycle>
-                    <AutoVisible>true</AutoVisible>
-                </Lifecycle>
-                <UI>
-                    <Type>Panel</Type>
-                    <Menu>EasyWheelAE</Menu>
-                    <Geometry>
-                        <Size>
-                            <Width>280</Width>
-                            <Height>350</Height>
-                        </Size>
-                        <MinSize>
-                            <Width>200</Width>
-                            <Height>200</Height>
-                        </MinSize>
-                        <MaxSize>
-                            <Width>800</Width>
-                            <Height>800</Height>
-                        </MaxSize>
-                    </Geometry>
-                    <Icons>
-                        <Icon Type="Normal">icons/icon-normal.png</Icon>
-                        <Icon Type="RollOver">icons/icon-normal.png</Icon>
-                        <Icon Type="DarkNormal">icons/icon-normal.png</Icon>
-                        <Icon Type="DarkRollOver">icons/icon-normal.png</Icon>
-                    </Icons>
-                </UI>
-            </DispatchInfo>
-        </Extension>
-    </DispatchInfoList>
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<ExtensionManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	Version="5.0"
+	ExtensionBundleId="com.easywheel.ae"
+	ExtensionBundleVersion="1.0.0"
+	ExtensionBundleName="EasyWheelAE">
+
+	<ExtensionList>
+		<Extension Id="com.easywheel.ae" Version="1.0.0" />
+	</ExtensionList>
+
+	<ExecutionEnvironment>
+		<HostList>
+			<!-- v17.5 -->
+			<!-- AE release: October 20, 2020 -->
+			<!-- CEP version: 10.0.0 -->
+			<!-- Chromium: 74.0.3729.157 -->
+			<Host Name="AEFT" Version="[17.5,99.9]" />
+		</HostList>
+		<LocaleList>
+			<Locale Code="All"/>
+		</LocaleList>
+		<RequiredRuntimeList>
+			<RequiredRuntime Name="CSXS" Version="6.0"/>
+		</RequiredRuntimeList>
+	</ExecutionEnvironment>
+
+	<DispatchInfoList>
+		<Extension Id="com.easywheel.ae">
+			<DispatchInfo>
+				<Resources>
+					<MainPath>./client/index.html</MainPath>
+					<ScriptPath>./jsx/bootstrap.jsx</ScriptPath>
+					<CEFCommandLine>
+						<Parameter>--enable-nodejs</Parameter>
+						<Parameter>--allow-file-access-from-files</Parameter>
+						<Parameter>--allow-file-access</Parameter>
+						<Parameter>--mixed-context</Parameter>
+					</CEFCommandLine>
+				</Resources>
+				<Lifecycle>
+					<AutoVisible>true</AutoVisible>
+				</Lifecycle>
+				<UI>
+					<Type>Panel</Type>
+					<Menu>EasyWheelAE</Menu>
+					<Geometry>
+						<Size>
+							<Height>974</Height>
+							<Width>221</Width>
+						</Size>
+						<MinSize>
+							<Height>517</Height>
+							<Width>221</Width>
+						</MinSize>
+					</Geometry>
+				</UI>
+			</DispatchInfo>
+		</Extension>
+	</DispatchInfoList>
 </ExtensionManifest>
