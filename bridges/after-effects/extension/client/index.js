@@ -57,8 +57,15 @@ document.addEventListener('DOMContentLoaded', () => {
       statusText.textContent = 'Waiting for bridge host connection...';
     }
 
-    // 2. Initialize bridge runtime (Placeholder)
-    log('Main', 'Bridge Placeholder Initialized');
+    // 2. Initialize bridge runtime
+    try {
+      log('Main', 'Loading bridge client runtime...');
+      require('./dist/index.js');
+      log('Main', 'Bridge client runtime loaded.');
+    } catch (e) {
+      log('Main', 'Failed to load bridge client runtime: ' + e.message, 'error');
+      console.error(e);
+    }
 
     // 3. Verify ExtendScript bridge availability
     window.__adobe_cep__.evalScript('getExtensionInfo()', (res) => {

@@ -3,7 +3,7 @@ use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, RecvTimeoutError};
 use std::time::Duration;
-use tungstenite::{WebSocket, Message, stream::MaybeTlsStream};
+use tungstenite::{WebSocket, Message};
 use serde_json;
 
 use crate::ipc::{CommandRequest, CommandResponse};
@@ -11,10 +11,15 @@ use crate::config_manager::ConfigManager;
 use super::request_queue::RequestQueue;
 use super::bridge_status::{BridgeStatusTracker, BridgeStatus};
 
-/// Handles WebSocket messaging client behavior: sending commands, matching incoming
+/// Represents an active WebSocket client connection.
+pub struct ActiveClient {
+    pub ws: Arc<Mutex<WebSocket<TcpStream>>>,
+}
+
+/// Handles WebSocket messaging server behavior: sending commands, matching incoming
 /// responses with pending request channels, and managing the request queue.
 pub struct AEBridgeClient {
-    pub ws: Arc<Mutex<Option<WebSocket<MaybeTlsStream<TcpStream>>>>>,
+    pub active_clients: Arc<Mutex<Vec<ActiveClient>>>,
     pending_requests: Arc<Mutex<HashMap<String, Sender<CommandResponse>>>>,
     queue: Arc<RequestQueue>,
     status: BridgeStatusTracker,
@@ -24,22 +29,31 @@ impl AEBridgeClient {
     /// Creates a new `AEBridgeClient` instance.
     pub fn new(status: BridgeStatusTracker, queue: Arc<RequestQueue>) -> Self {
         Self {
-            ws: Arc::new(Mutex::new(None)),
+            active_clients: Arc::new(Mutex::new(Vec::new())),
             pending_requests: Arc::new(Mutex::new(HashMap::new())),
             queue,
             status,
         }
     }
 
-    /// Stores the active WebSocket connection or clears it.
-    pub fn set_socket(&self, ws: Option<WebSocket<MaybeTlsStream<TcpStream>>>) {
-        let mut guard = self.ws.lock().unwrap_or_else(|e| e.into_inner());
-        *guard = ws;
+    /// Adds an active client connection and returns the thread-safe websocket wrapper.
+    pub fn add_client(&self, ws: WebSocket<TcpStream>) -> Arc<Mutex<WebSocket<TcpStream>>> {
+        let ws_shared = Arc::new(Mutex::new(ws));
+        let mut clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
+        clients.push(ActiveClient { ws: ws_shared.clone() });
+        ws_shared
+    }
+
+    /// Removes an active client connection by reference.
+    pub fn remove_client(&self, ws_shared: &Arc<Mutex<WebSocket<TcpStream>>>) {
+        let mut clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
+        clients.retain(|c| !Arc::ptr_eq(&c.ws, ws_shared));
     }
 
     /// Checks if the client is currently connected.
     pub fn is_connected(&self) -> bool {
-        self.status.get() == BridgeStatus::Connected
+        let clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
+        !clients.is_empty()
     }
 
     /// Sends a command request.
@@ -96,14 +110,39 @@ impl AEBridgeClient {
                     format!("Serialization error: {}", e)
                 })?;
 
-            println!("[AEBridge] Info: Request Sent: {} (ID: {})", command, req_id);
+            // Required Logging:
+            // [AEBridge]
+            // Sent:
+            // ...
+            println!("[AEBridge]\nSent:\n{}", payload);
             
             let send_result = {
-                let mut guard = self.ws.lock().unwrap_or_else(|e| e.into_inner());
-                if let Some(ref mut ws) = *guard {
-                    ws.write(Message::Text(payload)).and_then(|_| ws.flush())
+                let mut clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
+                let mut failed_clients = Vec::new();
+                let mut last_err = None;
+                
+                for (idx, client) in clients.iter().enumerate() {
+                    let mut ws_guard = client.ws.lock().unwrap_or_else(|e| e.into_inner());
+                    match ws_guard.write(Message::Text(payload.clone())).and_then(|_| ws_guard.flush()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("[AEBridge] Error writing to client: {}", e);
+                            failed_clients.push(idx);
+                            last_err = Some(e);
+                        }
+                    }
+                }
+                
+                // Cleanup failed clients
+                for idx in failed_clients.into_iter().rev() {
+                    clients.remove(idx);
+                }
+                
+                if clients.is_empty() {
+                    self.status.set(BridgeStatus::Disconnected);
+                    Err(last_err.unwrap_or(tungstenite::Error::ConnectionClosed))
                 } else {
-                    Err(tungstenite::Error::ConnectionClosed)
+                    Ok(())
                 }
             };
 
@@ -111,9 +150,6 @@ impl AEBridgeClient {
                 let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
                 pending.remove(&req_id);
                 eprintln!("[AEBridge] Error: Failed to write WebSocket frame: {}", e);
-                // Trigger disconnect
-                self.set_socket(None);
-                self.status.set(BridgeStatus::Disconnected);
                 return Err("Lost connection".to_string());
             }
 
@@ -135,44 +171,6 @@ impl AEBridgeClient {
                 Err(RecvTimeoutError::Disconnected) => {
                     Err("Lost connection".to_string())
                 }
-            }
-        }
-    }
-
-    /// Special send command for heartbeat. Does not queue when offline.
-    pub fn send_heartbeat(&self, req: CommandRequest) -> Result<CommandResponse, String> {
-        let req_id = req.request_id.clone();
-        let (tx, rx) = channel();
-        {
-            let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
-            pending.insert(req_id.clone(), tx);
-        }
-
-        let payload = serde_json::to_string(&req).unwrap();
-        
-        let send_result = {
-            let mut guard = self.ws.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(ref mut ws) = *guard {
-                ws.write(Message::Text(payload)).and_then(|_| ws.flush())
-            } else {
-                Err(tungstenite::Error::ConnectionClosed)
-            }
-        };
-
-        if let Err(_) = send_result {
-            let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
-            pending.remove(&req_id);
-            return Err("Heartbeat send failed".to_string());
-        }
-
-        // Give heartbeat exactly 1 second to respond to avoid freezing the manager thread
-        let timeout = Duration::from_millis(1000);
-        match rx.recv_timeout(timeout) {
-            Ok(res) => Ok(res),
-            Err(_) => {
-                let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
-                pending.remove(&req_id);
-                Err("Heartbeat timeout".to_string())
             }
         }
     }
@@ -205,9 +203,34 @@ impl AEBridgeClient {
             println!("[AEBridge] Info: Sending queued request: {} (ID: {})", command, req_id);
 
             let send_result = {
-                let mut guard = self.ws.lock().unwrap_or_else(|e| e.into_inner());
-                if let Some(ref mut ws) = *guard {
-                    ws.write(Message::Text(payload)).and_then(|_| ws.flush())
+                let mut clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
+                let mut failed_clients = Vec::new();
+                let mut succeeded = false;
+                
+                for (idx, client) in clients.iter().enumerate() {
+                    let mut ws_guard = client.ws.lock().unwrap_or_else(|e| e.into_inner());
+                    match ws_guard.write(Message::Text(payload.clone())).and_then(|_| ws_guard.flush()) {
+                        Ok(_) => {
+                            succeeded = true;
+                        }
+                        Err(e) => {
+                            eprintln!("[AEBridge] Error writing queued request to client: {}", e);
+                            failed_clients.push(idx);
+                        }
+                    }
+                }
+                
+                // Cleanup failed clients
+                for idx in failed_clients.into_iter().rev() {
+                    clients.remove(idx);
+                }
+                
+                if clients.is_empty() {
+                    self.status.set(BridgeStatus::Disconnected);
+                }
+                
+                if succeeded {
+                    Ok(())
                 } else {
                     Err(tungstenite::Error::ConnectionClosed)
                 }
