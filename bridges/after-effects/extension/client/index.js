@@ -60,8 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Initialize bridge runtime
     try {
       log('Main', 'Loading bridge client runtime...');
+      const fs = require('fs');
       const path = require('path');
-      require(path.join(__dirname, 'dist', 'index.js'));
+      let runtimePath = path.join(__dirname, 'dist', 'index.js');
+      if (!fs.existsSync(runtimePath)) {
+        runtimePath = path.join(__dirname, 'client', 'dist', 'index.js');
+      }
+      log('Main', `Resolved runtime path: ${runtimePath}`);
+      require(runtimePath);
       log('Main', 'Bridge client runtime loaded.');
     } catch (e) {
       log('Main', 'Failed to load bridge client runtime: ' + e.message, 'error');
