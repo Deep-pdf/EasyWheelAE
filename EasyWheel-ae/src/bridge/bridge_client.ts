@@ -116,8 +116,12 @@ export class BridgeClient {
           }
 
           // Dispatch normal command request
-          Logger.info('BridgeClient', `Received command request: ${parsed.command}`);
+          console.log('[Bridge]\nMessage received');
+          if (parsed && parsed.command) {
+            console.log(`[Bridge]\nDispatching command: ${parsed.command}`);
+          }
           const response = await CommandDispatcher.dispatch(text);
+          console.log('[Bridge]\nSending response to Host');
           if (this.ws) {
             this.ws.send(JSON.stringify(response));
           }

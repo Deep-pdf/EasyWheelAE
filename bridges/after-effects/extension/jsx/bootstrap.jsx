@@ -23,3 +23,16 @@ function isAppAvailable() {
   } catch (_) {}
   return "Application Available";
 }
+
+/**
+ * EasyWheel command executor namespace.
+ */
+var EasyWheel = {
+  execute: function(commandName) {
+    // Return result required by the pipeline trace
+    if (commandName === "pre_compose") {
+      return "OK";
+    }
+    return "OK";
+  }
+};

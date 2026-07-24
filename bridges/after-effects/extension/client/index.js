@@ -48,6 +48,17 @@ document.addEventListener('DOMContentLoaded', () => {
     log('Main', `Host Application: ${hostInfo.appName} (${hostInfo.appVersion})`);
     log('Main', `CEP Version: ${window.__adobe_cep__.getCurrentApiVersion() || 'Unknown'}`);
     
+    // Define global helper to call evalScript from browser context
+    window.evalScriptInBrowser = function(command, callback) {
+      if (window.__adobe_cep__) {
+        window.__adobe_cep__.evalScript(command, callback);
+      } else {
+        if (callback) {
+          callback('EvalScript error: __adobe_cep__ is not available');
+        }
+      }
+    };
+
     // Update panel UI to reflect waiting state
     if (statusBadge) {
       statusBadge.className = 'status-badge status-waiting';
