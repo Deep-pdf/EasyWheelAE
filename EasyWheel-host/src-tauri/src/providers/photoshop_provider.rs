@@ -12,8 +12,8 @@ struct PSCommandParams {
 }
 
 impl CommandProvider for PhotoshopProvider {
-    fn can_execute(&self, action_id: &str) -> bool {
-        self.supported_actions().contains(&action_id)
+    fn can_execute(&self, action_id: &str, profile: &str) -> bool {
+        profile == "Adobe Photoshop" && self.supported_actions().contains(&action_id)
     }
 
     fn provider_name(&self) -> &'static str {

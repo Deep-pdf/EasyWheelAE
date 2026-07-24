@@ -8,6 +8,7 @@ const trim_paths_1 = require("./commands/trim_paths");
 const graph_editor_1 = require("./commands/graph_editor");
 const duplicate_layer_1 = require("./commands/duplicate_layer");
 const null_object_1 = require("./commands/null_object");
+const parent_1 = require("./commands/parent");
 const ping_1 = require("./commands/ping");
 const echo_1 = require("./commands/echo");
 const logger_1 = require("./bridge/logger");
@@ -20,6 +21,7 @@ registry_1.CommandRegistry.register(trim_paths_1.trimPathsCommand);
 registry_1.CommandRegistry.register(graph_editor_1.graphEditorCommand);
 registry_1.CommandRegistry.register(duplicate_layer_1.duplicateLayerCommand);
 registry_1.CommandRegistry.register(null_object_1.nullObjectCommand);
+registry_1.CommandRegistry.register(parent_1.parentCommand);
 // 2. Boot connection manager
 connection_manager_1.connectionManager.start();
 logger_1.Logger.info('Main', 'EasyWheelAE Extension initialized.');

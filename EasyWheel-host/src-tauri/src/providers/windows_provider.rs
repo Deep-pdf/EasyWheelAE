@@ -37,7 +37,7 @@ struct SendShortcutParams {
 }
 
 impl CommandProvider for WindowsProvider {
-    fn can_execute(&self, action_id: &str) -> bool {
+    fn can_execute(&self, action_id: &str, _profile: &str) -> bool {
         self.supported_actions().contains(&action_id)
     }
 

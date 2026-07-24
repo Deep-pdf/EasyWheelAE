@@ -4,8 +4,7 @@ exports.jsxExecutor = exports.JSXExecutor = void 0;
 const logger_1 = require("./logger");
 /**
  * Executes ExtendScript (JSX) scripts in the After Effects context.
- * Calls window.evalScriptInBrowser (registered by index.js bootstrap) or
- * falls back to window.__adobe_cep__.evalScript directly.
+ * Currently simulates execution for Phase 10 runtime testing.
  */
 class JSXExecutor {
     /**

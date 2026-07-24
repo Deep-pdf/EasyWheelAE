@@ -12,7 +12,7 @@ impl CommandDispatcher {
     pub fn dispatch(context: CommandContext) -> Result<(), String> {
         let provider = {
             let registry = global().lock().unwrap_or_else(|e| e.into_inner());
-            registry.find_by_action(&context.action_id)
+            registry.find_by_action(&context.action_id, &context.current_profile)
         };
 
         match provider {

@@ -16,8 +16,8 @@ struct AECommandParams {
 }
 
 impl CommandProvider for AfterEffectsProvider {
-    fn can_execute(&self, action_id: &str) -> bool {
-        self.supported_actions().contains(&action_id)
+    fn can_execute(&self, action_id: &str, profile: &str) -> bool {
+        profile == "Adobe After Effects" && self.supported_actions().contains(&action_id)
     }
 
     fn provider_name(&self) -> &'static str {
@@ -31,7 +31,9 @@ impl CommandProvider for AfterEffectsProvider {
             "trim_paths",
             "graph_editor",
             "duplicate_layer",
+            "duplicate",        // alias — routes to duplicate_layer on the CEP side
             "null_object",
+            "parent",
             "after_effects_command",
         ]
     }
@@ -41,6 +43,9 @@ impl CommandProvider for AfterEffectsProvider {
             let params: AECommandParams = serde_json::from_value(context.parameters.clone())
                 .map_err(|e| format!("Invalid parameters for after_effects_command: {}", e))?;
             params.command
+        } else if context.action_id == "duplicate" {
+            // "duplicate" is the user-facing action ID; map to the CEP-registered command.
+            "duplicate_layer".to_string()
         } else {
             context.action_id.clone()
         };

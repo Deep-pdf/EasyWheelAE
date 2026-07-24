@@ -6,6 +6,7 @@ import { trimPathsCommand } from './commands/trim_paths';
 import { graphEditorCommand } from './commands/graph_editor';
 import { duplicateLayerCommand } from './commands/duplicate_layer';
 import { nullObjectCommand } from './commands/null_object';
+import { parentCommand } from './commands/parent';
 import { pingCommand } from './commands/ping';
 import { echoCommand } from './commands/echo';
 import { Logger } from './bridge/logger';
@@ -19,6 +20,7 @@ CommandRegistry.register(trimPathsCommand);
 CommandRegistry.register(graphEditorCommand);
 CommandRegistry.register(duplicateLayerCommand);
 CommandRegistry.register(nullObjectCommand);
+CommandRegistry.register(parentCommand);
 
 // 2. Boot connection manager
 connectionManager.start();

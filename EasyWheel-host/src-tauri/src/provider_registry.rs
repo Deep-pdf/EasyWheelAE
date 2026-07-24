@@ -35,11 +35,11 @@ impl ProviderRegistry {
         self.providers.retain(|p| p.provider_name() != name);
     }
 
-    /// Finds a provider that is capable of executing the given action ID.
-    pub fn find_by_action(&self, action_id: &str) -> Option<Arc<dyn CommandProvider>> {
+    /// Finds a provider that is capable of executing the given action ID under the active profile.
+    pub fn find_by_action(&self, action_id: &str, profile: &str) -> Option<Arc<dyn CommandProvider>> {
         self.providers
             .iter()
-            .find(|p| p.can_execute(action_id))
+            .find(|p| p.can_execute(action_id, profile))
             .cloned()
     }
 }
