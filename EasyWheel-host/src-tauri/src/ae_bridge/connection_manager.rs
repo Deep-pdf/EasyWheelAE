@@ -1,4 +1,6 @@
+use std::io;
 use std::sync::Arc;
+use std::sync::mpsc::{channel, TryRecvError};
 use std::thread;
 use std::time::Duration;
 use tungstenite::{Message, accept};
@@ -7,8 +9,17 @@ use crate::config_manager::ConfigManager;
 use super::ae_bridge_client::AEBridgeClient;
 use super::bridge_status::{BridgeStatusTracker, BridgeStatus};
 
-/// Orchestrates the WebSocket connection lifecycle: running the server, accepting connections,
-/// performing handshakes, managing heartbeat pings, and handling disconnects.
+/// Orchestrates the WebSocket connection lifecycle: running the server,
+/// accepting connections, performing handshakes, managing heartbeat pings,
+/// and handling disconnects.
+///
+/// # Socket ownership model
+///
+/// Each accepted connection is handled on a dedicated thread that is the **sole
+/// owner** of the `WebSocket`. Outbound messages are delivered to that thread
+/// via an `mpsc::Sender<String>` stored inside `AEBridgeClient`. The main loop
+/// uses a 50 ms read timeout so it can interleave reads and pending writes
+/// without blocking forever in either direction.
 pub struct ConnectionManager {
     client: Arc<AEBridgeClient>,
     status: BridgeStatusTracker,
@@ -20,35 +31,32 @@ impl ConnectionManager {
         Self { client, status }
     }
 
-    /// Spawns the background server socket listener and heartbeat threads.
+    /// Spawns the background server-socket listener and heartbeat threads.
     pub fn start(&self) {
-        let client_clone = self.client.clone();
-        let status_clone = self.status.clone();
-        
-        // Spawn the server acceptor loop
+        let client_clone  = self.client.clone();
+        let status_clone  = self.status.clone();
         thread::spawn(move || {
             Self::server_loop(client_clone, status_clone);
         });
 
         let client_heartbeat = self.client.clone();
         let status_heartbeat = self.status.clone();
-        
-        // Spawn the heartbeat loop (sends ping every 30 seconds)
         thread::spawn(move || {
             Self::heartbeat_loop(client_heartbeat, status_heartbeat);
         });
     }
 
-    /// Listens for incoming connections on the configured port and upgrades them to WebSocket streams.
+    // -----------------------------------------------------------------------
+    // Server loop
+    // -----------------------------------------------------------------------
+
     fn server_loop(client: Arc<AEBridgeClient>, status: BridgeStatusTracker) {
         let config = ConfigManager::get();
-        let port = config.global.adobe_port;
-        let addr = format!("127.0.0.1:{}", port);
+        let port   = config.global.adobe_port;
+        let addr   = format!("127.0.0.1:{}", port);
 
         let listener = match std::net::TcpListener::bind(&addr) {
-            Ok(l) => {
-                l
-            }
+            Ok(l)  => l,
             Err(e) => {
                 eprintln!("[AEBridge] Error: Failed to bind WebSocket server to {} — {}", addr, e);
                 status.set(BridgeStatus::Disconnected);
@@ -58,27 +66,34 @@ impl ConnectionManager {
 
         for stream in listener.incoming() {
             let stream = match stream {
-                Ok(s) => s,
+                Ok(s)  => s,
                 Err(e) => {
                     eprintln!("[AEBridge] Error: Failed to accept incoming stream — {}", e);
                     continue;
                 }
             };
 
-            let client_reader = client.clone();
-            let status_reader = status.clone();
+            let client_conn = client.clone();
+            let status_conn = status.clone();
 
             thread::spawn(move || {
-                // Upgrade TCP stream to WebSocket
+                // ----------------------------------------------------------
+                // 1. Upgrade TCP stream → WebSocket (blocking; local = fast)
+                // ----------------------------------------------------------
                 let mut ws = match accept(stream) {
-                    Ok(w) => w,
+                    Ok(w)  => w,
                     Err(e) => {
                         eprintln!("[AEBridge] Error: Failed WebSocket handshake upgrade — {}", e);
                         return;
                     }
                 };
 
-                // Read handshake hello message
+                // ----------------------------------------------------------
+                // 2. Read the hello handshake (5 s timeout is generous enough
+                //    for a local connection and prevents an indefinite block).
+                // ----------------------------------------------------------
+                let _ = ws.get_ref().set_read_timeout(Some(Duration::from_secs(5)));
+
                 let first_msg = match ws.read() {
                     Ok(Message::Text(text)) => text,
                     Ok(other) => {
@@ -92,10 +107,11 @@ impl ConnectionManager {
                     }
                 };
 
-
-                // Verify client handshake hello payload
+                // ----------------------------------------------------------
+                // 3. Verify hello payload
+                // ----------------------------------------------------------
                 let is_valid = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&first_msg) {
-                    json.get("type").and_then(|v| v.as_str()) == Some("hello") &&
+                    json.get("type").and_then(|v| v.as_str())   == Some("hello") &&
                     json.get("client").and_then(|v| v.as_str()) == Some("after-effects")
                 } else {
                     false
@@ -107,109 +123,119 @@ impl ConnectionManager {
                     return;
                 }
 
-                // Send welcome message
+                // ----------------------------------------------------------
+                // 4. Send welcome
+                // ----------------------------------------------------------
                 let welcome = serde_json::json!({
-                    "type": "welcome",
-                    "server": "EasyWheelHost",
+                    "type":    "welcome",
+                    "server":  "EasyWheelHost",
                     "version": "1.0.0"
                 }).to_string();
 
                 let write_res = ws.write(Message::Text(welcome));
-                let res = match write_res {
-                    Ok(_) => ws.flush(),
+                let flush_res = match write_res {
+                    Ok(_)  => ws.flush(),
                     Err(e) => Err(e),
                 };
-                if let Err(e) = res {
+                if let Err(e) = flush_res {
                     eprintln!("[AEBridge] Error: Failed to write welcome handshake response — {}", e);
                     return;
                 }
 
-                status_reader.set(BridgeStatus::Connected);
+                // ----------------------------------------------------------
+                // 5. Switch to short polling timeout for the main loop.
+                //    50 ms means the loop wakes up ~20×/second to check for
+                //    pending outbound messages even when the socket is quiet.
+                // ----------------------------------------------------------
+                let _ = ws.get_ref().set_read_timeout(Some(Duration::from_millis(50)));
 
-                let ws_shared = client_reader.add_client(ws);
+                // ----------------------------------------------------------
+                // 6. Register write channel, mark Connected, drain queue.
+                //    The write channel is the ONLY way to send data to the
+                //    socket — all senders are now deadlock-free.
+                // ----------------------------------------------------------
+                let (write_tx, write_rx) = channel::<String>();
+                client_conn.set_write_channel(write_tx);
+                status_conn.set(BridgeStatus::Connected);
+                client_conn.drain_queue();
 
-                // Drain queued requests if any
-                client_reader.drain_queue();
-
-                // Start reading frames
-                loop {
-                    let msg = {
-                        let mut ws_guard = ws_shared.lock().unwrap_or_else(|e| e.into_inner());
-                        ws_guard.read()
-                    };
-
-                    match msg {
-                        Ok(Message::Text(text)) => {
-
-                            // Inspect if it is a heartbeat response
-                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-                                if json.get("type").and_then(|v| v.as_str()) == Some("pong") {
-                                    continue; // Heartbeat pong handled
+                // ----------------------------------------------------------
+                // 7. Combined read + write polling loop.
+                //    Order: flush all pending writes → attempt a read.
+                // ----------------------------------------------------------
+                'conn: loop {
+                    // Drain all pending outbound messages (non-blocking).
+                    loop {
+                        match write_rx.try_recv() {
+                            Ok(payload) => {
+                                let write_res = ws.write(Message::Text(payload));
+                                let flush_res = match write_res {
+                                    Ok(_)  => ws.flush(),
+                                    Err(e) => Err(e),
+                                };
+                                if let Err(e) = flush_res {
+                                    eprintln!("[AEBridge] Error writing to socket: {}", e);
+                                    break 'conn;
                                 }
                             }
+                            Err(TryRecvError::Empty)        => break,
+                            Err(TryRecvError::Disconnected) => break 'conn,
+                        }
+                    }
 
-                            client_reader.handle_incoming_response(&text);
+                    // Read one frame (returns after ≤50 ms due to read timeout).
+                    match ws.read() {
+                        Ok(Message::Text(text)) => {
+                            // Silently discard heartbeat pongs.
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                                if json.get("type").and_then(|v| v.as_str()) == Some("pong") {
+                                    continue;
+                                }
+                            }
+                            client_conn.handle_incoming_response(&text);
+                        }
+                        Ok(Message::Ping(data)) => {
+                            // Respond to WebSocket-level pings.
+                            let _ = ws.write(Message::Pong(data));
                         }
                         Ok(Message::Close(_)) => {
                             break;
+                        }
+                        Ok(_) => {}
+                        Err(tungstenite::Error::Io(ref e))
+                            if e.kind() == io::ErrorKind::WouldBlock
+                            || e.kind() == io::ErrorKind::TimedOut => {
+                            // Normal: no data in the last 50 ms — continue polling.
+                            continue;
                         }
                         Err(e) => {
                             eprintln!("[AEBridge] Error reading from socket: {}", e);
                             break;
                         }
-                        _ => {}
                     }
                 }
 
-                client_reader.remove_client(&ws_shared);
-                if !client_reader.is_connected() {
-                    status_reader.set(BridgeStatus::Disconnected);
-                }
+                // ----------------------------------------------------------
+                // 8. Cleanup on disconnect.
+                // ----------------------------------------------------------
+                client_conn.clear_write_channel();
+                status_conn.set(BridgeStatus::Disconnected);
             });
         }
     }
 
-    /// Periodic loop performing heartbeat ping checks every 30 seconds.
-    fn heartbeat_loop(client: Arc<AEBridgeClient>, status: BridgeStatusTracker) {
+    // -----------------------------------------------------------------------
+    // Heartbeat loop
+    // -----------------------------------------------------------------------
+
+    /// Sends a ping text frame every 30 seconds via the write channel.
+    fn heartbeat_loop(client: Arc<AEBridgeClient>, _status: BridgeStatusTracker) {
         loop {
             thread::sleep(Duration::from_secs(30));
 
-            let ping_msg = serde_json::json!({
-                "type": "ping"
-            }).to_string();
-
-            let mut failed_clients = Vec::new();
-            {
-                let clients = client.active_clients.lock().unwrap_or_else(|e| e.into_inner());
-                if clients.is_empty() {
-                    continue;
-                }
-
-                for (idx, c) in clients.iter().enumerate() {
-                    let mut ws_guard = c.ws.lock().unwrap_or_else(|e| e.into_inner());
-                    let write_res = ws_guard.write(Message::Text(ping_msg.clone()));
-                    let res = match write_res {
-                        Ok(_) => ws_guard.flush(),
-                        Err(e) => Err(e),
-                    };
-                    if let Err(e) = res {
-                        eprintln!("[AEBridge] Heartbeat error sending to client: {}", e);
-                        failed_clients.push(idx);
-                    }
-                }
-            }
-
-            if !failed_clients.is_empty() {
-                let mut clients = client.active_clients.lock().unwrap_or_else(|e| e.into_inner());
-                for idx in failed_clients.into_iter().rev() {
-                    if idx < clients.len() {
-                        clients.remove(idx);
-                    }
-                }
-                if clients.is_empty() {
-                    status.set(BridgeStatus::Disconnected);
-                }
-            }
+            let ping_msg = serde_json::json!({ "type": "ping" }).to_string();
+            // send_raw returns false if not connected — that is fine, we just skip.
+            client.send_raw(ping_msg);
         }
     }
 }
