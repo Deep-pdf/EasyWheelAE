@@ -64,11 +64,6 @@ impl CommandProvider for WindowsProvider {
     }
 
     fn execute(&self, context: &CommandContext) -> Result<(), String> {
-        println!(
-            "[WindowsProvider] Info: Executing action '{}' (profile: '{}', executable: '{}')",
-            context.action_id, context.current_profile, context.executable_name
-        );
-
         match context.action_id.as_str() {
             // Legacy Actions
             "open_explorer" => {

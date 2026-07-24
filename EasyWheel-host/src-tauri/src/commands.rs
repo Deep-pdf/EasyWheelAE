@@ -277,7 +277,7 @@ fn get_running_apps_windows() -> Vec<RunningApp> {
     unsafe { CloseHandle(snapshot) };
 
     let mut result: Vec<RunningApp> = apps.into_values().collect();
-    result.sort_by(|a, b| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase()));
+    result.sort_by_key(|a| a.name.to_ascii_lowercase());
     result
 }
 
@@ -314,7 +314,7 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
     if g.sector_count < 4 {
         return Err("Sector count must be at least 4.".to_string());
     }
-    if 360u32 % u32::from(g.sector_count) != 0 {
+    if !360u32.is_multiple_of(u32::from(g.sector_count)) {
         return Err(format!(
             "Invalid sector count {}. Must evenly divide 360 (e.g. 4, 6, 8, 12, 16).",
             g.sector_count

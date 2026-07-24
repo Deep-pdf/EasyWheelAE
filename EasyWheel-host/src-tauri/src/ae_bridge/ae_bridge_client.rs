@@ -77,10 +77,6 @@ impl AEBridgeClient {
         }
 
         if !self.is_connected() {
-            println!(
-                "[AEBridge] Info: Bridge offline. Queuing request '{}' (ID: {})",
-                command, req_id
-            );
             if let Err(e) = self.queue.push(req) {
                 let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
                 pending.remove(&req_id);
@@ -114,7 +110,7 @@ impl AEBridgeClient {
             // [AEBridge]
             // Sent:
             // ...
-            println!("[AEBridge]\nSent:\n{}", payload);
+            println!("[AEBridge] Info: Command Sent: {}", command);
             
             let send_result = {
                 let mut clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
@@ -123,7 +119,12 @@ impl AEBridgeClient {
                 
                 for (idx, client) in clients.iter().enumerate() {
                     let mut ws_guard = client.ws.lock().unwrap_or_else(|e| e.into_inner());
-                    match ws_guard.write(Message::Text(payload.clone())).and_then(|_| ws_guard.flush()) {
+                    let write_res = ws_guard.write(Message::Text(payload.clone()));
+                    let res = match write_res {
+                        Ok(_) => ws_guard.flush(),
+                        Err(e) => Err(e),
+                    };
+                    match res {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("[AEBridge] Error writing to client: {}", e);
@@ -157,8 +158,8 @@ impl AEBridgeClient {
             match rx.recv_timeout(timeout) {
                 Ok(res) => {
                     println!(
-                        "[AEBridge] Info: Response Received: {} (ID: {}, success: {}, executionTime: {}ms)",
-                        command, res.request_id, res.success, res.execution_time
+                        "[AEBridge] Info: Command Received: {}",
+                        command
                     );
                     Ok(res)
                 }
@@ -177,10 +178,8 @@ impl AEBridgeClient {
 
     /// Drains the queue by sending all buffered requests.
     pub fn drain_queue(&self) {
-        let mut count = 0;
         while let Some(req) = self.queue.pop() {
             let req_id = req.request_id.clone();
-            let command = req.command.clone();
             
             // If the waiting thread already timed out, discard this request.
             let has_receiver = {
@@ -200,7 +199,6 @@ impl AEBridgeClient {
                 }
             };
 
-            println!("[AEBridge] Info: Sending queued request: {} (ID: {})", command, req_id);
 
             let send_result = {
                 let mut clients = self.active_clients.lock().unwrap_or_else(|e| e.into_inner());
@@ -209,7 +207,12 @@ impl AEBridgeClient {
                 
                 for (idx, client) in clients.iter().enumerate() {
                     let mut ws_guard = client.ws.lock().unwrap_or_else(|e| e.into_inner());
-                    match ws_guard.write(Message::Text(payload.clone())).and_then(|_| ws_guard.flush()) {
+                    let write_res = ws_guard.write(Message::Text(payload.clone()));
+                    let res = match write_res {
+                        Ok(_) => ws_guard.flush(),
+                        Err(e) => Err(e),
+                    };
+                    match res {
                         Ok(_) => {
                             succeeded = true;
                         }
@@ -242,11 +245,8 @@ impl AEBridgeClient {
                 let _ = self.queue.push(req);
                 break;
             }
-            count += 1;
         }
-        if count > 0 {
-            println!("[AEBridge] Info: Drained {} requests from queue.", count);
-        }
+
     }
 
     /// Matches an incoming JSON text response with a pending request channel.
@@ -262,9 +262,5 @@ impl AEBridgeClient {
         }
     }
 
-    /// Resets all waiting channels on connection loss.
-    pub fn handle_disconnect(&self) {
-        let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
-        pending.clear();
-    }
+
 }

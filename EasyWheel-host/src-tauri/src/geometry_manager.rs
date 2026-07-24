@@ -185,27 +185,6 @@ impl GeometryManager {
         // without needing to re-derive geometry.
         InputManager::set_last_sector(sector);
 
-        // -------------------------------------------------------------------
-        // Terminal debug output — only while tracking is active.
-        // Never displayed in the overlay UI.
-        // -------------------------------------------------------------------
-        println!(
-            "[EasyWheel] Geometry | Origin({:.0},{:.0}) → Current({:.0},{:.0}) \
-             | Dist:{:.1}px | Angle:{:.1}° | Sector:{} | DeadZone:{}",
-            ptr.origin_x,
-            ptr.origin_y,
-            ptr.current_x,
-            ptr.current_y,
-            distance,
-            angle_deg,
-            if in_dead_zone {
-                "—".to_string()
-            } else {
-                sector.to_string()
-            },
-            in_dead_zone,
-        );
-
         let exe = crate::foreground_application::ForegroundApplicationService::get_executable();
         let exe_lower = exe.to_ascii_lowercase();
 
@@ -218,7 +197,7 @@ impl GeometryManager {
             })
             .or_else(|| {
                 config.profiles.iter().find(|p| {
-                    p.executable.to_ascii_lowercase() == "explorer.exe"
+                    p.executable.eq_ignore_ascii_case("explorer.exe")
                 })
             })
             .unwrap_or(&config.profiles[0]);

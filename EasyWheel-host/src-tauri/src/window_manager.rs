@@ -29,8 +29,6 @@ impl WindowManager {
             Some(window) => {
                 if let Err(e) = window.hide() {
                     eprintln!("[EasyWheel Host] Error: Failed to hide main window — {e}");
-                } else {
-                    println!("[EasyWheel Host] Info: Main window hidden.");
                 }
             }
             None => {
@@ -56,8 +54,6 @@ impl WindowManager {
                 }
                 if let Err(e) = window.set_focus() {
                     eprintln!("[EasyWheel Host] Error: Failed to focus main window — {e}");
-                } else {
-                    println!("[EasyWheel Host] Info: Main window restored and focused.");
                 }
             }
             None => {
@@ -92,7 +88,6 @@ impl WindowManager {
                         WindowManager::hide(&handle);
                     }
                 });
-                println!("[EasyWheel Host] Info: Close interceptor registered on main window.");
             }
             None => {
                 eprintln!(

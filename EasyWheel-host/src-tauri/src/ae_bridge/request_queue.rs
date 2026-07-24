@@ -25,7 +25,6 @@ impl RequestQueue {
         }
         guard.push_back(req);
         let size = guard.len();
-        println!("[AEBridge] Queue Size: {}", size);
         Ok(size)
     }
 
@@ -33,21 +32,5 @@ impl RequestQueue {
     pub fn pop(&self) -> Option<CommandRequest> {
         let mut guard = self.queue.lock().unwrap_or_else(|e| e.into_inner());
         guard.pop_front()
-    }
-
-    /// Returns the current number of requests in the queue.
-    pub fn len(&self) -> usize {
-        self.queue.lock().unwrap_or_else(|e| e.into_inner()).len()
-    }
-
-    /// Checks if the queue is empty.
-    pub fn is_empty(&self) -> bool {
-        self.queue.lock().unwrap_or_else(|e| e.into_inner()).is_empty()
-    }
-
-    /// Clears all queued requests.
-    pub fn clear(&self) {
-        let mut guard = self.queue.lock().unwrap_or_else(|e| e.into_inner());
-        guard.clear();
     }
 }

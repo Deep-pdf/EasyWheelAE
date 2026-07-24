@@ -58,7 +58,6 @@ impl TrayManager {
             })
             .build(app)?;
 
-        println!("[EasyWheel Host] Info: System tray created successfully.");
         Ok(())
     }
 
@@ -117,21 +116,16 @@ impl TrayManager {
     fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
         match id {
             "open_settings" => {
-                println!("[EasyWheel Host] Info: Tray menu — 'Open Settings' selected.");
                 WindowManager::show_and_focus(app);
             }
             "reload_config" => {
-                println!("[EasyWheel Host] Info: Tray menu — 'Reload Configuration' selected.");
                 crate::config_manager::ConfigManager::reload();
                 crate::action_manager::ActionManager::rebuild();
-                println!("[EasyWheel Host] Info: Configuration reloaded.");
             }
             "restart" => {
-                println!("[EasyWheel Host] Info: Tray menu — 'Restart Host' selected.");
                 app.restart();
             }
             "exit" => {
-                println!("[EasyWheel Host] Info: Tray menu — 'Exit' selected. Terminating process.");
                 app.exit(0);
             }
             _ => {}
@@ -151,7 +145,6 @@ impl TrayManager {
         } = event
         {
             if *button == MouseButton::Left && *button_state == MouseButtonState::Up {
-                println!("[EasyWheel Host] Info: Tray icon left-clicked — restoring window.");
                 WindowManager::show_and_focus(app);
             }
         }

@@ -52,15 +52,7 @@ impl ProfileManager {
         });
 
         let desktop_index = match desktop_pos {
-            Some(i) => {
-                println!(
-                    "[ProfileManager] Info: Loaded {} profile(s). \
-                     Desktop profile found at index {}.",
-                    profiles.len(),
-                    i
-                );
-                i
-            }
+            Some(i) => i,
             None => {
                 // Inject a minimal Desktop profile so resolve() is always safe.
                 eprintln!(
@@ -105,19 +97,8 @@ impl ProfileManager {
             });
 
         match matched {
-            Some(profile) => {
-                println!(
-                    "[ProfileManager] Info: Profile matched — '{}' for '{}'.",
-                    profile.name, executable
-                );
-                profile
-            }
+            Some(profile) => profile,
             None => {
-                println!(
-                    "[ProfileManager] Info: No profile for '{}'. \
-                     Falling back to Desktop profile.",
-                    executable
-                );
                 // SAFETY: `desktop_index` is always valid — guaranteed by `new()`.
                 &self.profiles[self.desktop_index]
             }

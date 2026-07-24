@@ -45,10 +45,8 @@ impl ConnectionManager {
         let port = config.global.adobe_port;
         let addr = format!("127.0.0.1:{}", port);
 
-        println!("[AEBridge] Starting WebSocket Server...");
         let listener = match std::net::TcpListener::bind(&addr) {
             Ok(l) => {
-                println!("[AEBridge] Listening on ws://{}", addr);
                 l
             }
             Err(e) => {
@@ -94,7 +92,6 @@ impl ConnectionManager {
                     }
                 };
 
-                println!("[AEBridge] Received:\n{}", first_msg);
 
                 // Verify client handshake hello payload
                 let is_valid = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&first_msg) {
@@ -117,13 +114,16 @@ impl ConnectionManager {
                     "version": "1.0.0"
                 }).to_string();
 
-                println!("[AEBridge] Sent:\n{}", welcome);
-                if let Err(e) = ws.write(Message::Text(welcome)).and_then(|_| ws.flush()) {
+                let write_res = ws.write(Message::Text(welcome));
+                let res = match write_res {
+                    Ok(_) => ws.flush(),
+                    Err(e) => Err(e),
+                };
+                if let Err(e) = res {
                     eprintln!("[AEBridge] Error: Failed to write welcome handshake response — {}", e);
                     return;
                 }
 
-                println!("[AEBridge] Client Connected");
                 status_reader.set(BridgeStatus::Connected);
 
                 let ws_shared = client_reader.add_client(ws);
@@ -140,7 +140,6 @@ impl ConnectionManager {
 
                     match msg {
                         Ok(Message::Text(text)) => {
-                            println!("[AEBridge] Received:\n{}", text);
 
                             // Inspect if it is a heartbeat response
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
@@ -162,8 +161,6 @@ impl ConnectionManager {
                     }
                 }
 
-                // Cleanup client connection
-                println!("[AEBridge] Client Disconnected");
                 client_reader.remove_client(&ws_shared);
                 if !client_reader.is_connected() {
                     status_reader.set(BridgeStatus::Disconnected);
@@ -188,10 +185,14 @@ impl ConnectionManager {
                     continue;
                 }
 
-                println!("[AEBridge] Sent:\n{}", ping_msg);
                 for (idx, c) in clients.iter().enumerate() {
                     let mut ws_guard = c.ws.lock().unwrap_or_else(|e| e.into_inner());
-                    if let Err(e) = ws_guard.write(Message::Text(ping_msg.clone())).and_then(|_| ws_guard.flush()) {
+                    let write_res = ws_guard.write(Message::Text(ping_msg.clone()));
+                    let res = match write_res {
+                        Ok(_) => ws_guard.flush(),
+                        Err(e) => Err(e),
+                    };
+                    if let Err(e) = res {
                         eprintln!("[AEBridge] Heartbeat error sending to client: {}", e);
                         failed_clients.push(idx);
                     }

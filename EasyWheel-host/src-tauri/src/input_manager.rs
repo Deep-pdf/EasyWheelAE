@@ -142,10 +142,6 @@ impl InputManager {
             };
         }
 
-        println!(
-            "[EasyWheel Host] Info: Tracking started. Origin captured at ({:.0}, {:.0}).",
-            origin.0, origin.1
-        );
 
         TRACKING.store(true, Ordering::Relaxed);
 
@@ -180,7 +176,6 @@ impl InputManager {
         // active: false and stops rendering before the window hides.
         let mut guard = Self::state().lock().unwrap_or_else(|e| e.into_inner());
         guard.active = false;
-        println!("[EasyWheel Host] Info: Tracking stopped.");
     }
 
     /// Records the most recently computed sector index.

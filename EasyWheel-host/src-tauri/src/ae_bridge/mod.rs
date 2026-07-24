@@ -7,7 +7,7 @@ use std::sync::{Arc, OnceLock};
 use crate::ipc::{CommandRequest, CommandResponse};
 use crate::config_manager::ConfigManager;
 
-pub use bridge_status::{BridgeStatusTracker, BridgeStatus};
+pub use bridge_status::BridgeStatusTracker;
 pub use request_queue::RequestQueue;
 pub use ae_bridge_client::AEBridgeClient;
 pub use connection_manager::ConnectionManager;
@@ -42,10 +42,7 @@ impl AEBridge {
         connection_manager.start();
     }
 
-    /// Helper to check if the WebSocket client is connected.
-    pub fn is_connected(&self) -> bool {
-        self.client.is_connected()
-    }
+
 
     /// Sends a command request over the client, returning the response or error.
     pub fn send_request(&self, req: CommandRequest) -> Result<CommandResponse, String> {

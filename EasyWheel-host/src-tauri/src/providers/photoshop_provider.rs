@@ -7,6 +7,7 @@ pub struct PhotoshopProvider;
 
 #[derive(Debug, Clone, Deserialize)]
 struct PSCommandParams {
+    #[allow(dead_code)]
     command: String,
 }
 
@@ -34,17 +35,8 @@ impl CommandProvider for PhotoshopProvider {
 
     fn execute(&self, context: &CommandContext) -> Result<(), String> {
         if context.action_id == "photoshop_command" {
-            let params: PSCommandParams = serde_json::from_value(context.parameters.clone())
+            let _params: PSCommandParams = serde_json::from_value(context.parameters.clone())
                 .map_err(|e| format!("Invalid parameters for photoshop_command: {}", e))?;
-            println!(
-                "[PhotoshopProvider] Info: Photoshop Provider Executing {}",
-                params.command
-            );
-        } else {
-            println!(
-                "[PhotoshopProvider] Info: Photoshop Provider Executing {}",
-                context.action_id
-            );
         }
         Ok(())
     }

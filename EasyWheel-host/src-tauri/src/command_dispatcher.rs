@@ -10,11 +10,6 @@ impl CommandDispatcher {
     /// Logs all states of the dispatching pipeline: resolved action, provider search,
     /// execution outcome, and warning cases.
     pub fn dispatch(context: CommandContext) -> Result<(), String> {
-        println!(
-            "[CommandDispatcher] Info: Action Resolved: '{}' (Profile: '{}', Executable: '{}')",
-            context.action_id, context.current_profile, context.executable_name
-        );
-
         let provider = {
             let registry = global().lock().unwrap_or_else(|e| e.into_inner());
             registry.find_by_action(&context.action_id)
@@ -22,11 +17,6 @@ impl CommandDispatcher {
 
         match provider {
             Some(provider) => {
-                println!(
-                    "[CommandDispatcher] Info: Provider Found: '{}' for action '{}'",
-                    provider.provider_name(),
-                    context.action_id
-                );
 
                 match provider.execute(&context) {
                     Ok(_) => {
@@ -118,7 +108,7 @@ mod tests {
             parameters: serde_json::Value::Object(serde_json::Map::new()),
         };
         let res = CommandDispatcher::dispatch(ae_ctx);
-        if crate::ae_bridge::AEBridge::global().is_connected() {
+        if crate::ae_bridge::AEBridge::global().client.is_connected() {
             assert!(res.is_ok());
         } else {
             assert!(res.is_err());

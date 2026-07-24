@@ -53,8 +53,6 @@ impl OverlayManager {
                     eprintln!(
                         "[EasyWheel Host] Error: Failed to hide overlay during create — {e}"
                     );
-                } else {
-                    println!("[EasyWheel Host] Info: Overlay created.");
                 }
             }
             None => {
@@ -88,7 +86,6 @@ impl OverlayManager {
                     InputManager::stop();
                 } else {
                     VISIBLE.store(true, Ordering::Relaxed);
-                    println!("[EasyWheel Host] Info: Overlay visible.");
                 }
             }
             None => {
@@ -130,7 +127,6 @@ impl OverlayManager {
                     eprintln!("[EasyWheel Host] Error: Failed to hide overlay — {e}");
                 } else {
                     VISIBLE.store(false, Ordering::Relaxed);
-                    println!("[EasyWheel Host] Info: Overlay hidden.");
                 }
             }
             None => {
@@ -146,9 +142,8 @@ impl OverlayManager {
         // execution. For Phase 5 (terminal output only) the ordering is
         // cosmetically irrelevant but establishes the correct pattern for
         // future phases that may interact with the foreground application.
-        match last_sector {
-            Some(sector) => ActionManager::execute_for_sector(sector),
-            None => println!("[EasyWheel Host] Info: Released in dead zone — no action."),
+        if let Some(sector) = last_sector {
+            ActionManager::execute_for_sector(sector);
         }
     }
 

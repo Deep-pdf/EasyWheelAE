@@ -55,19 +55,10 @@ impl CommandProvider for AfterEffectsProvider {
             profile: context.current_profile.clone(),
         };
 
-        println!(
-            "[AfterEffectsProvider] Info: Dispatching command '{}' to AEBridge (Request ID: {})",
-            command_name, req.request_id
-        );
-
         // Send via AEBridge
         match AEBridge::global().send_request(req) {
             Ok(response) => {
                 if response.success {
-                    println!(
-                        "[AfterEffectsProvider] Info: Command '{}' succeeded (Message: '{}')",
-                        command_name, response.message
-                    );
                     Ok(())
                 } else {
                     let err_code = response.error_code.unwrap_or_else(|| "UNKNOWN_ERROR".to_string());

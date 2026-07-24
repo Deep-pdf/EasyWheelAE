@@ -186,7 +186,6 @@ impl HotkeyManager {
                 // If the chord was active, releasing the modifier dismisses
                 // the overlay even if the trigger key is still physically held.
                 if KEY_DOWN.swap(false, Ordering::Relaxed) {
-                    println!("[HotkeyManager] Info: Modifier released — hiding overlay.");
                     OverlayManager::hide(app);
                 }
             }
@@ -198,17 +197,12 @@ impl HotkeyManager {
                 if MODIFIER_DOWN.load(Ordering::Relaxed) {
                     // swap(true) returns previous value; only act on the rising edge.
                     if !KEY_DOWN.swap(true, Ordering::Relaxed) {
-                        println!("[HotkeyManager] Info: Hotkey chord pressed (modifier + trigger).");
                         OverlayManager::show(app);
                     }
                 }
             }
-            EventType::KeyRelease(key) if *key == trigger => {
-                // swap(false) returns previous value; only act if chord was active.
-                if KEY_DOWN.swap(false, Ordering::Relaxed) {
-                    println!("[HotkeyManager] Info: Trigger key released — hiding overlay.");
-                    OverlayManager::hide(app);
-                }
+            EventType::KeyRelease(key) if *key == trigger && KEY_DOWN.swap(false, Ordering::Relaxed) => {
+                OverlayManager::hide(app);
             }
 
             _ => {}
