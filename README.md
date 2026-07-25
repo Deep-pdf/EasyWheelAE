@@ -6,29 +6,37 @@ A professional commercial desktop application suite for Adobe After Effects, del
 
 ## Architecture
 
-EasyWheelAE consists of two separate applications that communicate over a defined IPC protocol:
+EasyWheelAE consists of two separate applications that communicate over a custom local WebSocket IPC protocol:
 
 | Application | Technology | Role |
 |---|---|---|
-| **EasyWheel Host** | Tauri v2 · Rust · React · TypeScript | Windows background service — tray, hotkey, overlay |
-| **EasyWheel AE** | Adobe CEP / UXP | After Effects extension — receives and executes commands |
+| **EasyWheel Host** | Tauri v2 · Rust · React · TypeScript | Windows background service — system tray, global hotkey, radial overlay, and setting dashboard. Runs the WebSocket server. |
+| **EasyWheel AE** | Adobe CEP Extension | After Effects panel client — runs a WebSocket client, receives commands, and executes them via ExtendScript (`evalScript`). |
 
-The two applications are intentionally decoupled. EasyWheel Host never imports AE APIs, and EasyWheel AE never imports Tauri APIs. All communication is mediated by the IPC protocol defined in `host/ipc/`.
+The two applications are intentionally decoupled. EasyWheel Host never imports After Effects APIs, and EasyWheel AE never imports Tauri APIs. All communication is mediated by the WebSocket IPC protocol. The Host starts a WebSocket server (default port `23435`), which the AE extension connects to upon launching.
 
 ---
 
-## Core Features (Host Application)
+## Core Features
 
 - **System Tray & Global Hotkeys**: Runs as a background service with a tray icon. Intercepts custom hotkeys via a global keyboard hook to trigger the overlay instantly.
 - **Dynamic Radial Overlay**: Shows a transparent, hardware-accelerated radial command wheel centered on the mouse cursor with smooth CSS transitions.
 - **Context-Aware Profiles**: Detects active foreground applications and automatically switches the active radial layout profile.
 - **Extensible Action Providers**:
   - **Windows Provider**: Launch applications, trigger keyboard shortcuts, run shell scripts, open folders/URLs.
-  - **Adobe Providers**: Out-of-the-box hooks for After Effects and Photoshop commands.
+  - **Adobe Providers**: Out-of-the-box hooks for After Effects commands.
 - **Premium Settings Panel**: A comprehensive dashboard featuring:
   - **General Settings**: App startup, tray controls, and hotkey configuration.
   - **Appearance Settings**: Custom HSL color theme pickers, sizes, and radius fine-tuning.
   - **Profile Management**: Sector assignments, action bindings, and custom profiles.
+- **ExtendScript Command Library**: Out-of-the-box support for:
+  - **Pre-Compose**: Groups selected layers into a new composition.
+  - **Easy Ease**: Applies Ease interpolation to selected keyframes.
+  - **Trim Paths**: Adds Trim Paths modifier to shape layers.
+  - **Graph Editor**: Toggles the graph editor panel in the timeline.
+  - **Duplicate Layer**: Duplicates selected layers.
+  - **Null Object**: Creates a new null object layer.
+  - **Parent Layers**: Parents selected layers to the top-most selected layer.
 
 ---
 
@@ -39,113 +47,121 @@ EasyWheelAE/
 │
 ├── EasyWheel-host/               # Tauri v2 desktop application
 │   │
-│   ├── host/                     # React + TypeScript frontend
-│   │   ├── assets/
-│   │   │   ├── icons/            # SVG action icons for wheel slices
-│   │   │   ├── fonts/            # Self-hosted typefaces
-│   │   │   ├── images/           # Static images
-│   │   │   └── animations/       # Lottie or CSS animation assets
+│   ├── host/                     # React + TypeScript frontend settings & overlay
 │   │   ├── components/           # Shared UI components
-│   │   ├── hooks/                # Custom React hooks
-│   │   ├── ipc/
-│   │   │   ├── protocol.ts       # Typed Tauri command wrappers
-│   │   │   └── events.ts         # Typed backend-to-frontend event contracts
-│   │   ├── overlay/
-│   │   │   ├── Wheel.tsx         # Radial wheel container
-│   │   │   ├── WheelSlice.tsx    # Individual wheel segment
-│   │   │   └── OverlayWindow.tsx # Transparent overlay window host
-│   │   ├── services/
-│   │   │   ├── Logger.ts         # Structured logging
-│   │   │   ├── WindowManager.ts  # Tauri window lifecycle
-│   │   │   ├── HotkeyService.ts  # Global hotkey registration
-│   │   │   └── IPCService.ts     # IPC abstraction layer
-│   │   ├── styles/
-│   │   │   └── global.css        # Global viewport reset
-│   │   ├── types/
-│   │   │   ├── Action.ts         # Invocable AE command descriptor
-│   │   │   ├── Direction.ts      # Radial wheel direction
-│   │   │   └── Settings.ts       # Persistent user configuration schema
-│   │   ├── utils/
-│   │   │   ├── geometry.ts       # SVG and spatial geometry helpers
-│   │   │   ├── math.ts           # Pure numeric utilities
-│   │   │   └── helpers.ts        # General-purpose cross-cutting utilities
-│   │   ├── App.tsx               # Root application component
-│   │   ├── main.tsx              # React entry point
-│   │   └── vite-env.d.ts         # Vite client type reference
+│   │   ├── ipc/                  # Frontend-to-backend communication contracts
+│   │   ├── overlay/              # Radial wheel and overlay window
+│   │   ├── styles/               # CSS styling (vanilla CSS + Tailwind)
+│   │   └── ...
 │   │
 │   ├── src-tauri/                # Rust backend
-│   │   ├── capabilities/         # Tauri permission capability sets
-│   │   ├── icons/                # Application icons for all platforms
 │   │   ├── src/
-│   │   │   ├── lib.rs            # Tauri builder and command registration
+│   │   │   ├── ae_bridge/        # WebSocket server & client tracking
+│   │   │   ├── ipc/              # Custom IPC protocol and data structures
+│   │   │   ├── lib.rs            # Orchestration & Tauri command registration
 │   │   │   └── main.rs           # Binary entry point
-│   │   ├── build.rs              # Tauri build script
-│   │   ├── Cargo.toml            # Rust manifest and dependencies
-│   │   └── tauri.conf.json       # Tauri application configuration
+│   │   └── ...
 │   │
-│   ├── public/                   # Static assets served at root URL
-│   ├── index.html                # HTML entry point
-│   ├── package.json              # Node.js manifest
-│   ├── tsconfig.json             # TypeScript project configuration
-│   ├── tsconfig.node.json        # TypeScript config for Vite config file
-│   └── vite.config.ts            # Vite bundler configuration
+│   └── package.json              # Host app node dependencies
 │
-└── EasyWheel-ae/                 # Adobe extension (Phase 4+, not started)
+├── EasyWheel-ae/                 # After Effects TypeScript Bridge Client
+│   ├── src/
+│   │   ├── bridge/               # Connection manager, WebSocket client, command dispatcher
+│   │   ├── commands/             # Native AE ExtendScript commands (easy ease, parent, null, etc.)
+│   │   └── index.ts              # Registry & initialization entry point
+│   ├── tsconfig.json             # Compiles client code to the CEP extension directory
+│   └── package.json              # TypeScript compilation dependencies
+│
+└── bridges/
+    └── after-effects/
+        └── extension/            # Adobe Common Extensibility Platform (CEP) Extension
+            ├── CSXS/
+            │   └── manifest.xml  # Panel extension metadata configuration
+            ├── client/
+            │   ├── index.html    # Panel UI (dark theme layout)
+            │   ├── index.css     # Panel styles matching native After Effects panels
+            │   ├── index.js      # CEP environment verification & bootstrap loader
+            │   └── dist/         # Compiled bridge client runtime (outputs from EasyWheel-ae)
+            ├── jsx/
+            │   └── bootstrap.jsx # ExtendScript engine executor
+            ├── icons/            # Extension panel menu icons
+            └── installer/        # CEP development and deployment scripts (install, enable_debug)
 ```
 
 ---
 
 ## Technology Stack
 
-### Frontend
+### Frontend (Host & Extension)
 | Technology | Version | Purpose |
 |---|---|---|
 | React | 19 | UI component model |
 | TypeScript | 5.8 | Static typing with strict mode |
 | Vite | 7 | Development server and production bundler |
-| CSS | Vanilla | Styling — no CSS framework dependency |
+| CSS | Vanilla / Tailwind | Styling — clean aesthetics |
 
-### Backend
+### Backend (Host)
 | Technology | Version | Purpose |
 |---|---|---|
 | Rust | stable | Core application logic, system APIs |
 | Tauri | 2 | Native window management, IPC bridge, packaging |
 | Serde | 1 | JSON serialisation for IPC payloads |
+| Tungstenite | 0.21+ | WebSocket server library for communication with AE CEP |
 
 ---
 
-## Development
+## Development & Installation
 
-### Prerequisites
+### 1. EasyWheel Host (Desktop Service)
 
+#### Prerequisites
 - [Rust](https://rustup.rs/) (stable toolchain)
 - [Node.js](https://nodejs.org/) 20+
 - [Tauri v2 system dependencies](https://tauri.app/start/prerequisites/) (WebView2 on Windows)
 
-### Install
-
+#### Install & Run
 ```bash
 cd EasyWheel-host
 npm install
-```
-
-### Run in development mode
-
-```bash
 npm run tauri dev
 ```
 
-### Build production bundle
-
+#### Build Production Bundle
 ```bash
 npm run tauri build
 ```
 
-### Type-check only
+---
 
-```bash
-npx tsc --noEmit
-```
+### 2. EasyWheel AE (After Effects Extension)
+
+#### Prerequisites
+- Adobe After Effects 2021 (v18.x) or newer.
+
+#### Setup for Development (Registry & CEP)
+1. Run the debug helper script as Administrator to allow unsigned panels inside After Effects:
+   ```cmd
+   cd bridges/after-effects/extension/installer
+   enable_debug.bat
+   ```
+2. Install the extension files into the Adobe CEP extensions directory:
+   ```cmd
+   install.bat
+   ```
+3. Open After Effects, and launch the extension via **Window** -> **Extensions (Legacy)** -> **EasyWheelAE**.
+
+#### Developing ExtendScript & Bridge Commands
+1. Navigate to the `EasyWheel-ae` folder.
+2. Install Node dependencies:
+   ```bash
+   cd EasyWheel-ae
+   npm install
+   ```
+3. Start the compiler in watch mode to automatically compile code changes into the CEP extension directory:
+   ```bash
+   npm run watch
+   ```
+4. While After Effects is running, open a Chromium browser and navigate to `http://localhost:8088` to inspect the panel console.
 
 ---
 
@@ -156,7 +172,7 @@ npx tsc --noEmit
 | **Phase 1** | ✅ Complete | Clean production foundation — project structure, architecture, scaffolding |
 | **Phase 2** | ✅ Complete | System tray, global hotkey, overlay window, mouse tracking |
 | **Phase 3** | ✅ Complete | Radial wheel UI, slice rendering, action dispatch |
-| **Phase 4** | 🔲 Planned  | EasyWheel AE extension, IPC integration with After Effects |
+| **Phase 4** | ✅ Complete | EasyWheel AE extension, IPC integration with After Effects |
 | **Phase 5** | ✅ Complete | Settings UI, persistent configuration, profile and layout managers |
 | **Phase 6** | 🔲 Planned  | Installer, code signing, release packaging |
 
