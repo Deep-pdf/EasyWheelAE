@@ -70,6 +70,9 @@ impl OverlayManager {
     /// No-op if the overlay is already visible. Logs the transition on
     /// success and an error message on failure; never panics.
     pub fn show<R: Runtime>(app: &AppHandle<R>) {
+        // Trigger background browser tab pre-fetch scan early
+        crate::providers::browser_provider::BrowserTabCache::start_background_scan();
+
         if VISIBLE.load(Ordering::Relaxed) {
             return;
         }

@@ -8,11 +8,13 @@ use winapi::um::processthreadsapi::OpenProcess;
 use winapi::um::winbase::QueryFullProcessImageNameW;
 use winapi::um::winnt::PROCESS_QUERY_LIMITED_INFORMATION;
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
 
 use uiautomation::{UIAutomation, UIElement, controls::ControlType, patterns::{UISelectionItemPattern, UIValuePattern}};
 
 #[derive(Clone)]
-pub struct BrowserTab {
+pub struct CachedTab {
     pub window_handle: usize,
     pub browser: String,
     pub title: String,
@@ -21,7 +23,6 @@ pub struct BrowserTab {
     pub tab_index: usize,
     pub is_active: bool,
     pub is_focused_window: bool,
-    pub element: UIElement,
 }
 
 pub trait BrowserProvider: Send + Sync {
@@ -29,9 +30,153 @@ pub trait BrowserProvider: Send + Sync {
     fn process_name(&self) -> &'static str;
     fn window_class_name(&self) -> &'static str;
 
-    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<BrowserTab>, String>;
-    fn activate_tab(&self, tab: &BrowserTab) -> Result<(), String>;
+    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<CachedTab>, String>;
+    fn activate_tab(&self, tab: &CachedTab) -> Result<(), String>;
     fn open_url(&self, url: &str) -> Result<(), String>;
+}
+
+// -------------------------------------------------------------------------
+// Tab Cache System
+// -------------------------------------------------------------------------
+
+struct TabCache {
+    tabs: Vec<CachedTab>,
+    last_updated: Option<Instant>,
+    is_scanning: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl TabCache {
+    fn new() -> Self {
+        Self {
+            tabs: Vec::new(),
+            last_updated: None,
+            is_scanning: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+}
+
+static CACHE: OnceLock<Mutex<TabCache>> = OnceLock::new();
+
+fn get_cache() -> &'static Mutex<TabCache> {
+    CACHE.get_or_init(|| Mutex::new(TabCache::new()))
+}
+
+pub struct BrowserTabCache;
+
+impl BrowserTabCache {
+    /// Starts an asynchronous background scan to refresh the cached browser tabs.
+    pub fn start_background_scan() {
+        let cache_mutex = get_cache();
+        let is_scanning = {
+            let guard = cache_mutex.lock().unwrap();
+            guard.is_scanning.clone()
+        };
+
+        if is_scanning.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
+            // Scan is already in progress
+            return;
+        }
+
+        std::thread::spawn(move || {
+            let providers = get_providers();
+            let mut all_tabs = Vec::new();
+
+            for provider in &providers {
+                match provider.find_matching_tabs("") {
+                    Ok(tabs) => {
+                        all_tabs.extend(tabs);
+                    }
+                    Err(e) => {
+                        // Suppress verbose error spam, but log key failures
+                        eprintln!("[BrowserTabCache] Error: Failed scanning tabs for {}: {}", provider.browser_name(), e);
+                    }
+                }
+            }
+
+            let mut guard = get_cache().lock().unwrap();
+            guard.tabs = all_tabs;
+            guard.last_updated = Some(Instant::now());
+            guard.is_scanning.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+    }
+
+    /// Queries the cache for a matching tab, falling back to a synchronous scan if the cache is empty.
+    pub fn get_matching_tab(configured_url: &str, browser_filter: &str) -> Option<CachedTab> {
+        let target_host = extract_host(configured_url);
+        if target_host.is_empty() {
+            return None;
+        }
+
+        let mut guard = get_cache().lock().unwrap();
+
+        // Fallback: if the cache was never updated, populate it synchronously
+        if guard.last_updated.is_none() {
+            drop(guard); // drop to avoid deadlock
+            
+            let providers = get_providers();
+            let mut all_tabs = Vec::new();
+            for provider in &providers {
+                if let Ok(tabs) = provider.find_matching_tabs("") {
+                    all_tabs.extend(tabs);
+                }
+            }
+            
+            let mut new_guard = get_cache().lock().unwrap();
+            new_guard.tabs = all_tabs;
+            new_guard.last_updated = Some(Instant::now());
+            guard = new_guard;
+        }
+
+        let browser_lower = browser_filter.to_ascii_lowercase();
+        let mut matching_tabs: Vec<CachedTab> = guard.tabs.iter()
+            .filter(|tab| {
+                let matches_browser = match browser_lower.as_str() {
+                    "chrome" => tab.browser == "Google Chrome",
+                    "edge" => tab.browser == "Microsoft Edge",
+                    "brave" => tab.browser == "Brave",
+                    "opera" => tab.browser == "Opera",
+                    "firefox" => tab.browser == "Firefox",
+                    _ => true,
+                };
+
+                if !matches_browser {
+                    return false;
+                }
+
+                matches_target(&tab.url, &tab.title, target_host)
+            })
+            .cloned()
+            .collect();
+
+        if matching_tabs.is_empty() {
+            return None;
+        }
+
+        // Prioritization order:
+        // 1. Most Recently Used (focused browser window + active tab)
+        // 2. Focused browser window
+        // 3. Left-most tab (smaller tab index)
+        // 4. First discovered (original list order)
+        matching_tabs.sort_by(|a, b| {
+            let a_mru = a.is_focused_window && a.is_active;
+            let b_mru = b.is_focused_window && b.is_active;
+            if a_mru != b_mru {
+                return b_mru.cmp(&a_mru);
+            }
+            if a.is_focused_window != b.is_focused_window {
+                return b.is_focused_window.cmp(&a.is_focused_window);
+            }
+            if a.is_active != b.is_active {
+                return b.is_active.cmp(&a.is_active);
+            }
+            if a.tab_index != b.tab_index {
+                return a.tab_index.cmp(&b.tab_index);
+            }
+            std::cmp::Ordering::Equal
+        });
+
+        Some(matching_tabs[0].clone())
+    }
 }
 
 // -------------------------------------------------------------------------
@@ -165,30 +310,67 @@ pub(crate) fn extract_host(url: &str) -> &str {
     s
 }
 
-fn host_matches(host1: &str, host2: &str) -> bool {
-    let h1 = host1.to_ascii_lowercase();
-    let h2 = host2.to_ascii_lowercase();
-    h1 == h2 || h1.ends_with(&format!(".{}", h2)) || h2.ends_with(&format!(".{}", h1))
+fn strip_common(s: &str) -> &str {
+    let mut res = s;
+    if res.starts_with("www.") {
+        res = &res[4..];
+    }
+    if res.starts_with("m.") {
+        res = &res[2..];
+    }
+    res
+}
+
+fn domains_match(configured_host: &str, tab_host: &str) -> bool {
+    let conf = configured_host.trim().to_lowercase();
+    let tab = tab_host.trim().to_lowercase();
+
+    let conf_clean = strip_common(&conf);
+    let tab_clean = strip_common(&tab);
+
+    if conf_clean == tab_clean {
+        return true;
+    }
+
+    if tab_clean.ends_with(&format!(".{}", conf_clean)) {
+        return true;
+    }
+    if conf_clean.ends_with(&format!(".{}", tab_clean)) {
+        return true;
+    }
+
+    false
 }
 
 fn matches_target(tab_url: &str, tab_title: &str, target_host: &str) -> bool {
+    if target_host.is_empty() {
+        return true;
+    }
     if !tab_url.is_empty() {
         let extracted = extract_host(tab_url);
-        return host_matches(extracted, target_host);
+        return domains_match(target_host, extracted);
     }
-    let clean_target = target_host.replace("www.", "");
+    
+    let mut clean_target = target_host.to_lowercase();
+    if clean_target.starts_with("www.") {
+        clean_target = clean_target[4..].to_string();
+    }
+    if clean_target.starts_with("m.") {
+        clean_target = clean_target[2..].to_string();
+    }
+    
     let base_name = clean_target.split('.').next().unwrap_or(&clean_target);
     if base_name.len() < 3 {
-        tab_title.to_lowercase().contains(&clean_target.to_lowercase())
+        tab_title.to_lowercase().contains(&clean_target)
     } else {
-        tab_title.to_lowercase().contains(&base_name.to_lowercase())
+        tab_title.to_lowercase().contains(base_name)
     }
 }
 
 fn find_tabs_in_browser(
     provider: &dyn BrowserProvider,
     target_host: &str,
-) -> Result<Vec<BrowserTab>, String> {
+) -> Result<Vec<CachedTab>, String> {
     let hwnds = get_browser_windows(provider.process_name(), provider.window_class_name());
     let focused_hwnd = unsafe { GetForegroundWindow() };
 
@@ -227,7 +409,7 @@ fn find_tabs_in_browser(
             };
 
             if matches_target(&url, &title, target_host) {
-                all_tabs.push(BrowserTab {
+                all_tabs.push(CachedTab {
                     window_handle: hwnd as usize,
                     browser: provider.browser_name().to_string(),
                     title,
@@ -236,7 +418,6 @@ fn find_tabs_in_browser(
                     tab_index: idx,
                     is_active,
                     is_focused_window,
-                    element: tab_elem,
                 });
             }
         }
@@ -245,18 +426,28 @@ fn find_tabs_in_browser(
     Ok(all_tabs)
 }
 
-fn generic_activate_tab(tab: &BrowserTab) -> Result<(), String> {
-    if let Ok(pattern) = tab.element.get_pattern::<UISelectionItemPattern>() {
-        pattern.select().map_err(|e| format!("Failed to select tab item: {}", e))?;
-    } else {
-        return Err("Tab element does not support SelectionItem pattern".to_string());
-    }
-
+fn generic_activate_tab(tab: &CachedTab) -> Result<(), String> {
     unsafe {
         let hwnd = tab.window_handle as HWND;
         ShowWindow(hwnd, SW_RESTORE);
         SetForegroundWindow(hwnd);
     }
+
+    let automation = UIAutomation::new().map_err(|e| format!("Failed to initialize UIA: {}", e))?;
+    let hwnd = tab.window_handle as HWND;
+    let win_element = automation.element_from_handle(uiautomation::types::Handle::from(hwnd as isize as i64))
+        .map_err(|e| format!("Failed to get window element: {}", e))?;
+
+    let tab_matcher = automation.create_matcher().from(win_element).control_type(ControlType::TabItem);
+    let tab_elements = tab_matcher.find_all().unwrap_or_default();
+
+    if tab.tab_index < tab_elements.len() {
+        let tab_elem = &tab_elements[tab.tab_index];
+        if let Ok(pattern) = tab_elem.get_pattern::<UISelectionItemPattern>() {
+            pattern.select().map_err(|e| format!("Failed to select tab item: {}", e))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -278,11 +469,11 @@ impl BrowserProvider for ChromeProvider {
     fn process_name(&self) -> &'static str { "chrome.exe" }
     fn window_class_name(&self) -> &'static str { "Chrome_WidgetWin_1" }
 
-    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<BrowserTab>, String> {
+    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<CachedTab>, String> {
         find_tabs_in_browser(self, target_host)
     }
 
-    fn activate_tab(&self, tab: &BrowserTab) -> Result<(), String> {
+    fn activate_tab(&self, tab: &CachedTab) -> Result<(), String> {
         generic_activate_tab(tab)
     }
 
@@ -297,11 +488,11 @@ impl BrowserProvider for EdgeProvider {
     fn process_name(&self) -> &'static str { "msedge.exe" }
     fn window_class_name(&self) -> &'static str { "Chrome_WidgetWin_1" }
 
-    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<BrowserTab>, String> {
+    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<CachedTab>, String> {
         find_tabs_in_browser(self, target_host)
     }
 
-    fn activate_tab(&self, tab: &BrowserTab) -> Result<(), String> {
+    fn activate_tab(&self, tab: &CachedTab) -> Result<(), String> {
         generic_activate_tab(tab)
     }
 
@@ -316,16 +507,35 @@ impl BrowserProvider for BraveProvider {
     fn process_name(&self) -> &'static str { "brave.exe" }
     fn window_class_name(&self) -> &'static str { "Chrome_WidgetWin_1" }
 
-    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<BrowserTab>, String> {
+    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<CachedTab>, String> {
         find_tabs_in_browser(self, target_host)
     }
 
-    fn activate_tab(&self, tab: &BrowserTab) -> Result<(), String> {
+    fn activate_tab(&self, tab: &CachedTab) -> Result<(), String> {
         generic_activate_tab(tab)
     }
 
     fn open_url(&self, url: &str) -> Result<(), String> {
         generic_open_url("brave.exe", url)
+    }
+}
+
+pub struct OperaProvider;
+impl BrowserProvider for OperaProvider {
+    fn browser_name(&self) -> &'static str { "Opera" }
+    fn process_name(&self) -> &'static str { "opera.exe" }
+    fn window_class_name(&self) -> &'static str { "Chrome_WidgetWin_1" }
+
+    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<CachedTab>, String> {
+        find_tabs_in_browser(self, target_host)
+    }
+
+    fn activate_tab(&self, tab: &CachedTab) -> Result<(), String> {
+        generic_activate_tab(tab)
+    }
+
+    fn open_url(&self, url: &str) -> Result<(), String> {
+        generic_open_url("launcher.exe", url)
     }
 }
 
@@ -335,11 +545,11 @@ impl BrowserProvider for FirefoxProvider {
     fn process_name(&self) -> &'static str { "firefox.exe" }
     fn window_class_name(&self) -> &'static str { "MozillaWindowClass" }
 
-    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<BrowserTab>, String> {
+    fn find_matching_tabs(&self, target_host: &str) -> Result<Vec<CachedTab>, String> {
         find_tabs_in_browser(self, target_host)
     }
 
-    fn activate_tab(&self, tab: &BrowserTab) -> Result<(), String> {
+    fn activate_tab(&self, tab: &CachedTab) -> Result<(), String> {
         generic_activate_tab(tab)
     }
 
@@ -353,6 +563,7 @@ pub fn get_providers() -> Vec<Box<dyn BrowserProvider>> {
         Box::new(ChromeProvider),
         Box::new(EdgeProvider),
         Box::new(BraveProvider),
+        Box::new(OperaProvider),
         Box::new(FirefoxProvider),
     ]
 }
