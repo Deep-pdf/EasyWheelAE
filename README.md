@@ -188,6 +188,92 @@ npm run tauri build
 
 ---
 
-## License
+EasyWheelAE is under active development.
 
-Proprietary — All rights reserved. This software is not open source.
+Planned features include:
+
+- [ ] Photoshop support
+- [ ] Premiere Pro support
+- [ ] Browser smart shortcuts
+- [ ] Custom radial themes
+- [ ] Plugin marketplace
+- [ ] Macro recording
+- [ ] Community action packs
+
+Suggestions are always welcome!
+
+---
+
+## 🤝 Contributing
+
+Contributions of any size are welcome.
+
+If you'd like to contribute:
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Commit your changes.
+4. Open a Pull Request.
+
+For major changes, please open an Issue first so we can discuss the design.
+
+---
+
+## 🐞 Reporting Bugs
+
+Found a bug?
+
+Please open a GitHub Issue and include:
+
+- Operating System
+- EasyWheelAE version
+- Steps to reproduce
+- Expected behavior
+- Screenshots or logs (if available)
+
+---
+
+## 💡 Feature Requests
+
+Have an idea?
+
+Open a GitHub Discussion or Issue.
+
+Many of EasyWheelAE's features are inspired by community feedback.
+
+---
+
+## ⭐ Support the Project
+
+If you find EasyWheelAE useful, consider giving the repository a ⭐.
+
+It helps more people discover the project and motivates future development.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License.
+
+See the `LICENSE` file for details.
+
+---
+
+## ❤️ Acknowledgements
+
+Built with:
+
+- Rust
+- Tauri
+- React
+- TypeScript
+- Adobe CEP
+- ExtendScript
+
+Special thanks to everyone who tests, reports bugs, and contributes ideas.
+
+---
+
+Made with ❤️ for creators who love speed.
+
+If EasyWheelAE improves your workflow, don't forget to ⭐ the repository.

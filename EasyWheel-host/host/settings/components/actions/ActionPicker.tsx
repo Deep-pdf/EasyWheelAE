@@ -22,7 +22,7 @@ const COMMAND_TYPES: CommandTypeOption[] = [
   { id: 'launch_app', name: 'Launch Application', description: 'Run a program executable (.exe) with optional arguments and directory settings.', category: 'System' },
   { id: 'open_folder', name: 'Open Folder', description: 'Open a local directory inside Windows File Explorer.', category: 'System' },
   { id: 'open_file', name: 'Open File', description: 'Open a local document, media, or project file with its default program.', category: 'System' },
-  { id: 'open_website', name: 'Open Website', description: 'Open a web page URL with your default browser or a specific choice.', category: 'Web' },
+  { id: 'open_website', name: 'Browser Shortcut', description: 'Intelligently switch to an existing tab or open a new one.', category: 'Web' },
   { id: 'run_script', name: 'Run Script', description: 'Run a batch, PowerShell, Python, or shell script.', category: 'Development' },
   { id: 'send_shortcut', name: 'Send Keyboard Shortcut', description: 'Record and simulate a key sequence sequence (e.g. Ctrl + Shift + S).', category: 'Macros' },
   { id: 'after_effects_command', name: 'After Effects Command', description: 'Trigger built-in After Effects radial functions.', category: 'Adobe Integration' },
@@ -130,6 +130,7 @@ export function ActionPicker({
 
   const [webUrl, setWebUrl] = useState('');
   const [webBrowser, setWebBrowser] = useState('default');
+  const [switchToExisting, setSwitchToExisting] = useState(true);
 
   const [folderPath, setFolderPath] = useState('');
   const [filePath, setFilePath] = useState('');
@@ -161,6 +162,7 @@ export function ActionPicker({
         } else if (currentCommand.command === 'open_website') {
           setWebUrl(p.url || '');
           setWebBrowser(p.browser || 'default');
+          setSwitchToExisting(p.switch_to_existing !== false);
         } else if (currentCommand.command === 'open_folder') {
           setFolderPath(p.path || '');
         } else if (currentCommand.command === 'open_file') {
@@ -192,6 +194,7 @@ export function ActionPicker({
     setLaunchAdmin(false);
     setWebUrl('');
     setWebBrowser('default');
+    setSwitchToExisting(true);
     setFolderPath('');
     setFilePath('');
     setScriptPath('');
@@ -329,6 +332,7 @@ export function ActionPicker({
         parameters = {
           url: webUrl.trim(),
           browser: webBrowser,
+          switch_to_existing: switchToExisting,
         };
         break;
 
@@ -509,7 +513,7 @@ export function ActionPicker({
             {selectedType === 'open_website' && (
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-400 font-medium">Website URL</label>
+                  <label className="text-xs text-zinc-400 font-medium">Launch URL</label>
                   <input
                     type="text"
                     value={webUrl}
@@ -529,8 +533,37 @@ export function ActionPicker({
                     <option value="default">Default Browser</option>
                     <option value="chrome">Google Chrome</option>
                     <option value="edge">Microsoft Edge</option>
+                    <option value="brave">Brave</option>
+                    <option value="opera">Opera</option>
                     <option value="firefox">Mozilla Firefox</option>
                   </select>
+                </div>
+
+                <div className="flex flex-col gap-2 mt-1">
+                  <label className="flex items-center gap-2 text-xs text-zinc-300 font-medium cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={switchToExisting}
+                      onChange={(e) => setSwitchToExisting(e.target.checked)}
+                      className="accent-brand-primary w-4 h-4 rounded border-zinc-800 bg-zinc-900"
+                    />
+                    Switch to existing tab if found
+                  </label>
+                </div>
+
+                <div className="flex flex-col gap-2 p-3 bg-zinc-950/50 border border-zinc-900 rounded-lg text-xs text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Matching</span>
+                    <span className="font-medium text-zinc-300">Domain (read-only)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Priority</span>
+                    <span className="font-medium text-zinc-300">Most Recently Used (read-only)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>If no match</span>
+                    <span className="font-medium text-zinc-300">Open new tab (read-only)</span>
+                  </div>
                 </div>
               </div>
             )}

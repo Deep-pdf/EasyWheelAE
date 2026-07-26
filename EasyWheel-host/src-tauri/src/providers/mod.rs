@@ -2,6 +2,8 @@ pub mod provider;
 pub mod windows_provider;
 pub mod after_effects_provider;
 pub mod photoshop_provider;
+pub mod browser_provider;
+
 
 use std::sync::Arc;
 use crate::provider_registry::global;

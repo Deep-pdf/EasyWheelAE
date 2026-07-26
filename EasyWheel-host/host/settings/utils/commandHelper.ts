@@ -36,7 +36,7 @@ export function getCommandDisplayName(
 
   switch (cmd.command) {
     case 'launch_app': return 'Launch Application';
-    case 'open_website': return 'Open Website';
+    case 'open_website': return 'Browser Shortcut';
     case 'open_folder': return 'Open Folder';
     case 'open_file': return 'Open File';
     case 'run_script': return 'Run Script';
@@ -64,7 +64,7 @@ export function getCommandDescription(
     case 'launch_app':
       return `Launch: ${p.path || 'Not Configured'} ${p.arguments || ''}`;
     case 'open_website':
-      return `URL: ${p.url || 'Not Configured'} (${p.browser || 'default'})`;
+      return `Launch URL: ${p.url || 'Not Configured'} (${p.browser || 'default'})`;
     case 'open_folder':
       return `Folder: ${p.path || 'Not Configured'}`;
     case 'open_file':

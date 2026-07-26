@@ -18,6 +18,7 @@ struct LaunchAppParams {
 struct OpenWebsiteParams {
     url: String,
     browser: Option<String>,
+    switch_to_existing: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -141,8 +142,70 @@ impl CommandProvider for WindowsProvider {
                     .map_err(|e| format!("Invalid parameters for open_website: {}", e))?;
                 #[cfg(target_os = "windows")]
                 {
-                    let browser = params.browser.unwrap_or_else(|| "default".to_string());
-                    open_website_windows(&params.url, &browser)?;
+                    let browser = params.browser.clone().unwrap_or_else(|| "default".to_string());
+                    let switch_to_existing = params.switch_to_existing.unwrap_or(true);
+                    let mut activated = false;
+
+                    if switch_to_existing {
+                        let target_host = super::browser_provider::extract_host(&params.url);
+                        let providers = super::browser_provider::get_providers();
+                        let mut all_matching_tabs = Vec::new();
+
+                        for provider in providers {
+                            let matches_browser = match browser.to_ascii_lowercase().as_str() {
+                                "chrome" => provider.browser_name() == "Google Chrome",
+                                "edge" => provider.browser_name() == "Microsoft Edge",
+                                "brave" => provider.browser_name() == "Brave",
+                                "firefox" => provider.browser_name() == "Firefox",
+                                _ => true,
+                            };
+
+                            if matches_browser {
+                                if let Ok(mut tabs) = provider.find_matching_tabs(target_host) {
+                                    if !tabs.is_empty() {
+                                        println!("Browser detected");
+                                        all_matching_tabs.append(&mut tabs);
+                                    }
+                                }
+                            }
+                        }
+
+                        if !all_matching_tabs.is_empty() {
+                            println!("Matching tab found");
+                            all_matching_tabs.sort_by(|a, b| {
+                                let a_mru = a.is_focused_window && a.is_active;
+                                let b_mru = b.is_focused_window && b.is_active;
+                                if a_mru != b_mru {
+                                    return b_mru.cmp(&a_mru);
+                                }
+                                if a.is_focused_window != b.is_focused_window {
+                                    return b.is_focused_window.cmp(&a.is_focused_window);
+                                }
+                                if a.is_active != b.is_active {
+                                    return b.is_active.cmp(&a.is_active);
+                                }
+                                if a.tab_index != b.tab_index {
+                                    return a.tab_index.cmp(&b.tab_index);
+                                }
+                                std::cmp::Ordering::Equal
+                            });
+
+                            let best_tab = &all_matching_tabs[0];
+                            let providers = super::browser_provider::get_providers();
+                            if let Some(provider) = providers.iter().find(|p| p.browser_name() == best_tab.browser) {
+                                if let Ok(_) = provider.activate_tab(best_tab) {
+                                    println!("Activated existing tab");
+                                    activated = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if !activated {
+                        println!("No matching tab found");
+                        open_website_windows(&params.url, &browser)?;
+                        println!("Opened launch URL");
+                    }
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
@@ -254,6 +317,8 @@ fn open_website_windows(url: &str, browser: &str) -> Result<(), String> {
     let exe = match browser_lower.as_str() {
         "chrome" => Some("chrome.exe"),
         "edge" => Some("msedge.exe"),
+        "brave" => Some("brave.exe"),
+        "opera" => Some("launcher.exe"),
         "firefox" => Some("firefox.exe"),
         _ => None,
     };
