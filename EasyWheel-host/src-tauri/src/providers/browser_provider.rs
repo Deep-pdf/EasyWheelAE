@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::{
     EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowThreadProcessId,
@@ -11,7 +9,7 @@ use winapi::um::winbase::QueryFullProcessImageNameW;
 use winapi::um::winnt::PROCESS_QUERY_LIMITED_INFORMATION;
 use std::process::Command;
 
-use uiautomation::{UIAutomation, UIElement, types::ControlType, patterns::{SelectionItemPattern, ValuePattern}};
+use uiautomation::{UIAutomation, UIElement, controls::ControlType, patterns::{UISelectionItemPattern, UIValuePattern}};
 
 #[derive(Clone)]
 pub struct BrowserTab {
@@ -107,14 +105,14 @@ fn get_browser_windows(process_name: &str, class_name: &str) -> Vec<HWND> {
 // General Tab Search Implementation
 // -------------------------------------------------------------------------
 
-fn find_active_tab_url(win_element: &UIElement) -> Option<String> {
-    let edit_matcher = win_element.create_matcher().control_type(ControlType::Edit);
+fn find_active_tab_url(automation: &UIAutomation, win_element: &UIElement) -> Option<String> {
+    let edit_matcher = automation.create_matcher().from(win_element.clone()).control_type(ControlType::Edit);
     let edits = edit_matcher.find_all().unwrap_or_default();
 
     for edit in &edits {
         if let Ok(auto_id) = edit.get_automation_id() {
             if auto_id == "address_sec" || auto_id == "urlbar" {
-                if let Ok(val_pattern) = edit.get_pattern::<ValuePattern>() {
+                if let Ok(val_pattern) = edit.get_pattern::<UIValuePattern>() {
                     if let Ok(val) = val_pattern.get_value() {
                         let trimmed = val.trim();
                         if !trimmed.is_empty() {
@@ -127,7 +125,7 @@ fn find_active_tab_url(win_element: &UIElement) -> Option<String> {
     }
 
     for edit in &edits {
-        if let Ok(val_pattern) = edit.get_pattern::<ValuePattern>() {
+        if let Ok(val_pattern) = edit.get_pattern::<UIValuePattern>() {
             if let Ok(val) = val_pattern.get_value() {
                 let trimmed = val.trim();
                 if trimmed.contains("://") || (trimmed.contains('.') && !trimmed.contains(' ') && trimmed.len() > 3) {
@@ -138,7 +136,7 @@ fn find_active_tab_url(win_element: &UIElement) -> Option<String> {
     }
 
     for edit in &edits {
-        if let Ok(val_pattern) = edit.get_pattern::<ValuePattern>() {
+        if let Ok(val_pattern) = edit.get_pattern::<UIValuePattern>() {
             if let Ok(val) = val_pattern.get_value() {
                 let trimmed = val.trim();
                 if !trimmed.is_empty() {
@@ -151,7 +149,7 @@ fn find_active_tab_url(win_element: &UIElement) -> Option<String> {
     None
 }
 
-fn extract_host(url: &str) -> &str {
+pub(crate) fn extract_host(url: &str) -> &str {
     let mut s = url;
     if s.starts_with("http://") {
         s = &s[7..];
@@ -198,19 +196,19 @@ fn find_tabs_in_browser(
     let mut all_tabs = Vec::new();
 
     for hwnd in hwnds {
-        let win_element = match automation.element_from_handle(hwnd as _) {
+        let win_element = match automation.element_from_handle(uiautomation::types::Handle::from(hwnd as isize as i64)) {
             Ok(el) => el,
             Err(_) => continue,
         };
 
-        let tab_matcher = win_element.create_matcher().control_type(ControlType::TabItem);
+        let tab_matcher = automation.create_matcher().from(win_element.clone()).control_type(ControlType::TabItem);
         let tab_elements = tab_matcher.find_all().unwrap_or_default();
         let is_focused_window = hwnd == focused_hwnd;
-        let active_url = find_active_tab_url(&win_element);
+        let active_url = find_active_tab_url(&automation, &win_element);
 
         for (idx, tab_elem) in tab_elements.into_iter().enumerate() {
             let title = tab_elem.get_name().unwrap_or_default();
-            let is_active = if let Ok(pattern) = tab_elem.get_pattern::<SelectionItemPattern>() {
+            let is_active = if let Ok(pattern) = tab_elem.get_pattern::<UISelectionItemPattern>() {
                 pattern.is_selected().unwrap_or(false)
             } else {
                 false
@@ -248,7 +246,7 @@ fn find_tabs_in_browser(
 }
 
 fn generic_activate_tab(tab: &BrowserTab) -> Result<(), String> {
-    if let Ok(pattern) = tab.element.get_pattern::<SelectionItemPattern>() {
+    if let Ok(pattern) = tab.element.get_pattern::<UISelectionItemPattern>() {
         pattern.select().map_err(|e| format!("Failed to select tab item: {}", e))?;
     } else {
         return Err("Tab element does not support SelectionItem pattern".to_string());
