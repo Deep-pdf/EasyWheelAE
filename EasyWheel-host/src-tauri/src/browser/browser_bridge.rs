@@ -23,6 +23,10 @@ use winapi::um::winbase::QueryFullProcessImageNameW;
 #[cfg(target_os = "windows")]
 use winapi::um::winnt::PROCESS_QUERY_LIMITED_INFORMATION;
 
+// ---------------------------------------------------------------------------
+// Public data types
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserTab {
     #[serde(rename = "tabId")]
@@ -36,6 +40,10 @@ pub struct BrowserTab {
     #[serde(rename = "lastAccessed")]
     pub last_accessed: Option<f64>,
 }
+
+// ---------------------------------------------------------------------------
+// Wire messages
+// ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -68,313 +76,218 @@ enum HostCommand {
     },
 }
 
-pub struct BrowserSession {
-    pub sender: Sender<String>,
-    pub tabs: Vec<BrowserTab>,
+// ---------------------------------------------------------------------------
+// Per-connection session stored in shared state
+// ---------------------------------------------------------------------------
+
+struct BrowserSession {
+    /// Channel used to push outgoing messages to the writer thread.
+    outbox: Sender<String>,
+    tabs: Vec<BrowserTab>,
 }
 
+// ---------------------------------------------------------------------------
+// Shared bridge state
+// ---------------------------------------------------------------------------
+
+struct BridgeState {
+    sessions: HashMap<String, BrowserSession>,
+    /// Pending activation responses keyed by tabId.
+    pending: HashMap<u32, Sender<Result<(), String>>>,
+}
+
+impl BridgeState {
+    fn new() -> Self {
+        Self {
+            sessions: HashMap::new(),
+            pending: HashMap::new(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BrowserBridge — the public API
+// ---------------------------------------------------------------------------
+
 pub struct BrowserBridge {
-    state: Arc<Mutex<HashMap<String, BrowserSession>>>,
-    pending_activations: Arc<Mutex<HashMap<u32, Sender<Result<(), String>>>>>,
+    state: Arc<Mutex<BridgeState>>,
 }
 
 static BRIDGE: OnceLock<BrowserBridge> = OnceLock::new();
 
-pub fn extract_host(url: &str) -> &str {
-    let mut s = url;
-    if s.starts_with("http://") {
-        s = &s[7..];
-    } else if s.starts_with("https://") {
-        s = &s[8..];
-    }
-    if let Some(pos) = s.find('/') {
-        s = &s[..pos];
-    }
-    if let Some(pos) = s.find(':') {
-        s = &s[..pos];
-    }
-    s
-}
-
-pub fn get_base_domain(host: &str) -> &str {
-    let parts: Vec<&str> = host.split('.').collect();
-    if parts.len() > 2 {
-        let last = parts[parts.len() - 1];
-        let second_last = parts[parts.len() - 2];
-        if (last == "uk" && second_last == "co") ||
-           (last == "br" && second_last == "com") ||
-           (last == "au" && second_last == "net") ||
-           (last == "uk" && second_last == "org") {
-            if parts.len() >= 3 {
-                let start_idx = parts.len() - 3;
-                return &host[host.find(parts[start_idx]).unwrap()..];
-            }
-        }
-        let start_idx = parts.len() - 2;
-        return &host[host.find(parts[start_idx]).unwrap()..];
-    }
-    host
-}
-
-pub fn match_domain(configured_url: &str, tab_url: &str) -> bool {
-    let conf_host = extract_host(configured_url).to_lowercase();
-    let tab_host = extract_host(tab_url).to_lowercase();
-    if conf_host.is_empty() || tab_host.is_empty() {
-        return false;
-    }
-    let conf_base = get_base_domain(&conf_host);
-    let tab_base = get_base_domain(&tab_host);
-    conf_base == tab_base
-}
-
-// -------------------------------------------------------------------------
-// Win32 Helper functions to bring browser window to the foreground natively
-// -------------------------------------------------------------------------
-
-#[cfg(target_os = "windows")]
-fn get_process_name(pid: u32) -> Option<String> {
-    unsafe {
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
-        if handle.is_null() {
-            return None;
-        }
-        let mut buf = vec![0u16; 260];
-        let mut size = buf.len() as u32;
-        let ok = QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size);
-        CloseHandle(handle);
-
-        if ok != 0 {
-            let path_str = String::from_utf16_lossy(&buf[..size as usize]);
-            if let Some(filename) = std::path::Path::new(&path_str).file_name() {
-                return Some(filename.to_string_lossy().into_owned());
-            }
-        }
-        None
-    }
-}
-
-#[cfg(target_os = "windows")]
-struct FocusState {
-    process_names: Vec<String>,
-    class_name: String,
-    title_substring: String,
-    focused: bool,
-}
-
-#[cfg(target_os = "windows")]
-unsafe extern "system" fn focus_callback(hwnd: HWND, lparam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::BOOL {
-    let state = &mut *(lparam as *mut FocusState);
-    if state.focused {
-        return 0; // stop enumeration
-    }
-
-    if IsWindowVisible(hwnd) != 0 {
-        let mut class_buf = vec![0u16; 256];
-        let len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), class_buf.len() as i32);
-        if len > 0 {
-            let class_str = String::from_utf16_lossy(&class_buf[..len as usize]);
-            if class_str == state.class_name {
-                let mut pid = 0;
-                GetWindowThreadProcessId(hwnd, &mut pid);
-                if pid != 0 {
-                    if let Some(proc_name) = get_process_name(pid) {
-                        let proc_lower = proc_name.to_ascii_lowercase();
-                        if state.process_names.iter().any(|p| p == &proc_lower) {
-                            let mut title_buf = vec![0u16; 512];
-                            let title_len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
-                            let title_str = String::from_utf16_lossy(&title_buf[..title_len as usize]).to_lowercase();
-                            
-                            if title_str.contains(&state.title_substring) {
-                                ShowWindow(hwnd, SW_RESTORE);
-                                SetForegroundWindow(hwnd);
-                                state.focused = true;
-                                return 0; // stop enumeration
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    1
-}
-
-#[cfg(target_os = "windows")]
-pub fn focus_window(browser: &str, tab_title: &str) -> bool {
-    let browser_lower = browser.to_ascii_lowercase();
-    let (process_names, class_name) = match browser_lower.as_str() {
-        "chrome" => (vec!["chrome.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
-        "edge" => (vec!["msedge.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
-        "brave" => (vec!["brave.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
-        "opera" => (vec!["opera.exe".to_string(), "launcher.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
-        "firefox" => (vec!["firefox.exe".to_string()], "MozillaWindowClass".to_string()),
-        _ => (vec![], "".to_string()),
-    };
-
-    if process_names.is_empty() {
-        return false;
-    }
-
-    // Clean target tab title to compare (e.g. to lowercase)
-    let title_substring = tab_title.to_lowercase();
-
-    // We retry up to 5 times with a 30ms sleep because tab switching in the browser
-    // is async and the window title might take a few milliseconds to update to the new tab.
-    for _ in 0..5 {
-        let mut state = FocusState {
-            process_names: process_names.clone(),
-            class_name: class_name.clone(),
-            title_substring: title_substring.clone(),
-            focused: false,
-        };
-
-        unsafe {
-            EnumWindows(Some(focus_callback), &mut state as *mut FocusState as _);
-        }
-
-        if state.focused {
-            return true;
-        }
-        thread::sleep(Duration::from_millis(30));
-    }
-    false
-}
-
 impl BrowserBridge {
     pub fn global() -> &'static Self {
         BRIDGE.get_or_init(|| Self {
-            state: Arc::new(Mutex::new(HashMap::new())),
-            pending_activations: Arc::new(Mutex::new(HashMap::new())),
+            state: Arc::new(Mutex::new(BridgeState::new())),
         })
     }
 
+    /// Start the WebSocket server in a background thread.
     pub fn start() {
-        let bridge = Self::global();
-        let state = bridge.state.clone();
-        let pending = bridge.pending_activations.clone();
+        println!("[BrowserBridge] BrowserBridge starting...");
+
+        let state = Self::global().state.clone();
 
         thread::spawn(move || {
             let addr = "127.0.0.1:23436";
             let listener = match TcpListener::bind(addr) {
                 Ok(l) => l,
                 Err(e) => {
-                    eprintln!("[BrowserBridge] Error: Failed to bind WebSocket server to {} — {}", addr, e);
+                    eprintln!("[BrowserBridge] FATAL: Cannot bind to {} — {}", addr, e);
+                    println!("[BrowserBridge] Server stopped");
                     return;
                 }
             };
 
-            for stream in listener.incoming() {
-                let stream = match stream {
+            println!("[BrowserBridge] Listening on port 23436");
+
+            for tcp_stream in listener.incoming() {
+                let tcp_stream = match tcp_stream {
                     Ok(s) => s,
                     Err(e) => {
-                        eprintln!("[BrowserBridge] Error: Failed to accept incoming stream — {}", e);
+                        eprintln!("[BrowserBridge] Accept error: {}", e);
                         continue;
                     }
                 };
 
                 let state_clone = state.clone();
-                let pending_clone = pending.clone();
+
                 thread::spawn(move || {
-                    let ws = match accept(stream) {
+                    // ----------------------------------------------------------
+                    // Step 1 — WebSocket handshake (NO timeout here — the OS
+                    // HTTP Upgrade request must be read in full first)
+                    // ----------------------------------------------------------
+                    let ws = match accept(tcp_stream) {
                         Ok(w) => w,
                         Err(e) => {
-                            eprintln!("[BrowserBridge] Error: Failed WebSocket handshake — {}", e);
+                            eprintln!("[BrowserBridge] Handshake failed: {}", e);
                             return;
                         }
                     };
 
-                    println!("[BrowserBridge] Info: Browser extension connected");
+                    println!("[BrowserBridge] Client connected");
 
+                    // ----------------------------------------------------------
+                    // Step 2 — Set a read timeout NOW (after handshake succeeds)
+                    // so the reader loop can yield without blocking the mutex.
+                    // ----------------------------------------------------------
+                    if let Err(e) = ws.get_ref().set_read_timeout(Some(Duration::from_millis(50))) {
+                        eprintln!("[BrowserBridge] set_read_timeout failed: {}", e);
+                    }
+
+                    // ----------------------------------------------------------
+                    // Step 3 — Spawn a dedicated writer thread.
+                    // We give it ownership of outgoing frames via a channel.
+                    // The reader thread sends strings; the writer serialises them.
+                    // We share the WebSocket by splitting: the writer owns the
+                    // write half through the channel + a clone of the socket ref.
+                    //
+                    // tungstenite doesn't support split(), so we use a second
+                    // Arc<Mutex<>> specifically for writes.  The reader acquires
+                    // the lock only long enough to call read(), then immediately
+                    // releases it, so the writer can grab it between reads.
+                    // ----------------------------------------------------------
                     let ws_arc = Arc::new(Mutex::new(ws));
-                    let ws_write_clone = ws_arc.clone();
+                    let ws_writer = ws_arc.clone();
+
                     let (tx, rx) = channel::<String>();
-                    
-                    let _writer_thread = thread::spawn(move || {
-                        while let Ok(msg_str) = rx.recv() {
-                            let mut ws_guard = ws_write_clone.lock().unwrap();
-                            if let Err(e) = ws_guard.write(Message::Text(msg_str)) {
-                                eprintln!("[BrowserBridge] Error writing to extension: {}", e);
+
+                    thread::spawn(move || {
+                        while let Ok(payload) = rx.recv() {
+                            let mut guard = ws_writer.lock().unwrap();
+                            if let Err(e) = guard.send(Message::Text(payload)) {
+                                eprintln!("[BrowserBridge] Write error: {}", e);
                                 break;
                             }
                         }
                     });
 
+                    // ----------------------------------------------------------
+                    // Step 4 — Reader loop
+                    // ----------------------------------------------------------
                     let mut registered_browser: Option<String> = None;
 
                     loop {
-                        let mut ws_guard = ws_arc.lock().unwrap();
-                        match ws_guard.read() {
-                            Ok(msg) => {
-                                drop(ws_guard); // Release lock while processing
-                                if let Message::Text(text) = msg {
-                                    if let Ok(ext_msg) = serde_json::from_str::<ExtensionMessage>(&text) {
-                                        match ext_msg {
-                                            ExtensionMessage::TabsUpdate { browser, tabs } => {
-                                                let browser_lower = browser.to_ascii_lowercase();
-                                                registered_browser = Some(browser_lower.clone());
-                                                
-                                                let mut guard = state_clone.lock().unwrap();
-                                                guard.insert(
-                                                    browser_lower,
-                                                    BrowserSession {
-                                                        sender: tx.clone(),
-                                                        tabs,
-                                                    },
-                                                );
-                                            }
-                                            ExtensionMessage::ActivateTabResult { tab_id, success, error } => {
-                                                let mut pending_guard = pending_clone.lock().unwrap();
-                                                if let Some(sender) = pending_guard.remove(&tab_id) {
-                                                    if success {
-                                                        let _ = sender.send(Ok(()));
-                                                    } else {
-                                                        let err_msg = error.unwrap_or_else(|| "Unknown browser error".to_string());
-                                                        let _ = sender.send(Err(err_msg));
-                                                    }
-                                                }
-                                            }
-                                            ExtensionMessage::Pong => {
-                                                // Keep-alive pong
-                                            }
-                                        }
-                                    }
-                                }
+                        // Acquire the lock, attempt a read, release immediately.
+                        let msg = {
+                            let mut guard = ws_arc.lock().unwrap();
+                            guard.read()
+                        };
+
+                        match msg {
+                            Ok(Message::Text(text)) => {
+                                handle_incoming(
+                                    &text,
+                                    &tx,
+                                    &state_clone,
+                                    &mut registered_browser,
+                                );
+                            }
+                            Ok(Message::Ping(data)) => {
+                                // tungstenite auto-replies to Ping, but we must
+                                // send the Pong manually when using the raw API.
+                                let mut guard = ws_arc.lock().unwrap();
+                                let _ = guard.send(Message::Pong(data));
+                            }
+                            Ok(_) => {
+                                // Binary / Close / other — ignore
+                            }
+                            Err(tungstenite::Error::Io(ref e))
+                                if e.kind() == std::io::ErrorKind::WouldBlock
+                                    || e.kind() == std::io::ErrorKind::TimedOut =>
+                            {
+                                // No data within the 50 ms window — loop again.
+                                // This tight loop lets the writer pick up the lock
+                                // between read attempts.
+                                thread::sleep(Duration::from_millis(5));
                             }
                             Err(e) => {
-                                drop(ws_guard);
-                                eprintln!("[BrowserBridge] Error: Connection closed — {}", e);
+                                println!("[BrowserBridge] Connection closed: {}", e);
                                 break;
                             }
                         }
                     }
 
-                    // Clean up registration on disconnect
+                    // ----------------------------------------------------------
+                    // Step 5 — Clean up on disconnect
+                    // ----------------------------------------------------------
                     if let Some(browser) = registered_browser {
                         let mut guard = state_clone.lock().unwrap();
-                        guard.remove(&browser);
-                        println!("[BrowserBridge] Info: Browser extension disconnected ({})", browser);
+                        guard.sessions.remove(&browser);
+                        println!("[BrowserBridge] Client disconnected ({})", browser);
                     }
                 });
             }
+
+            println!("[BrowserBridge] Server stopped");
         });
     }
 
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
+
     pub fn find_matching_tab(&self, url: &str, browser_filter: &str) -> Option<BrowserTab> {
-        println!("[BrowserBridge] Received Browser Shortcut request");
-        
+        println!("[BrowserBridge] Received Browser Shortcut request for: {}", url);
+
         let guard = self.state.lock().unwrap();
         let filter_lower = browser_filter.to_ascii_lowercase();
 
-        let mut matching_tabs = Vec::new();
+        if guard.sessions.is_empty() {
+            println!("[BrowserBridge] No extension connected — cannot match tabs");
+            return None;
+        }
 
-        for (browser_name, session) in guard.iter() {
+        let mut matching_tabs: Vec<BrowserTab> = Vec::new();
+
+        for (browser_name, session) in &guard.sessions {
             let matches_browser = match filter_lower.as_str() {
-                "chrome" => browser_name == "chrome",
-                "edge" => browser_name == "edge",
-                "brave" => browser_name == "brave",
-                "opera" => browser_name == "opera",
+                "chrome"  => browser_name == "chrome",
+                "edge"    => browser_name == "edge",
+                "brave"   => browser_name == "brave",
+                "opera"   => browser_name == "opera",
                 "firefox" => browser_name == "firefox",
-                _ => true,
+                _         => true,
             };
 
             if matches_browser {
@@ -387,89 +300,114 @@ impl BrowserBridge {
         }
 
         if matching_tabs.is_empty() {
-            println!("No match found");
+            println!("[BrowserBridge] No matching tab found for: {}", url);
             return None;
         }
 
-        // Prioritize active and MRU tabs
-        matching_tabs.sort_by(|tab_a, tab_b| {
-            if tab_a.active != tab_b.active {
-                return tab_b.active.cmp(&tab_a.active);
-            }
-            let time_a = tab_a.last_accessed.unwrap_or(0.0);
-            let time_b = tab_b.last_accessed.unwrap_or(0.0);
-            time_b.partial_cmp(&time_a).unwrap_or(std::cmp::Ordering::Equal)
+        // Prefer the currently active tab; break ties by most-recently-accessed.
+        matching_tabs.sort_by(|a, b| {
+            b.active.cmp(&a.active).then_with(|| {
+                let ta = a.last_accessed.unwrap_or(0.0);
+                let tb = b.last_accessed.unwrap_or(0.0);
+                tb.partial_cmp(&ta).unwrap_or(std::cmp::Ordering::Equal)
+            })
         });
 
-        let best_tab = &matching_tabs[0];
-        let host_val = extract_host(url);
-        println!("Matched domain: {}", get_base_domain(&host_val.to_lowercase()));
-        Some(best_tab.clone())
+        let best = &matching_tabs[0];
+        println!(
+            "[BrowserBridge] Matched tab: \"{}\" (tabId={} windowId={})",
+            best.title, best.tab_id, best.window_id
+        );
+        Some(best.clone())
     }
 
     pub fn activate_tab(&self, tab: &BrowserTab) -> Result<(), String> {
-        let guard = self.state.lock().unwrap();
-        
-        let mut session_found = None;
-        let mut matched_browser = String::new();
-        for (browser_name, session) in guard.iter() {
-            if session.tabs.iter().any(|t| t.tab_id == tab.tab_id && t.window_id == tab.window_id) {
-                session_found = Some(session);
-                matched_browser = browser_name.clone();
-                break;
+        let (outbox_tx, result_tx) = {
+            let mut guard = self.state.lock().unwrap();
+
+            // Find the session that owns this tab.
+            let mut outbox = None;
+            let mut matched_browser_name = String::new();
+            for (name, session) in &guard.sessions {
+                if session.tabs.iter().any(|t| t.tab_id == tab.tab_id) {
+                    outbox = Some(session.outbox.clone());
+                    matched_browser_name = name.clone();
+                    break;
+                }
             }
-        }
-        
-        if let Some(session) = session_found {
-            let cmd = HostCommand::ActivateTab {
-                tab_id: tab.tab_id,
-                window_id: tab.window_id,
+
+            let outbox = match outbox {
+                Some(o) => o,
+                None => {
+                    println!("[BrowserBridge] No extension session for tab {}", tab.tab_id);
+                    return Err("No extension session for this tab".to_string());
+                }
             };
-            if let Ok(cmd_str) = serde_json::to_string(&cmd) {
-                let (tx, rx) = channel::<Result<(), String>>();
+
+            let _ = matched_browser_name; // used for logging elsewhere
+
+            // Register a pending-response channel keyed by tabId.
+            let (result_tx, result_rx_holder) = channel::<Result<(), String>>();
+            guard.pending.insert(tab.tab_id, result_tx.clone());
+
+            (outbox, (result_tx, result_rx_holder))
+        };
+
+        let (_, rx) = result_tx; // rename for clarity
+
+        // Send the activate command to the extension.
+        let cmd = HostCommand::ActivateTab {
+            tab_id:    tab.tab_id,
+            window_id: tab.window_id,
+        };
+        let cmd_str = serde_json::to_string(&cmd)
+            .map_err(|e| format!("Serialise error: {}", e))?;
+
+        println!(
+            "[BrowserBridge] Sending ACTIVATE_TAB tabId={} windowId={}",
+            tab.tab_id, tab.window_id
+        );
+
+        if outbox_tx.send(cmd_str).is_err() {
+            let mut guard = self.state.lock().unwrap();
+            guard.pending.remove(&tab.tab_id);
+            return Err("Extension outbox channel closed".to_string());
+        }
+
+        // Wait up to 3 seconds for the extension to respond.
+        match rx.recv_timeout(Duration::from_millis(3000)) {
+            Ok(Ok(())) => {
+                println!("[BrowserBridge] Tab activated successfully");
+
+                // Bring the browser window to the foreground at OS level.
+                #[cfg(target_os = "windows")]
                 {
-                    let mut pending_guard = self.pending_activations.lock().unwrap();
-                    pending_guard.insert(tab.tab_id, tx);
+                    let browser = {
+                        let guard = self.state.lock().unwrap();
+                        guard.sessions.keys().next().cloned().unwrap_or_default()
+                    };
+                    let _ = focus_window(&browser, &tab.title);
                 }
 
-                if let Err(_) = session.sender.send(cmd_str) {
-                    let mut pending_guard = self.pending_activations.lock().unwrap();
-                    pending_guard.remove(&tab.tab_id);
-                    return Err("Failed to send activation command to extension".to_string());
+                Ok(())
+            }
+            Ok(Err(err)) => {
+                println!("[BrowserBridge] Activation failed: {}", err);
+                Err(err)
+            }
+            Err(_) => {
+                {
+                    let mut guard = self.state.lock().unwrap();
+                    guard.pending.remove(&tab.tab_id);
                 }
-
-                // Wait for the response from the extension (timeout after 1500ms)
-                match rx.recv_timeout(Duration::from_millis(1500)) {
-                    Ok(Ok(())) => {
-                        println!("Activated existing tab");
-                        
-                        // Bring window to foreground natively
-                        #[cfg(target_os = "windows")]
-                        {
-                            let _ = focus_window(&matched_browser, &tab.title);
-                        }
-                        
-                        return Ok(());
-                    }
-                    Ok(Err(err)) => {
-                        println!("Activation failed: {}", err);
-                        return Err(err);
-                    }
-                    Err(_) => {
-                        let mut pending_guard = self.pending_activations.lock().unwrap();
-                        pending_guard.remove(&tab.tab_id);
-                        println!("Activation failed: Timeout waiting for response from extension");
-                        return Err("Timeout".to_string());
-                    }
-                }
+                println!("[BrowserBridge] Activation timed out (no response from extension)");
+                Err("Timeout".to_string())
             }
         }
-        
-        Err("Browser extension session not found for tab".to_string())
     }
 
     pub fn open_launch_url(&self, url: &str, browser: &str) -> Result<(), String> {
-        println!("Opened launch URL: {}", url);
+        println!("[BrowserBridge] Opening URL: {}", url);
         #[cfg(target_os = "windows")]
         {
             crate::providers::windows_provider::open_website_windows(url, browser)?;
@@ -480,10 +418,207 @@ impl BrowserBridge {
         }
         Ok(())
     }
+}
 
-    #[allow(dead_code)]
-    pub fn list_tabs(&self) -> Vec<BrowserTab> {
-        let guard = self.state.lock().unwrap();
-        guard.values().flat_map(|session| session.tabs.clone()).collect()
+// ---------------------------------------------------------------------------
+// Message handler — called from the reader loop
+// ---------------------------------------------------------------------------
+
+fn handle_incoming(
+    text: &str,
+    outbox: &Sender<String>,
+    state: &Arc<Mutex<BridgeState>>,
+    registered_browser: &mut Option<String>,
+) {
+    let msg = match serde_json::from_str::<ExtensionMessage>(text) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("[BrowserBridge] Unrecognised message: {} — raw: {}", e, text);
+            return;
+        }
+    };
+
+    match msg {
+        ExtensionMessage::TabsUpdate { browser, tabs } => {
+            let browser_lower = browser.to_ascii_lowercase();
+            println!(
+                "[BrowserBridge] TABS_UPDATE from {} ({} tabs)",
+                browser_lower,
+                tabs.len()
+            );
+            *registered_browser = Some(browser_lower.clone());
+
+            let mut guard = state.lock().unwrap();
+            guard.sessions.insert(
+                browser_lower,
+                BrowserSession {
+                    outbox: outbox.clone(),
+                    tabs,
+                },
+            );
+        }
+
+        ExtensionMessage::ActivateTabResult { tab_id, success, error } => {
+            println!(
+                "[BrowserBridge] ACTIVATE_TAB_RESULT tabId={} success={}{}",
+                tab_id,
+                success,
+                if let Some(ref e) = error { format!(" error={}", e) } else { String::new() }
+            );
+
+            let mut guard = state.lock().unwrap();
+            if let Some(sender) = guard.pending.remove(&tab_id) {
+                let result = if success {
+                    Ok(())
+                } else {
+                    Err(error.unwrap_or_else(|| "Unknown browser error".to_string()))
+                };
+                let _ = sender.send(result);
+            }
+        }
+
+        ExtensionMessage::Pong => {
+            // Keep-alive — nothing to do.
+        }
     }
+}
+
+// ---------------------------------------------------------------------------
+// URL / domain matching helpers
+// ---------------------------------------------------------------------------
+
+pub fn extract_host(url: &str) -> &str {
+    let mut s = url;
+    if s.starts_with("https://") {
+        s = &s[8..];
+    } else if s.starts_with("http://") {
+        s = &s[7..];
+    }
+    if let Some(p) = s.find('/') { s = &s[..p]; }
+    if let Some(p) = s.find(':') { s = &s[..p]; }
+    s
+}
+
+pub fn get_base_domain(host: &str) -> &str {
+    let parts: Vec<&str> = host.split('.').collect();
+    if parts.len() > 2 {
+        let last = parts[parts.len() - 1];
+        let snd  = parts[parts.len() - 2];
+        // Two-part ccTLD secondaries
+        if matches!(
+            (snd, last),
+            ("co", "uk") | ("com", "br") | ("net", "au") | ("org", "uk")
+        ) {
+            if parts.len() >= 3 {
+                let i = parts.len() - 3;
+                return &host[host.find(parts[i]).unwrap()..];
+            }
+        }
+        let i = parts.len() - 2;
+        return &host[host.find(parts[i]).unwrap()..];
+    }
+    host
+}
+
+pub fn match_domain(configured_url: &str, tab_url: &str) -> bool {
+    let ch = extract_host(configured_url).to_lowercase();
+    let th = extract_host(tab_url).to_lowercase();
+    if ch.is_empty() || th.is_empty() { return false; }
+    get_base_domain(&ch) == get_base_domain(&th)
+}
+
+// ---------------------------------------------------------------------------
+// Win32 window focus helpers
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "windows")]
+fn get_process_name(pid: u32) -> Option<String> {
+    unsafe {
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if h.is_null() { return None; }
+        let mut buf  = vec![0u16; 260];
+        let mut size = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(h, 0, buf.as_mut_ptr(), &mut size);
+        CloseHandle(h);
+        if ok != 0 {
+            let path = String::from_utf16_lossy(&buf[..size as usize]);
+            return std::path::Path::new(&path)
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned());
+        }
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct FocusState {
+    process_names:   Vec<String>,
+    class_name:      String,
+    title_substring: String,
+    focused:         bool,
+}
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn focus_callback(
+    hwnd: HWND,
+    lparam: winapi::shared::minwindef::LPARAM,
+) -> winapi::shared::minwindef::BOOL {
+    let state = &mut *(lparam as *mut FocusState);
+    if state.focused { return 0; }
+
+    if IsWindowVisible(hwnd) != 0 {
+        let mut cls = vec![0u16; 256];
+        let len = GetClassNameW(hwnd, cls.as_mut_ptr(), cls.len() as i32);
+        if len > 0 {
+            let cls_str = String::from_utf16_lossy(&cls[..len as usize]);
+            if cls_str == state.class_name {
+                let mut pid = 0u32;
+                GetWindowThreadProcessId(hwnd, &mut pid);
+                if let Some(proc) = get_process_name(pid) {
+                    let proc_l = proc.to_ascii_lowercase();
+                    if state.process_names.iter().any(|p| p == &proc_l) {
+                        let mut title = vec![0u16; 512];
+                        let tl = GetWindowTextW(hwnd, title.as_mut_ptr(), title.len() as i32);
+                        let title_s = String::from_utf16_lossy(&title[..tl as usize]).to_lowercase();
+                        if title_s.contains(&state.title_substring) {
+                            ShowWindow(hwnd, SW_RESTORE);
+                            SetForegroundWindow(hwnd);
+                            state.focused = true;
+                            return 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    1
+}
+
+#[cfg(target_os = "windows")]
+pub fn focus_window(browser: &str, tab_title: &str) -> bool {
+    let (process_names, class_name) = match browser.to_ascii_lowercase().as_str() {
+        "chrome"  => (vec!["chrome.exe".to_string()],  "Chrome_WidgetWin_1".to_string()),
+        "edge"    => (vec!["msedge.exe".to_string()],  "Chrome_WidgetWin_1".to_string()),
+        "brave"   => (vec!["brave.exe".to_string()],   "Chrome_WidgetWin_1".to_string()),
+        "opera"   => (vec!["opera.exe".to_string()],   "Chrome_WidgetWin_1".to_string()),
+        "firefox" => (vec!["firefox.exe".to_string()], "MozillaWindowClass".to_string()),
+        _ => return false,
+    };
+
+    let needle = tab_title.to_lowercase();
+
+    for _ in 0..5 {
+        let mut state = FocusState {
+            process_names:   process_names.clone(),
+            class_name:      class_name.clone(),
+            title_substring: needle.clone(),
+            focused:         false,
+        };
+        unsafe {
+            EnumWindows(Some(focus_callback), &mut state as *mut FocusState as _);
+        }
+        if state.focused { return true; }
+        thread::sleep(Duration::from_millis(30));
+    }
+    false
 }

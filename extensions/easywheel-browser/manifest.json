@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "description": "Integrates Chrome, Edge, Brave, and Opera with the EasyWheel radial menu.",
   "permissions": [
-    "tabs"
+    "tabs",
+    "windows"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   }
 }
