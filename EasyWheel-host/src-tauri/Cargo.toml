@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "EasyWheel Host — Windows background service for EasyWheelAE"
 authors = ["EasyWheelAE"]
 edition = "2021"
+default-run = "easywheel-host"
+
 
 [lib]
 # The `_lib` suffix prevents a name collision between the library crate and
@@ -43,6 +45,7 @@ winapi = { version = "0.3", features = [
     "shellapi",
     "sysinfoapi",
     "minwinbase",
+    "combaseapi",
+    "objbase",
 ] }
-uiautomation = "0.12.0"
 

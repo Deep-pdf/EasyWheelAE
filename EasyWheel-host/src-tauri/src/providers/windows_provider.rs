@@ -14,12 +14,6 @@ struct LaunchAppParams {
     run_as_admin: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct OpenWebsiteParams {
-    url: String,
-    browser: Option<String>,
-    switch_to_existing: Option<bool>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 struct OpenPathParams {
@@ -56,7 +50,6 @@ impl CommandProvider for WindowsProvider {
             "settings",
             // Parameterized Commands
             "launch_app",
-            "open_website",
             "open_folder",
             "open_file",
             "run_script",
@@ -134,45 +127,6 @@ impl CommandProvider for WindowsProvider {
                 #[cfg(not(target_os = "windows"))]
                 {
                     println!("[WindowsProvider] Stub: launch_app '{}'", params.path);
-                }
-                Ok(())
-            }
-            "open_website" => {
-                let params: OpenWebsiteParams = serde_json::from_value(context.parameters.clone())
-                    .map_err(|e| format!("Invalid parameters for open_website: {}", e))?;
-                #[cfg(target_os = "windows")]
-                {
-                    let browser = params.browser.clone().unwrap_or_else(|| "default".to_string());
-                    let switch_to_existing = params.switch_to_existing.unwrap_or(true);
-                    let mut activated = false;
-
-                    if switch_to_existing {
-                        if let Some(best_tab) = super::browser_provider::BrowserTabCache::get_matching_tab(&params.url, &browser) {
-                            let providers = super::browser_provider::get_providers();
-                            if let Some(provider) = providers.iter().find(|p| p.browser_name() == best_tab.browser) {
-                                if let Ok(_) = provider.activate_tab(&best_tab) {
-                                    println!(
-                                        "Browser: {}\nMatched: {}\nActivated existing tab",
-                                        best_tab.browser,
-                                        super::browser_provider::extract_host(&params.url)
-                                    );
-                                    activated = true;
-                                }
-                            }
-                        }
-                    }
-
-                    if !activated {
-                        println!(
-                            "No matching tab\nOpened launch URL: {}",
-                            params.url
-                        );
-                        open_website_windows(&params.url, &browser)?;
-                    }
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    println!("[WindowsProvider] Stub: open_website '{}'", params.url);
                 }
                 Ok(())
             }
@@ -270,7 +224,7 @@ fn launch_app_windows(path: &str, args: &str, working_dir: &str, run_as_admin: b
 }
 
 #[cfg(target_os = "windows")]
-fn open_website_windows(url: &str, browser: &str) -> Result<(), String> {
+pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     use std::ffi::OsStr;
     use winapi::um::shellapi::ShellExecuteW;

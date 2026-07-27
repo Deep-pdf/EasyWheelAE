@@ -2,7 +2,6 @@ pub mod provider;
 pub mod windows_provider;
 pub mod after_effects_provider;
 pub mod photoshop_provider;
-pub mod browser_provider;
 
 
 use std::sync::Arc;
@@ -14,5 +13,6 @@ pub fn register_defaults() {
     registry.register(Arc::new(windows_provider::WindowsProvider));
     registry.register(Arc::new(after_effects_provider::AfterEffectsProvider));
     registry.register(Arc::new(photoshop_provider::PhotoshopProvider));
+    registry.register(Arc::new(crate::browser::browser_provider::BrowserProviderImpl));
     println!("[ProviderRegistry] Info: Default providers registered.");
 }

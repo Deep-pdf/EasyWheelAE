@@ -18,6 +18,7 @@ mod command_dispatcher;
 mod provider_registry;
 mod providers;
 mod ae_bridge;
+mod browser;
 mod ipc;
 
 // `Manager` must be explicitly imported for `app.manage()` to resolve.
@@ -59,6 +60,9 @@ pub fn run() {
 
             // Start After Effects communication bridge.
             ae_bridge::AEBridge::start();
+
+            // Start Browser communication bridge.
+            browser::browser_bridge::BrowserBridge::start();
 
             // Step 3 — Intercept window close events.
             window_manager::WindowManager::register_close_handler(&handle);

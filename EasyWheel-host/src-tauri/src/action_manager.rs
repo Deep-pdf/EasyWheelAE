@@ -145,10 +145,12 @@ impl ActionManager {
             profile_name, sector, configured_cmd.command_id
         );
 
-        // Dispatch action via CommandDispatcher
-        if let Err(e) = crate::command_dispatcher::CommandDispatcher::dispatch(context) {
-            eprintln!("[ActionManager] Error: Command dispatch failed: {}", e);
-        }
+        // Dispatch action via CommandDispatcher in a background thread
+        std::thread::spawn(move || {
+            if let Err(e) = crate::command_dispatcher::CommandDispatcher::dispatch(context) {
+                eprintln!("[ActionManager] Error: Command dispatch failed: {}", e);
+            }
+        });
     }
 
     /// Resets both lazy statics to `None`, forcing re-initialisation from the
