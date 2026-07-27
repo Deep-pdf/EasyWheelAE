@@ -7,6 +7,22 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tungstenite::{accept, Message};
 
+#[cfg(target_os = "windows")]
+use winapi::shared::windef::HWND;
+#[cfg(target_os = "windows")]
+use winapi::um::winuser::{
+    EnumWindows, GetClassNameW, GetWindowTextW, GetWindowThreadProcessId,
+    IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE,
+};
+#[cfg(target_os = "windows")]
+use winapi::um::handleapi::CloseHandle;
+#[cfg(target_os = "windows")]
+use winapi::um::processthreadsapi::OpenProcess;
+#[cfg(target_os = "windows")]
+use winapi::um::winbase::QueryFullProcessImageNameW;
+#[cfg(target_os = "windows")]
+use winapi::um::winnt::PROCESS_QUERY_LIMITED_INFORMATION;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserTab {
     #[serde(rename = "tabId")]
@@ -109,6 +125,119 @@ pub fn match_domain(configured_url: &str, tab_url: &str) -> bool {
     let conf_base = get_base_domain(&conf_host);
     let tab_base = get_base_domain(&tab_host);
     conf_base == tab_base
+}
+
+// -------------------------------------------------------------------------
+// Win32 Helper functions to bring browser window to the foreground natively
+// -------------------------------------------------------------------------
+
+#[cfg(target_os = "windows")]
+fn get_process_name(pid: u32) -> Option<String> {
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return None;
+        }
+        let mut buf = vec![0u16; 260];
+        let mut size = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size);
+        CloseHandle(handle);
+
+        if ok != 0 {
+            let path_str = String::from_utf16_lossy(&buf[..size as usize]);
+            if let Some(filename) = std::path::Path::new(&path_str).file_name() {
+                return Some(filename.to_string_lossy().into_owned());
+            }
+        }
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct FocusState {
+    process_names: Vec<String>,
+    class_name: String,
+    title_substring: String,
+    focused: bool,
+}
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn focus_callback(hwnd: HWND, lparam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::BOOL {
+    let state = &mut *(lparam as *mut FocusState);
+    if state.focused {
+        return 0; // stop enumeration
+    }
+
+    if IsWindowVisible(hwnd) != 0 {
+        let mut class_buf = vec![0u16; 256];
+        let len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), class_buf.len() as i32);
+        if len > 0 {
+            let class_str = String::from_utf16_lossy(&class_buf[..len as usize]);
+            if class_str == state.class_name {
+                let mut pid = 0;
+                GetWindowThreadProcessId(hwnd, &mut pid);
+                if pid != 0 {
+                    if let Some(proc_name) = get_process_name(pid) {
+                        let proc_lower = proc_name.to_ascii_lowercase();
+                        if state.process_names.iter().any(|p| p == &proc_lower) {
+                            let mut title_buf = vec![0u16; 512];
+                            let title_len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+                            let title_str = String::from_utf16_lossy(&title_buf[..title_len as usize]).to_lowercase();
+                            
+                            if title_str.contains(&state.title_substring) {
+                                ShowWindow(hwnd, SW_RESTORE);
+                                SetForegroundWindow(hwnd);
+                                state.focused = true;
+                                return 0; // stop enumeration
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    1
+}
+
+#[cfg(target_os = "windows")]
+pub fn focus_window(browser: &str, tab_title: &str) -> bool {
+    let browser_lower = browser.to_ascii_lowercase();
+    let (process_names, class_name) = match browser_lower.as_str() {
+        "chrome" => (vec!["chrome.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
+        "edge" => (vec!["msedge.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
+        "brave" => (vec!["brave.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
+        "opera" => (vec!["opera.exe".to_string(), "launcher.exe".to_string()], "Chrome_WidgetWin_1".to_string()),
+        "firefox" => (vec!["firefox.exe".to_string()], "MozillaWindowClass".to_string()),
+        _ => (vec![], "".to_string()),
+    };
+
+    if process_names.is_empty() {
+        return false;
+    }
+
+    // Clean target tab title to compare (e.g. to lowercase)
+    let title_substring = tab_title.to_lowercase();
+
+    // We retry up to 5 times with a 30ms sleep because tab switching in the browser
+    // is async and the window title might take a few milliseconds to update to the new tab.
+    for _ in 0..5 {
+        let mut state = FocusState {
+            process_names: process_names.clone(),
+            class_name: class_name.clone(),
+            title_substring: title_substring.clone(),
+            focused: false,
+        };
+
+        unsafe {
+            EnumWindows(Some(focus_callback), &mut state as *mut FocusState as _);
+        }
+
+        if state.focused {
+            return true;
+        }
+        thread::sleep(Duration::from_millis(30));
+    }
+    false
 }
 
 impl BrowserBridge {
@@ -282,9 +411,11 @@ impl BrowserBridge {
         let guard = self.state.lock().unwrap();
         
         let mut session_found = None;
-        for session in guard.values() {
+        let mut matched_browser = String::new();
+        for (browser_name, session) in guard.iter() {
             if session.tabs.iter().any(|t| t.tab_id == tab.tab_id && t.window_id == tab.window_id) {
                 session_found = Some(session);
+                matched_browser = browser_name.clone();
                 break;
             }
         }
@@ -311,6 +442,13 @@ impl BrowserBridge {
                 match rx.recv_timeout(Duration::from_millis(1500)) {
                     Ok(Ok(())) => {
                         println!("Activated existing tab");
+                        
+                        // Bring window to foreground natively
+                        #[cfg(target_os = "windows")]
+                        {
+                            let _ = focus_window(&matched_browser, &tab.title);
+                        }
+                        
                         return Ok(());
                     }
                     Ok(Err(err)) => {

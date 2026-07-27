@@ -33,18 +33,17 @@ impl CommandProvider for BrowserProviderImpl {
                 
                 let browser = params.browser.clone().unwrap_or_else(|| "default".to_string());
                 let switch_to = params.switch_to_existing.unwrap_or(true);
-                let mut activated = false;
+                let mut matched = false;
 
                 if switch_to {
                     let bridge = BrowserBridge::global();
                     if let Some(tab) = bridge.find_matching_tab(&params.url, &browser) {
-                        if bridge.activate_tab(&tab).is_ok() {
-                            activated = true;
-                        }
+                        matched = true;
+                        bridge.activate_tab(&tab)?;
                     }
                 }
 
-                if !activated {
+                if !matched {
                     let bridge = BrowserBridge::global();
                     bridge.open_launch_url(&params.url, &browser)?;
                 }
