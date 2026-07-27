@@ -5,7 +5,8 @@
   "description": "Integrates Chrome, Edge, Brave, and Opera with the EasyWheel radial menu.",
   "permissions": [
     "tabs",
-    "windows"
+    "windows",
+    "alarms"
   ],
   "background": {
     "service_worker": "background.js",
