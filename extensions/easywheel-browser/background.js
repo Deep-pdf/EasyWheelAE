@@ -102,17 +102,8 @@ function sendToHost(msg) {
 // Tab activation
 // ---------------------------------------------------------------------------
 async function activateTab(tabId, windowId) {
-    // Step 1 — restore minimised window
-    try {
-        const win = await chrome.windows.get(windowId);
-        console.log(`[EasyWheel] Window ${windowId} state: ${win.state}`);
-        if (win.state === "minimized") {
-            console.log("[EasyWheel] Restoring minimised window...");
-            await chrome.windows.update(windowId, { state: "normal" });
-        }
-    } catch (e) {
-        console.warn("[EasyWheel] Could not check window state:", e.message);
-    }
+    // Window minimization state restoration is handled natively by the Host
+    // using Win32 ShowWindow(hwnd, SW_RESTORE) to preserve maximized/normal states.
 
     // Step 2 — Sequence A: activate tab → focus window
     try {

@@ -12,7 +12,7 @@ use winapi::shared::windef::HWND;
 #[cfg(target_os = "windows")]
 use winapi::um::winuser::{
     EnumWindows, GetClassNameW, GetWindowTextW, GetWindowThreadProcessId,
-    IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE,
+    IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW, IsIconic,
 };
 #[cfg(target_os = "windows")]
 use winapi::um::handleapi::CloseHandle;
@@ -581,7 +581,11 @@ unsafe extern "system" fn focus_callback(
                         let tl = GetWindowTextW(hwnd, title.as_mut_ptr(), title.len() as i32);
                         let title_s = String::from_utf16_lossy(&title[..tl as usize]).to_lowercase();
                         if title_s.contains(&state.title_substring) {
-                            ShowWindow(hwnd, SW_RESTORE);
+                            if IsIconic(hwnd) != 0 {
+                                ShowWindow(hwnd, SW_RESTORE);
+                            } else {
+                                ShowWindow(hwnd, SW_SHOW);
+                            }
                             SetForegroundWindow(hwnd);
                             state.focused = true;
                             return 0;

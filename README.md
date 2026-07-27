@@ -12,8 +12,13 @@ EasyWheelAE consists of two separate applications that communicate over a custom
 |---|---|---|
 | **EasyWheel Host** | Tauri v2 · Rust · React · TypeScript | Windows background service — system tray, global hotkey, radial overlay, and setting dashboard. Runs the WebSocket server. |
 | **EasyWheel AE** | Adobe CEP Extension | After Effects panel client — runs a WebSocket client, receives commands, and executes them via ExtendScript (`evalScript`). |
+| **Browser Extension** | Web Extension (MV3) · JavaScript | Browser integration client — service worker WebSocket client tracking open tabs and handling window/tab activation. |
 
-The two applications are intentionally decoupled. EasyWheel Host never imports After Effects APIs, and EasyWheel AE never imports Tauri APIs. All communication is mediated by the WebSocket IPC protocol. The Host starts a WebSocket server (default port `23435`), which the AE extension connects to upon launching.
+The applications are decoupled. EasyWheel Host runs two local WebSocket servers:
+- Port `23435` for the After Effects CEP extension.
+- Port `23436` for the Browser Extension.
+
+When a user triggers a "Browser Shortcut" action, the Host queries the Browser Extension for any matching open tabs. If a match is found, the extension activates the tab and the Host natively focuses the browser window. If no match is found, the Host opens the configured URL in a new tab.
 
 ---
 
@@ -71,6 +76,11 @@ EasyWheelAE/
 │   │   └── index.ts              # Registry & initialization entry point
 │   ├── tsconfig.json             # Compiles client code to the CEP extension directory
 │   └── package.json              # TypeScript compilation dependencies
+│
+├── extensions/
+│   └── easywheel-browser/        # Web Extension (Chrome, Edge, Brave, Opera, etc.)
+│       ├── manifest.json         # Extension manifest with permissions (tabs, windows, alarms)
+│       └── background.js         # MV3 service worker handling socket updates and tab focus
 │
 └── bridges/
     └── after-effects/
@@ -165,6 +175,23 @@ npm run tauri build
 
 ---
 
+### 3. EasyWheel Browser Extension (Chrome/Edge/Brave/Opera)
+
+#### Prerequisites
+- A Chromium-based browser (Chrome, Edge, Brave, Opera, etc.)
+
+#### Installation
+1. Open your browser and navigate to the extensions management page:
+   - Chrome: `chrome://extensions/`
+   - Edge: `edge://extensions/`
+2. Enable **Developer mode** using the toggle switch (typically in the top-right or top-left corner).
+3. Click the **Load unpacked** button.
+4. Select the `extensions/easywheel-browser/` folder from this repository.
+5. The extension will automatically load and connect to the Host app on port `23436`.
+6. To verify connectivity, look at the service worker console log (click the **service worker** link on the extension card). You should see `[EasyWheel] Connected`.
+
+---
+
 ## Development Phases
 
 | Phase | Status | Scope |
@@ -194,7 +221,6 @@ Planned features include:
 
 - [ ] Photoshop support
 - [ ] Premiere Pro support
-- [ ] Browser smart shortcuts
 - [ ] Custom radial themes
 - [ ] Plugin marketplace
 - [ ] Macro recording
