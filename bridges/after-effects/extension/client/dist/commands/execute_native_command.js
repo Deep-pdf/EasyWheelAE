@@ -95,8 +95,12 @@ exports.executeNativeCommand = {
             case 2525: // Horizontal Type Tool (Focus tool only)
                 script = `try {
           app.activate();
-          app.toolType = ToolType.TOOL_TEXT_H;
-          "OK";
+          if (app.project) {
+            app.project.toolType = ToolType.Tool_TextH;
+            "OK";
+          } else {
+            "ERROR: No project open";
+          }
         } catch(e) {
           "ERROR: " + (e.message || String(e));
         }`;
