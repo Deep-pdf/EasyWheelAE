@@ -96,21 +96,11 @@ export const executeNativeCommand: Command = {
       case 2007: // Duplicate
         script = 'EasyWheel.execute("duplicate_layer")';
         break;
-      case 2525: // New Text Layer (Robust API execution)
+      case 2525: // Horizontal Type Tool (Focus tool only)
         script = `try {
           app.activate();
-          var comp = app.project.activeItem;
-          if (comp && comp instanceof CompItem) {
-            app.beginUndoGroup("EasyWheel: New Text Layer");
-            comp.layers.addText("");
-            try {
-              app.toolType = ToolType.TOOL_TEXT_H;
-            } catch(e2) {}
-            app.endUndoGroup();
-            "OK";
-          } else {
-            "ERROR: No active composition";
-          }
+          app.toolType = ToolType.TOOL_TEXT_H;
+          "OK";
         } catch(e) {
           "ERROR: " + (e.message || String(e));
         }`;

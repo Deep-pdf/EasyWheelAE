@@ -528,12 +528,12 @@ export const commandRegistry: AECommand[] = [
     "description": "Show composition relationship flowchart."
   },
   {
-    "id": "new_text",
-    "name": "New Text Layer",
+    "id": "horizontal_type_tool",
+    "name": "Horizontal Type Tool",
     "category": "Layer",
     "type": "native",
     "commandId": 2525,
-    "description": "Create a new text layer."
+    "description": "Select the Horizontal Type Tool."
   },
   {
     "id": "new_solid",

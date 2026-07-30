@@ -50,6 +50,7 @@ impl CommandProvider for AfterEffectsProvider {
                 "trim_paths" => 2406,   // Trim Paths command ID (or shape layer trim paths)
                 "parent" => 2410,       // Parent command ID fallback
                 "null_object" => 2507,  // Null Object command ID fallback
+                "horizontal_type_tool" | "new_text" => 2525, // Type tool command ID fallback
                 _ => {
                     eprintln!("[AfterEffectsProvider] Error: Command '{}' not found in registry.", context.action_id);
                     return Err("Command not found.".to_string());
