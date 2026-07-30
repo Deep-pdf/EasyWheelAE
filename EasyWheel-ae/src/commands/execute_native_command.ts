@@ -96,6 +96,55 @@ export const executeNativeCommand: Command = {
       case 2007: // Duplicate
         script = 'EasyWheel.execute("duplicate_layer")';
         break;
+      case 2525: // New Text Layer (Robust API execution)
+        script = `try {
+          app.activate();
+          var comp = app.project.activeItem;
+          if (comp && comp instanceof CompItem) {
+            app.beginUndoGroup("EasyWheel: New Text Layer");
+            comp.layers.addText("");
+            app.endUndoGroup();
+            "OK";
+          } else {
+            "ERROR: No active composition";
+          }
+        } catch(e) {
+          "ERROR: " + (e.message || String(e));
+        }`;
+        break;
+      case 2511: // New Shape Layer (Robust API execution)
+        script = `try {
+          app.activate();
+          var comp = app.project.activeItem;
+          if (comp && comp instanceof CompItem) {
+            app.beginUndoGroup("EasyWheel: New Shape Layer");
+            comp.layers.addShape();
+            app.endUndoGroup();
+            "OK";
+          } else {
+            "ERROR: No active composition";
+          }
+        } catch(e) {
+          "ERROR: " + (e.message || String(e));
+        }`;
+        break;
+      case 2506: // New Adjustment Layer (Robust API execution)
+        script = `try {
+          app.activate();
+          var comp = app.project.activeItem;
+          if (comp && comp instanceof CompItem) {
+            app.beginUndoGroup("EasyWheel: New Adjustment Layer");
+            var layer = comp.layers.addSolid([0,0,0], "Adjustment Layer", comp.width, comp.height, comp.pixelAspect, comp.duration);
+            layer.adjustmentLayer = true;
+            app.endUndoGroup();
+            "OK";
+          } else {
+            "ERROR: No active composition";
+          }
+        } catch(e) {
+          "ERROR: " + (e.message || String(e));
+        }`;
+        break;
       default:
         // Try to map known hardcoded command IDs to their menu names for dynamic lookup
         const menuName = getMenuNameForId(commandId);
