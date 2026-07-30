@@ -103,6 +103,9 @@ export const executeNativeCommand: Command = {
           if (comp && comp instanceof CompItem) {
             app.beginUndoGroup("EasyWheel: New Text Layer");
             comp.layers.addText("");
+            try {
+              app.toolType = ToolType.TOOL_TEXT_H;
+            } catch(e2) {}
             app.endUndoGroup();
             "OK";
           } else {
