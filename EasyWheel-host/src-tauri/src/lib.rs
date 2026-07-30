@@ -1,5 +1,6 @@
 // Module declarations. Each module has a single, well-defined responsibility.
 // No business logic is permitted in this file beyond application orchestration.
+mod command_registry;
 mod action_manager;
 mod action_registry;
 mod app_state;
@@ -100,6 +101,7 @@ pub fn run() {
             commands::pick_executable,
             commands::pick_file,
             commands::pick_folder,
+            commands::get_command_registry,
         ])
         .run(tauri::generate_context!())
         .expect("Fatal: Tauri application failed to start.");

@@ -9,6 +9,7 @@ import { nullObjectCommand } from './commands/null_object';
 import { parentCommand } from './commands/parent';
 import { pingCommand } from './commands/ping';
 import { echoCommand } from './commands/echo';
+import { executeNativeCommand } from './commands/execute_native_command';
 import { Logger } from './bridge/logger';
 
 // 1. Register all placeholder commands
@@ -21,6 +22,7 @@ CommandRegistry.register(graphEditorCommand);
 CommandRegistry.register(duplicateLayerCommand);
 CommandRegistry.register(nullObjectCommand);
 CommandRegistry.register(parentCommand);
+CommandRegistry.register(executeNativeCommand);
 
 // 2. Boot connection manager
 connectionManager.start();

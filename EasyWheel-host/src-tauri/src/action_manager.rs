@@ -149,6 +149,11 @@ impl ActionManager {
         std::thread::spawn(move || {
             if let Err(e) = crate::command_dispatcher::CommandDispatcher::dispatch(context) {
                 eprintln!("[ActionManager] Error: Command dispatch failed: {}", e);
+                rfd::MessageDialog::new()
+                    .set_title("EasyWheel Error")
+                    .set_description(&e)
+                    .set_level(rfd::MessageLevel::Error)
+                    .show();
             }
         });
     }

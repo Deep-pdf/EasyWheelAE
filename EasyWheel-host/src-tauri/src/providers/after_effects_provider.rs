@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use crate::models::command_context::CommandContext;
 use crate::providers::provider::CommandProvider;
 use crate::ae_bridge::AEBridge;
@@ -9,15 +8,12 @@ use crate::ipc::{
 
 /// Command provider for Adobe After Effects actions.
 pub struct AfterEffectsProvider;
-
-#[derive(Debug, Clone, Deserialize)]
-struct AECommandParams {
-    command: String,
-}
-
 impl CommandProvider for AfterEffectsProvider {
     fn can_execute(&self, action_id: &str, profile: &str) -> bool {
-        profile == "Adobe After Effects" && self.supported_actions().contains(&action_id)
+        profile == "Adobe After Effects" && (
+            self.supported_actions().contains(&action_id) ||
+            crate::command_registry::has_command(action_id)
+        )
     }
 
     fn provider_name(&self) -> &'static str {
@@ -31,32 +27,43 @@ impl CommandProvider for AfterEffectsProvider {
             "trim_paths",
             "graph_editor",
             "duplicate_layer",
-            "duplicate",        // alias — routes to duplicate_layer on the CEP side
+            "duplicate",
             "null_object",
             "parent",
             "after_effects_command",
+            "execute_native_command",
         ]
     }
 
     fn execute(&self, context: &CommandContext) -> Result<(), String> {
-        let command_name = if context.action_id == "after_effects_command" {
-            let params: AECommandParams = serde_json::from_value(context.parameters.clone())
-                .map_err(|e| format!("Invalid parameters for after_effects_command: {}", e))?;
-            params.command
-        } else if context.action_id == "duplicate" {
-            // "duplicate" is the user-facing action ID; map to the CEP-registered command.
-            "duplicate_layer".to_string()
+        // Resolve the numeric command ID
+        let command_id = if let Some(cmd) = crate::command_registry::get_command(&context.action_id) {
+            cmd.command_id
         } else {
-            context.action_id.clone()
+            // Fallback for legacy actions/names if they are not in the registry
+            match context.action_id.as_str() {
+                "easy_ease" => 2057,
+                "pre_compose" => 2071,
+                "duplicate" | "duplicate_layer" => 2007,
+                "split_layer" => 2524,
+                "graph_editor" => 2104, // default timeline graph editor toggle
+                "trim_paths" => 2406,   // Trim Paths command ID (or shape layer trim paths)
+                "parent" => 2410,       // Parent command ID fallback
+                "null_object" => 2507,  // Null Object command ID fallback
+                _ => {
+                    eprintln!("[AfterEffectsProvider] Error: Command '{}' not found in registry.", context.action_id);
+                    return Err("Command not found.".to_string());
+                }
+            }
         };
 
-        // Construct Request
+        // Construct Request to execute the native command ID on After Effects bridge
         let req = CommandRequest {
             version: PROTOCOL_VERSION,
             request_id: generate_request_id(),
             timestamp: get_iso8601_timestamp(),
-            command: command_name.clone(),
-            parameters: context.parameters.clone(),
+            command: "execute_native_command".to_string(),
+            parameters: serde_json::json!({ "commandId": command_id }),
             profile: context.current_profile.clone(),
         };
 
@@ -72,15 +79,16 @@ impl CommandProvider for AfterEffectsProvider {
                         err_code, response.message
                     );
                     eprintln!("[AfterEffectsProvider] Error: {}", err_msg);
-                    Err(err_msg)
+                    Err("Unable to execute command.".to_string())
                 }
             }
             Err(e) => {
                 let err_msg = format!("Failed to communicate with After Effects: {}", e);
                 eprintln!("[AfterEffectsProvider] Error: {}", err_msg);
-                Err(err_msg)
+                Err("Unable to execute command.".to_string())
             }
         }
     }
 }
+
 

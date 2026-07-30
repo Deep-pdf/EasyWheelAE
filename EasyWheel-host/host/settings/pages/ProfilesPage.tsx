@@ -3,6 +3,7 @@ import { useConfig } from '../context/ConfigContext';
 import { PageLayout } from '../components/layout/PageLayout';
 import { WheelEditor } from '../components/wheel/WheelEditor';
 import { ActionPicker } from '../components/actions/ActionPicker';
+import { CommandPicker } from '../components/actions/CommandPicker';
 import { RunningAppsDialog } from '../components/profiles/RunningAppsDialog';
 import { SearchBar } from '../components/ui/SearchBar';
 import { Button } from '../components/ui/Button';
@@ -17,6 +18,7 @@ export function ProfilesPage(): React.JSX.Element {
   
   // Modals state
   const [isActionPickerOpen, setIsActionPickerOpen] = useState(false);
+  const [isCommandPickerOpen, setIsCommandPickerOpen] = useState(false);
   const [isRunningAppsOpen, setIsRunningAppsOpen] = useState(false);
   const [isNewProfileModalOpen, setIsNewProfileModalOpen] = useState(false);
   
@@ -83,6 +85,19 @@ export function ProfilesPage(): React.JSX.Element {
     const updatedAssignments = {
       ...activeProfile.sector_assignments,
       [selectedSector.toString()]: cmd,
+    };
+
+    updateProfile(activeProfile.name, {
+      sector_assignments: updatedAssignments,
+    });
+  };
+
+  const handleCommandSelect = (cmdId: string) => {
+    if (selectedSector === null) return;
+
+    const updatedAssignments = {
+      ...activeProfile.sector_assignments,
+      [selectedSector.toString()]: cmdId,
     };
 
     updateProfile(activeProfile.name, {
@@ -340,7 +355,13 @@ export function ProfilesPage(): React.JSX.Element {
                     <Button
                       variant="primary"
                       size="sm"
-                      onClick={() => setIsActionPickerOpen(true)}
+                      onClick={() => {
+                        if (activeProfile.name === 'Adobe After Effects') {
+                          setIsCommandPickerOpen(true);
+                        } else {
+                          setIsActionPickerOpen(true);
+                        }
+                      }}
                       className="flex-1"
                     >
                       {assignedAction ? 'Change Action' : 'Assign Action'}
@@ -450,6 +471,14 @@ export function ProfilesPage(): React.JSX.Element {
         onClose={() => setIsActionPickerOpen(false)}
         onSelectCommand={handleActionSelect}
         currentCommand={currentCommand}
+      />
+
+      {/* Searchable After Effects Command Picker */}
+      <CommandPicker
+        isOpen={isCommandPickerOpen}
+        onClose={() => setIsCommandPickerOpen(false)}
+        onSelectCommand={handleCommandSelect}
+        currentCommandId={currentCommand ? currentCommand.command : null}
       />
 
       {/* Running App selector Modal */}

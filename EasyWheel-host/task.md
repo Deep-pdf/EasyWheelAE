@@ -9,11 +9,18 @@
 - [x] Add `ACTIVE_KEYS` static to `HotkeyManager` and dynamic lookup during hook event dispatch
 - [x] Subscribe `HotkeyManager::update_keys` to reload keyboard hooks on config change
 - [x] Enhance `validate_config` in `commands.rs` to validate hex colors, modifier/trigger keys, minimum sector count, and duplicate executables mapped across profiles
+- [x] EasyWheel Host Backend (Rust)
+  - [x] Create `command_registry.rs` to load and cache `command_registry.json`
+  - [x] Register `command_registry` in `lib.rs`
+  - [x] Implement `get_command_registry` Tauri command in `commands.rs`
+  - [x] Update `AfterEffectsProvider` to lookup commands dynamically in `after_effects_provider.rs`
 
 ## Frontend integration
 - [x] Implement debounced auto-save (400ms) within `ConfigContext.tsx`
 - [x] Enforce window title changes depending on dirty state (`EasyWheel — Settings *` when modified)
 - [x] Ensure saving is cleared only after successful save
+- [/] EasyWheel Host Settings UI (Frontend)
+  - [/] Create `CommandPicker.tsx` searchable palette component
 - [x] Propagate dynamic configuration values (`wheel_radius`, `dead_zone_radius`, `sector_count`, `highlight_color`, `default_color`) to the overlay `GeometryState`
 - [x] Update `Overlay.tsx` to read dynamic geometry and colors from `GeometryState` and pass them as props to `WheelRenderer`
 - [x] Refactor `WheelRenderer.tsx` to accept dynamic geometries and colors as props instead of hardcoded constants

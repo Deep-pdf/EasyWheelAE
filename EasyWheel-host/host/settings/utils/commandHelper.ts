@@ -1,4 +1,5 @@
 import type { AppConfig, ConfiguredCommand } from '../types';
+import { commandRegistry } from './CommandRegistry';
 
 /**
  * Resolves a sector assignment value into a full ConfiguredCommand object.
@@ -30,6 +31,10 @@ export function getCommandDisplayName(
     return cmd.label;
   }
   
+  // Try looking it up in the command registry first
+  const aeCmd = commandRegistry.find((c) => c.id === cmd.command);
+  if (aeCmd) return aeCmd.name;
+  
   // Try looking it up in the action library first
   const legacy = config.action_library.find((a) => a.id === cmd.command);
   if (legacy) return legacy.display_name;
@@ -56,6 +61,9 @@ export function getCommandDescription(
 ): string {
   if (!cmd) return 'No command assigned to this sector.';
   
+  const aeCmd = commandRegistry.find((c) => c.id === cmd.command);
+  if (aeCmd) return aeCmd.description || 'After Effects native command.';
+  
   const legacy = config.action_library.find((a) => a.id === cmd.command);
   if (legacy) return legacy.description;
 
@@ -81,3 +89,4 @@ export function getCommandDescription(
       return 'Custom parameterized command.';
   }
 }
+

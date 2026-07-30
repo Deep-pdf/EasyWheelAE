@@ -11,6 +11,7 @@ const null_object_1 = require("./commands/null_object");
 const parent_1 = require("./commands/parent");
 const ping_1 = require("./commands/ping");
 const echo_1 = require("./commands/echo");
+const execute_native_command_1 = require("./commands/execute_native_command");
 const logger_1 = require("./bridge/logger");
 // 1. Register all placeholder commands
 registry_1.CommandRegistry.register(ping_1.pingCommand);
@@ -22,6 +23,7 @@ registry_1.CommandRegistry.register(graph_editor_1.graphEditorCommand);
 registry_1.CommandRegistry.register(duplicate_layer_1.duplicateLayerCommand);
 registry_1.CommandRegistry.register(null_object_1.nullObjectCommand);
 registry_1.CommandRegistry.register(parent_1.parentCommand);
+registry_1.CommandRegistry.register(execute_native_command_1.executeNativeCommand);
 // 2. Boot connection manager
 connection_manager_1.connectionManager.start();
 logger_1.Logger.info('Main', 'EasyWheelAE Extension initialized.');

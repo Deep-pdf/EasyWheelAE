@@ -496,7 +496,8 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                     }
                 }
                 _ => {
-                    if !valid_ids.contains(cmd_id.as_str()) {
+                    let is_ae_command = profile.name == "Adobe After Effects" && crate::command_registry::has_command(cmd_id);
+                    if !is_ae_command && !valid_ids.contains(cmd_id.as_str()) {
                         return Err(format!(
                             "Profile '{}', sector {}: References unknown action/command ID '{}'.",
                             profile.name, sector, cmd_id
@@ -509,3 +510,10 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
 
     Ok(())
 }
+
+/// Returns the cached After Effects command registry.
+#[tauri::command]
+pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>, String> {
+    Ok(crate::command_registry::get_commands().clone())
+}
+
