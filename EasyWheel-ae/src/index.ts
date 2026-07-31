@@ -28,8 +28,12 @@ CommandRegistry.register(nullObjectCommand);
 CommandRegistry.register(parentCommand);
 CommandRegistry.register(executeNativeCommand);
 
-// 2. Boot connection manager
-connectionManager.start();
+// 2. Boot connection manager only in CEP environment
+if (typeof window !== 'undefined' && (window as any).__adobe_cep__) {
+  connectionManager.start();
+} else {
+  Logger.info('Main', 'Browser context detected. Skipping background connection manager.');
+}
 
 // 3. Mount React App UI
 if (typeof document !== 'undefined') {

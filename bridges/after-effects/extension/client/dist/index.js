@@ -35969,7 +35969,11 @@ CommandRegistry.register(duplicateLayerCommand);
 CommandRegistry.register(nullObjectCommand);
 CommandRegistry.register(parentCommand);
 CommandRegistry.register(executeNativeCommand);
-connectionManager.start();
+if (typeof window !== "undefined" && window.__adobe_cep__) {
+  connectionManager.start();
+} else {
+  Logger.info("Main", "Browser context detected. Skipping background connection manager.");
+}
 if (typeof document !== "undefined") {
   const container = document.getElementById("root");
   if (container) {
