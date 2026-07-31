@@ -104,39 +104,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   } else {
     log('Main', 'CEP Environment not detected. Panel running in standard browser context.', 'warn');
-    
-    // Provide a dummy process to prevent bundle crashes on Node process calls
-    if (typeof window.process === 'undefined') {
-      window.process = {
-        env: {
-          NODE_ENV: 'development',
-          APPDATA: ''
-        }
-      };
-    }
-
-    // Provide a dummy require to prevent bundle crashes on Node imports (like fs and path)
-    if (typeof window.require === 'undefined') {
-      window.require = function(name) {
-        console.warn(`[Browser Compatibility] Mock require called for: "${name}"`);
-        if (name === 'fs') {
-          return {
-            existsSync: () => false,
-            readFileSync: () => ''
-          };
-        }
-        if (name === 'path') {
-          return {
-            join: (...args) => args.join('/')
-          };
-        }
-        return {};
-      };
-    }
-
-    // Load bundle via script tag
-    const script = document.createElement('script');
-    script.src = 'dist/index.js';
-    document.body.appendChild(script);
   }
 });
