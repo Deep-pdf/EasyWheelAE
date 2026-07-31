@@ -12,6 +12,10 @@ import { echoCommand } from './commands/echo';
 import { executeNativeCommand } from './commands/execute_native_command';
 import { Logger } from './bridge/logger';
 
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './components/App';
+
 // 1. Register all placeholder commands
 CommandRegistry.register(pingCommand);
 CommandRegistry.register(echoCommand);
@@ -27,4 +31,14 @@ CommandRegistry.register(executeNativeCommand);
 // 2. Boot connection manager
 connectionManager.start();
 
+// 3. Mount React App UI
+if (typeof document !== 'undefined') {
+  const container = document.getElementById('root');
+  if (container) {
+    const root = createRoot(container);
+    root.render(React.createElement(App));
+  }
+}
+
 Logger.info('Main', 'EasyWheelAE Extension initialized.');
+

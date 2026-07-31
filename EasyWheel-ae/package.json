@@ -5,14 +5,20 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc -w"
+    "bundle": "esbuild src/index.ts --bundle --outfile=../bridges/after-effects/extension/client/dist/index.js --platform=node --target=node16 --external:fs --external:path --external:os --external:util",
+    "watch": "npm run bundle -- --watch"
   },
   "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@types/ws": "^8.5.10",
+    "esbuild": "^0.28.1",
     "typescript": "^5.0.0"
   }
 }

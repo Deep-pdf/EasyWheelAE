@@ -6,6 +6,7 @@
     "outDir": "../bridges/after-effects/extension/client/dist",
     "rootDir": "./src",
     "strict": true,
+    "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
