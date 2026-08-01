@@ -87,12 +87,10 @@ export const CommandPicker: React.FC<CommandPickerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="picker-modal-overlay" onClick={onClose}>
-      <div 
-        className="picker-modal-content" 
-        onClick={e => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
+    <div 
+      className="picker-inline-container" 
+      onKeyDown={handleKeyDown}
+    >
         <div className="picker-header">
           <div className="search-box-wrapper">
             <svg viewBox="0 0 24 24" className="search-icon">
@@ -146,7 +144,6 @@ export const CommandPicker: React.FC<CommandPickerProps> = ({
         <div className="picker-footer">
           <span className="kb-help">Press ↑↓ to navigate, Enter to select, Esc to close.</span>
         </div>
-      </div>
     </div>
   );
 };

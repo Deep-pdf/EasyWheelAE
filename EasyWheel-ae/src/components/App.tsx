@@ -204,20 +204,29 @@ export const App: React.FC = () => {
             </div>
           </details>
 
-          <WheelPreview
-            sectors={profile.sectors}
-            selectedSectorIndex={selectedSectorIndex}
-            onSelectSector={handleSelectSector}
-            commands={MockCommandRegistry.getAll()}
-          />
+          {isPickerOpen ? (
+            <CommandPicker
+              isOpen={isPickerOpen}
+              onClose={() => setIsPickerOpen(false)}
+              onSelectCommand={handleAssignCommand}
+              selectedCommandId={selectedSector?.assignedCommandId || null}
+            />
+          ) : (
+            <WheelPreview
+              sectors={profile.sectors}
+              selectedSectorIndex={selectedSectorIndex}
+              onSelectSector={handleSelectSector}
+              commands={MockCommandRegistry.getAll()}
+              onAssignClick={() => setIsPickerOpen(true)}
+              onClearClick={handleClearCommand}
+            />
+          )}
         </div>
 
         <div className="panel-right-pane">
           <CommandDetails
             selectedSectorIndex={selectedSectorIndex}
             assignedCommand={assignedCommand}
-            onAssignClick={() => setIsPickerOpen(true)}
-            onClearClick={handleClearCommand}
             onResetClick={handleResetSector}
           />
         </div>
@@ -230,12 +239,7 @@ export const App: React.FC = () => {
         lastRefresh={lastModifiedStr}
       />
 
-      <CommandPicker
-        isOpen={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
-        onSelectCommand={handleAssignCommand}
-        selectedCommandId={selectedSector?.assignedCommandId || null}
-      />
+      {/* CommandPicker is now rendered inline above */}
     </div>
   );
 };

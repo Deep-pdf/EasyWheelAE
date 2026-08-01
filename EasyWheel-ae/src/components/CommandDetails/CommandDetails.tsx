@@ -4,16 +4,12 @@ import { Command } from '../../types/Command';
 interface CommandDetailsProps {
   selectedSectorIndex: number | null;
   assignedCommand: Command | null;
-  onAssignClick: () => void;
-  onClearClick: () => void;
   onResetClick: () => void;
 }
 
 export const CommandDetails: React.FC<CommandDetailsProps> = ({
   selectedSectorIndex,
   assignedCommand,
-  onAssignClick,
-  onClearClick,
   onResetClick
 }) => {
   if (selectedSectorIndex === null) {
@@ -65,27 +61,14 @@ export const CommandDetails: React.FC<CommandDetailsProps> = ({
       <div className="details-actions">
         <div className="actions-row">
           <button 
-            className="details-btn btn-primary"
-            onClick={onAssignClick}
-          >
-            Assign Command
-          </button>
-          <button 
-            className="details-btn btn-secondary"
-            onClick={onClearClick}
-            disabled={!assignedCommand}
-          >
-            Clear Command
-          </button>
-        </div>
-        <div className="actions-row">
-          <button 
+            type="button"
             className="details-btn btn-secondary"
             onClick={onResetClick}
           >
             Reset to Default
           </button>
           <button 
+            type="button"
             className="details-btn btn-save"
             disabled
             title="Save Changes (Disabled - Phase 2)"

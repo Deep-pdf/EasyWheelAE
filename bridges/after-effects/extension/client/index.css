@@ -397,9 +397,58 @@ body {
 }
 
 .wheel-selection-info {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-secondary);
   margin-top: 4px;
+  text-align: center;
+}
+
+.wheel-preview-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  width: 100%;
+  max-width: 130px;
+  justify-content: center;
+}
+
+.wheel-preview-actions .preview-btn {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  border: 1px solid var(--border-light);
+  transition: all 0.15s ease;
+}
+
+.wheel-preview-actions .btn-primary {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+}
+
+.wheel-preview-actions .btn-primary:hover {
+  background-color: #674ee3;
+  border-color: #674ee3;
+}
+
+.wheel-preview-actions .btn-danger {
+  background-color: rgba(255, 69, 58, 0.12);
+  color: #ff453a;
+  border-color: rgba(255, 69, 58, 0.25);
+}
+
+.wheel-preview-actions .btn-danger:hover:not(:disabled) {
+  background-color: rgba(255, 69, 58, 0.22);
+  border-color: #ff453a;
+}
+
+.wheel-preview-actions .btn-danger:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* 5. COMMAND DETAILS SECTION */
@@ -642,6 +691,16 @@ body {
 @keyframes slideUp {
   from { transform: translateY(12px) scale(0.98); }
   to { transform: translateY(0) scale(1); }
+}
+
+.picker-inline-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background-color: var(--bg-panel);
+  min-height: 240px;
+  width: 100%;
 }
 
 .picker-header {
