@@ -26,14 +26,14 @@ function annularSectorPath(cx, cy, innerR, outerR, startAngle, endAngle) {
 }
 const WheelPreview = ({ sectors, selectedSectorIndex, onSelectSector, commands }) => {
     const [hoveredSector, setHoveredSector] = (0, react_1.useState)(null);
-    const size = 220;
+    const size = 160;
     const cx = size / 2;
     const cy = size / 2;
-    const outerR = 95;
-    const innerR = 32;
+    const outerR = 72;
+    const innerR = 24;
     const sectorSpan = 360 / 8;
     const sectorGap = 1.5;
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "wheel-preview-container", children: [(0, jsx_runtime_1.jsx)("div", { className: "section-title", children: "Wheel Preview" }), (0, jsx_runtime_1.jsx)("div", { className: "wheel-svg-wrapper", children: (0, jsx_runtime_1.jsxs)("svg", { width: size, height: size, viewBox: `0 0 ${size} ${size}`, className: "wheel-svg", children: [sectors.map((sector, i) => {
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "wheel-preview-container", children: [(0, jsx_runtime_1.jsx)("div", { className: "wheel-svg-wrapper", children: (0, jsx_runtime_1.jsxs)("svg", { width: size, height: size, viewBox: `0 0 ${size} ${size}`, className: "wheel-svg", children: [sectors.map((sector, i) => {
                             // Offset by -90 so Sector 0 (index 0) is at 12 o'clock (pointing straight up)
                             const centre = i * sectorSpan - 90;
                             const startAngle = centre - sectorSpan / 2 + sectorGap;
@@ -52,7 +52,7 @@ const WheelPreview = ({ sectors, selectedSectorIndex, onSelectSector, commands }
                                                     : 'rgba(255, 255, 255, 0.03)',
                                             stroke: isSelected ? 'var(--accent-color)' : 'rgba(255, 255, 255, 0.08)',
                                             strokeWidth: isSelected ? 1.5 : 1,
-                                        } }), (0, jsx_runtime_1.jsx)("text", { x: 0, y: 0, textAnchor: "middle", dominantBaseline: "central", transform: `translate(${labelPos.x}, ${labelPos.y}) rotate(${centre > 90 && centre < 270 ? centre + 180 : centre})`, className: `sector-label-text ${isSelected ? 'selected' : ''} ${displayName === 'Empty' ? 'empty' : ''}`, children: displayName.length > 9 ? `${displayName.substring(0, 7)}...` : displayName }), (0, jsx_runtime_1.jsx)("text", { x: polarToCartesian(cx, cy, innerR + 10, centre).x, y: polarToCartesian(cx, cy, innerR + 10, centre).y, textAnchor: "middle", dominantBaseline: "central", className: `sector-number-text ${isSelected ? 'selected' : ''}`, children: i + 1 })] }, i));
+                                        } }), (0, jsx_runtime_1.jsx)("text", { x: 0, y: 0, textAnchor: "middle", dominantBaseline: "central", transform: `translate(${labelPos.x}, ${labelPos.y}) rotate(${centre > 90 && centre < 270 ? centre + 180 : centre})`, className: `sector-label-text ${isSelected ? 'selected' : ''} ${displayName === 'Empty' ? 'empty' : ''}`, children: displayName.length > 9 ? `${displayName.substring(0, 7)}...` : displayName }), (0, jsx_runtime_1.jsx)("text", { x: polarToCartesian(cx, cy, innerR + 8, centre).x, y: polarToCartesian(cx, cy, innerR + 8, centre).y, textAnchor: "middle", dominantBaseline: "central", className: `sector-number-text ${isSelected ? 'selected' : ''}`, children: i + 1 })] }, i));
                         }), (0, jsx_runtime_1.jsx)("circle", { cx: cx, cy: cy, r: outerR, className: "wheel-outer-ring" }), (0, jsx_runtime_1.jsx)("circle", { cx: cx, cy: cy, r: innerR, className: "wheel-inner-ring" }), (0, jsx_runtime_1.jsx)("circle", { cx: cx, cy: cy, r: 2.5, className: "wheel-center-dot" })] }) }), (0, jsx_runtime_1.jsxs)("div", { className: "wheel-selection-info", children: ["Selected: ", selectedSectorIndex !== null ? `Sector ${selectedSectorIndex + 1}` : 'None'] })] }));
 };
 exports.WheelPreview = WheelPreview;

@@ -208,9 +208,38 @@ body {
 }
 
 /* 3. PROFILE INFO SECTION */
-.profile-info-section {
-  padding: 12px 14px;
+.profile-info-details {
   border-bottom: 1px solid var(--border-light);
+  padding: 6px 12px;
+}
+
+.profile-info-details summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  outline: none;
+}
+
+.profile-info-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-info-details .summary-stats {
+  font-size: 8px;
+  text-transform: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.profile-info-details[open] {
+  padding-bottom: 10px;
+}
+
+.profile-info-details[open] .profile-meta-grid {
+  margin-top: 8px;
 }
 
 .section-title {
@@ -285,17 +314,17 @@ body {
 
 /* 4. WHEEL PREVIEW SECTION */
 .wheel-preview-container {
-  padding: 14px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
-  min-height: 250px;
+  min-height: auto;
 }
 
 .wheel-svg-wrapper {
-  margin: 6px 0;
+  margin: 4px 0;
   position: relative;
 }
 
@@ -314,11 +343,11 @@ body {
 
 .sector-label-text {
   fill: #a0a0a0;
-  font-size: 7.5px;
+  font-size: 7px;
   font-weight: 600;
   pointer-events: none;
   transition: fill 0.15s ease;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
 }
 
 .sector-label-text.selected {
@@ -375,7 +404,7 @@ body {
 
 /* 5. COMMAND DETAILS SECTION */
 .command-details-container {
-  padding: 14px;
+  padding: 10px 12px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -414,7 +443,7 @@ body {
 .details-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
 }
 
@@ -473,8 +502,8 @@ body {
 .details-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 14px;
+  gap: 5px;
+  margin-top: 10px;
 }
 
 .actions-row {
@@ -886,4 +915,21 @@ body {
 
 .kb-help {
   font-family: system-ui, sans-serif;
+}
+
+@media (max-width: 380px) {
+  .panel-main-content {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .panel-left-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--border-light);
+    flex: none;
+    overflow: visible;
+  }
+  .panel-right-pane {
+    flex: none;
+    overflow: visible;
+  }
 }

@@ -53,17 +53,16 @@ export const WheelPreview: React.FC<WheelPreviewProps> = ({
 }) => {
   const [hoveredSector, setHoveredSector] = useState<number | null>(null);
 
-  const size = 220;
+  const size = 160;
   const cx = size / 2;
   const cy = size / 2;
-  const outerR = 95;
-  const innerR = 32;
+  const outerR = 72;
+  const innerR = 24;
   const sectorSpan = 360 / 8;
   const sectorGap = 1.5;
 
   return (
     <div className="wheel-preview-container">
-      <div className="section-title">Wheel Preview</div>
       <div className="wheel-svg-wrapper">
         <svg
           width={size}
@@ -120,8 +119,8 @@ export const WheelPreview: React.FC<WheelPreviewProps> = ({
                 </text>
                 {/* Number indicator */}
                 <text
-                  x={polarToCartesian(cx, cy, innerR + 10, centre).x}
-                  y={polarToCartesian(cx, cy, innerR + 10, centre).y}
+                  x={polarToCartesian(cx, cy, innerR + 8, centre).x}
+                  y={polarToCartesian(cx, cy, innerR + 8, centre).y}
                   textAnchor="middle"
                   dominantBaseline="central"
                   className={`sector-number-text ${isSelected ? 'selected' : ''}`}

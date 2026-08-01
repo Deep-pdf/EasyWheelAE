@@ -164,8 +164,11 @@ export const App: React.FC = () => {
 
       <main className="panel-main-content">
         <div className="panel-left-pane">
-          <div className="profile-info-section">
-            <div className="section-title">Profile Information</div>
+          <details className="profile-info-details">
+            <summary className="section-title">
+              <span>Profile Info</span>
+              <span className="summary-stats">({profile.name} • {assignedCount}/{profile.sectorCount})</span>
+            </summary>
             <div className="profile-meta-grid">
               <div className="profile-meta-row">
                 <span className="profile-meta-lbl">Profile Name</span>
@@ -199,7 +202,7 @@ export const App: React.FC = () => {
                 Export
               </button>
             </div>
-          </div>
+          </details>
 
           <WheelPreview
             sectors={profile.sectors}
