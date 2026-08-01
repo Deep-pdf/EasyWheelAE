@@ -68,17 +68,10 @@ body {
 }
 
 .panel-left-pane {
-  flex: 1.1;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-light);
   overflow-y: auto;
-}
-
-.panel-right-pane {
-  flex: 0.9;
-  overflow-y: auto;
-  background-color: var(--bg-darker);
 }
 
 /* 2. HEADER SECTION */
@@ -408,7 +401,7 @@ body {
   gap: 6px;
   margin-top: 6px;
   width: 100%;
-  max-width: 130px;
+  max-width: 180px;
   justify-content: center;
 }
 
@@ -976,19 +969,4 @@ body {
   font-family: system-ui, sans-serif;
 }
 
-@media (max-width: 380px) {
-  .panel-main-content {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  .panel-left-pane {
-    border-right: none;
-    border-bottom: 1px solid var(--border-light);
-    flex: none;
-    overflow: visible;
-  }
-  .panel-right-pane {
-    flex: none;
-    overflow: visible;
-  }
-}
+/* Custom media queries are no longer required for two-column scaling */

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './Header/Header';
 import { StatusBar } from './StatusBar/StatusBar';
 import { WheelPreview } from './WheelPreview/WheelPreview';
-import { CommandDetails } from './CommandDetails/CommandDetails';
 import { CommandPicker } from './CommandPicker/CommandPicker';
 import { Profile } from '../types/Profile';
 import { Sector } from '../types/Sector';
@@ -148,9 +147,6 @@ export const App: React.FC = () => {
 
   // Get currently selected command details
   const selectedSector = selectedSectorIndex !== null ? profile.sectors[selectedSectorIndex] : null;
-  const assignedCommand = selectedSector && selectedSector.assignedCommandId
-    ? MockCommandRegistry.getById(selectedSector.assignedCommandId) || null
-    : null;
 
   const assignedCount = profile.sectors.filter(sec => sec.assignedCommandId !== null).length;
 
@@ -219,16 +215,9 @@ export const App: React.FC = () => {
               commands={MockCommandRegistry.getAll()}
               onAssignClick={() => setIsPickerOpen(true)}
               onClearClick={handleClearCommand}
+              onResetClick={handleResetSector}
             />
           )}
-        </div>
-
-        <div className="panel-right-pane">
-          <CommandDetails
-            selectedSectorIndex={selectedSectorIndex}
-            assignedCommand={assignedCommand}
-            onResetClick={handleResetSector}
-          />
         </div>
       </main>
 

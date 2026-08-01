@@ -9,6 +9,7 @@ interface WheelPreviewProps {
   commands: Command[];
   onAssignClick: () => void;
   onClearClick: () => void;
+  onResetClick: () => void;
 }
 
 interface Point {
@@ -53,7 +54,8 @@ export const WheelPreview: React.FC<WheelPreviewProps> = ({
   onSelectSector,
   commands,
   onAssignClick,
-  onClearClick
+  onClearClick,
+  onResetClick
 }) => {
   const [hoveredSector, setHoveredSector] = useState<number | null>(null);
 
@@ -179,6 +181,13 @@ export const WheelPreview: React.FC<WheelPreviewProps> = ({
             disabled={!sectors[selectedSectorIndex]?.assignedCommandId}
           >
             Delete
+          </button>
+          <button 
+            type="button"
+            className="preview-btn btn-secondary"
+            onClick={onResetClick}
+          >
+            Reset
           </button>
         </div>
       )}
