@@ -34622,12 +34622,7 @@ var BridgeClient = class {
         };
         if (this.ws) {
           this.ws.send(JSON.stringify(helloMessage));
-          const getProfileMessage = {
-            type: "GET_PROFILE",
-            application: "After Effects"
-          };
-          this.ws.send(JSON.stringify(getProfileMessage));
-          Logger.info("BridgeClient", "Sent GET_PROFILE request.");
+          Logger.info("BridgeClient", "Sent handshake hello.");
         }
       };
       this.ws.onmessage = async (event) => {

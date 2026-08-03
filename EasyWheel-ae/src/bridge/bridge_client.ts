@@ -91,13 +91,7 @@ export class BridgeClient {
         };
         if (this.ws) {
           this.ws.send(JSON.stringify(helloMessage));
-          // Send GET_PROFILE request immediately after greeting
-          const getProfileMessage = {
-            type: 'GET_PROFILE',
-            application: 'After Effects'
-          };
-          this.ws.send(JSON.stringify(getProfileMessage));
-          Logger.info('BridgeClient', 'Sent GET_PROFILE request.');
+          Logger.info('BridgeClient', 'Sent handshake hello.');
         }
       };
 

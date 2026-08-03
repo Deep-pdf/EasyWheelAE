@@ -56,7 +56,10 @@ impl ConnectionManager {
         let addr   = format!("127.0.0.1:{}", port);
 
         let listener = match std::net::TcpListener::bind(&addr) {
-            Ok(l)  => l,
+            Ok(l)  => {
+                println!("[AEBridge] Listening on port {}", port);
+                l
+            }
             Err(e) => {
                 eprintln!("[AEBridge] Error: Failed to bind WebSocket server to {} — {}", addr, e);
                 status.set(BridgeStatus::Disconnected);
