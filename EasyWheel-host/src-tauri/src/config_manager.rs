@@ -418,6 +418,31 @@ impl ConfigManager {
                         "[ConfigManager] Info: Configuration saved to {:?}.",
                         path
                     );
+
+                    // Write profiles.json
+                    let profiles_path = path.with_file_name("profiles.json");
+                    if let Ok(profiles_json) = serde_json::to_string_pretty(&config.profiles) {
+                        if let Err(e) = std::fs::write(&profiles_path, profiles_json) {
+                            eprintln!("[ConfigManager] Warning: Failed to write profiles.json — {}", e);
+                        }
+                    }
+
+                    // Write settings.json
+                    let settings_path = path.with_file_name("settings.json");
+                    if let Ok(settings_json) = serde_json::to_string_pretty(&config.global) {
+                        if let Err(e) = std::fs::write(&settings_path, settings_json) {
+                            eprintln!("[ConfigManager] Warning: Failed to write settings.json — {}", e);
+                        }
+                    }
+
+                    // Write command_registry.json
+                    let registry_path = path.with_file_name("command_registry.json");
+                    let commands = crate::command_registry::get_commands();
+                    if let Ok(registry_json) = serde_json::to_string_pretty(commands) {
+                        if let Err(e) = std::fs::write(&registry_path, registry_json) {
+                            eprintln!("[ConfigManager] Warning: Failed to write command_registry.json — {}", e);
+                        }
+                    }
                 }
             }
             Err(e) => {

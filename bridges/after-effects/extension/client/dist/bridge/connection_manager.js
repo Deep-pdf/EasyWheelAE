@@ -83,6 +83,31 @@ class ConnectionManager {
             logger_1.Logger.error('ConnectionManager', 'Critical failure during client startup:', e);
         }
     }
+    listeners = [];
+    addMessageListener(listener) {
+        this.listeners.push(listener);
+    }
+    removeMessageListener(listener) {
+        this.listeners = this.listeners.filter(l => l !== listener);
+    }
+    handleIncomingMessage(message) {
+        for (const listener of this.listeners) {
+            try {
+                listener(message);
+            }
+            catch (e) {
+                logger_1.Logger.error('ConnectionManager', 'Error in message listener', e);
+            }
+        }
+    }
+    send(message) {
+        if (this.client) {
+            this.client.send(message);
+        }
+        else {
+            logger_1.Logger.warn('ConnectionManager', 'Cannot send, client is not started.');
+        }
+    }
     /**
      * Stops the client connection manager.
      */

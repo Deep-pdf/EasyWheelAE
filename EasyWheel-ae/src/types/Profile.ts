@@ -5,5 +5,7 @@ export interface Profile {
   application: string;
   sectorCount: number;
   sectors: Sector[];
+  version: number;
   lastModified: string;
+  lastModifiedBy: string;
 }

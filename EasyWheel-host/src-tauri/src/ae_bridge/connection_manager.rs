@@ -154,8 +154,9 @@ impl ConnectionManager {
                 //    The write channel is the ONLY way to send data to the
                 //    socket — all senders are now deadlock-free.
                 // ----------------------------------------------------------
+                let conn_id = client_conn.next_conn_id();
                 let (write_tx, write_rx) = channel::<String>();
-                client_conn.set_write_channel(write_tx);
+                client_conn.add_write_channel(conn_id, write_tx);
                 status_conn.set(BridgeStatus::Connected);
                 client_conn.drain_queue();
 
@@ -218,7 +219,7 @@ impl ConnectionManager {
                 // ----------------------------------------------------------
                 // 8. Cleanup on disconnect.
                 // ----------------------------------------------------------
-                client_conn.clear_write_channel();
+                client_conn.remove_write_channel(conn_id);
                 status_conn.set(BridgeStatus::Disconnected);
             });
         }

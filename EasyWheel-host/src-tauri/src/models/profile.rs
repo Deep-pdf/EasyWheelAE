@@ -75,6 +75,23 @@ impl<'de> Deserialize<'de> for ConfiguredCommand {
     }
 }
 
+fn default_version() -> u32 {
+    1
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            executable: String::new(),
+            sector_assignments: std::collections::HashMap::new(),
+            version: 1,
+            last_modified: String::new(),
+            last_modified_by: "Host".to_string(),
+        }
+    }
+}
+
 /// A per-application wheel profile.
 ///
 /// Owned by [`crate::models::config::AppConfig::profiles`] and managed by
@@ -89,4 +106,16 @@ pub struct Profile {
 
     /// Mapping from sector index (0 to SECTOR_COUNT-1) to configured command.
     pub sector_assignments: HashMap<u8, ConfiguredCommand>,
+
+    /// Version number of this profile.
+    #[serde(default = "default_version")]
+    pub version: u32,
+
+    /// ISO8601 UTC timestamp of last update.
+    #[serde(default)]
+    pub last_modified: String,
+
+    /// Author or client that performed the last modification.
+    #[serde(default)]
+    pub last_modified_by: String,
 }

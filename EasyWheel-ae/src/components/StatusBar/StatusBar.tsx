@@ -4,27 +4,36 @@ interface StatusBarProps {
   connectionStatus: string;
   bridgeVersion: string;
   registryVersion: string;
+  profileVersion: string;
   lastRefresh: string;
+  hasUnsavedChanges: boolean;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
   connectionStatus,
   bridgeVersion,
   registryVersion,
-  lastRefresh
+  profileVersion,
+  lastRefresh,
+  hasUnsavedChanges
 }) => {
   return (
     <div className="panel-status-bar">
       <div className="status-left">
         <span className={`status-dot ${connectionStatus.toLowerCase() === 'connected' ? 'connected' : 'disconnected'}`}></span>
         <span className="status-text">{connectionStatus}</span>
+        {hasUnsavedChanges && (
+          <span className="unsaved-badge">Unsaved Changes</span>
+        )}
       </div>
       <div className="status-right">
+        <span>Profile: {profileVersion}</span>
+        <span className="status-sep">|</span>
         <span>Bridge: v{bridgeVersion}</span>
         <span className="status-sep">|</span>
         <span>Registry: v{registryVersion}</span>
         <span className="status-sep">|</span>
-        <span>Refreshed: {lastRefresh}</span>
+        <span>Synced: {lastRefresh}</span>
       </div>
     </div>
   );

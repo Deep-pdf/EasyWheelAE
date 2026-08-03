@@ -91,6 +91,13 @@ export class BridgeClient {
         };
         if (this.ws) {
           this.ws.send(JSON.stringify(helloMessage));
+          // Send GET_PROFILE request immediately after greeting
+          const getProfileMessage = {
+            type: 'GET_PROFILE',
+            application: 'After Effects'
+          };
+          this.ws.send(JSON.stringify(getProfileMessage));
+          Logger.info('BridgeClient', 'Sent GET_PROFILE request.');
         }
       };
 
@@ -112,6 +119,13 @@ export class BridgeClient {
             if (this.ws) {
               this.ws.send(JSON.stringify(pongMessage));
             }
+            return;
+          }
+
+          // Handle Phase 2 Profile and Registry Sync events
+          if (parsed && (parsed.type === 'PROFILE_DATA' || parsed.type === 'PROFILE_UPDATED' || parsed.type === 'COMMAND_REGISTRY_UPDATED')) {
+            Logger.info('BridgeClient', `Sync event received: ${parsed.type}`);
+            this.manager.handleIncomingMessage(parsed);
             return;
           }
 
@@ -152,6 +166,17 @@ export class BridgeClient {
     this.isConnecting = false;
     this.ws = null;
     this.manager.setStatus(BridgeStatus.Disconnected);
+  }
+
+  /**
+   * Sends a JSON object over the WebSocket.
+   */
+  public send(message: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    } else {
+      Logger.warn('BridgeClient', 'Cannot send message, WebSocket is not open.');
+    }
   }
 
   /**

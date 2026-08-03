@@ -65,6 +65,9 @@ impl ProfileManager {
                         name: "Desktop".to_string(),
                         executable: DESKTOP_EXECUTABLE.to_string(),
                         sector_assignments: std::collections::HashMap::new(),
+                        version: 1,
+                        last_modified: String::new(),
+                        last_modified_by: "Host".to_string(),
                     },
                 );
                 0

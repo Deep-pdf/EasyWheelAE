@@ -85,6 +85,34 @@ export class ConnectionManager {
     }
   }
 
+  private listeners: ((message: any) => void)[] = [];
+
+  public addMessageListener(listener: (message: any) => void) {
+    this.listeners.push(listener);
+  }
+
+  public removeMessageListener(listener: (message: any) => void) {
+    this.listeners = this.listeners.filter(l => l !== listener);
+  }
+
+  public handleIncomingMessage(message: any) {
+    for (const listener of this.listeners) {
+      try {
+        listener(message);
+      } catch (e) {
+        Logger.error('ConnectionManager', 'Error in message listener', e);
+      }
+    }
+  }
+
+  public send(message: any) {
+    if (this.client) {
+      this.client.send(message);
+    } else {
+      Logger.warn('ConnectionManager', 'Cannot send, client is not started.');
+    }
+  }
+
   /**
    * Stops the client connection manager.
    */

@@ -34622,6 +34622,12 @@ var BridgeClient = class {
         };
         if (this.ws) {
           this.ws.send(JSON.stringify(helloMessage));
+          const getProfileMessage = {
+            type: "GET_PROFILE",
+            application: "After Effects"
+          };
+          this.ws.send(JSON.stringify(getProfileMessage));
+          Logger.info("BridgeClient", "Sent GET_PROFILE request.");
         }
       };
       this.ws.onmessage = async (event) => {
@@ -34641,6 +34647,11 @@ var BridgeClient = class {
             if (this.ws) {
               this.ws.send(JSON.stringify(pongMessage));
             }
+            return;
+          }
+          if (parsed && (parsed.type === "PROFILE_DATA" || parsed.type === "PROFILE_UPDATED" || parsed.type === "COMMAND_REGISTRY_UPDATED")) {
+            Logger.info("BridgeClient", `Sync event received: ${parsed.type}`);
+            this.manager.handleIncomingMessage(parsed);
             return;
           }
           console.log("[Bridge]\nMessage received");
@@ -34677,6 +34688,16 @@ Dispatching command: ${parsed.command}`);
     this.isConnecting = false;
     this.ws = null;
     this.manager.setStatus("Disconnected" /* Disconnected */);
+  }
+  /**
+   * Sends a JSON object over the WebSocket.
+   */
+  send(message) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    } else {
+      Logger.warn("BridgeClient", "Cannot send message, WebSocket is not open.");
+    }
   }
   /**
    * Stops the client and shuts down reconnection timers.
@@ -34757,6 +34778,29 @@ var ConnectionManager2 = class {
     } catch (e) {
       this.setStatus("Error" /* Error */);
       Logger.error("ConnectionManager", "Critical failure during client startup:", e);
+    }
+  }
+  listeners = [];
+  addMessageListener(listener) {
+    this.listeners.push(listener);
+  }
+  removeMessageListener(listener) {
+    this.listeners = this.listeners.filter((l) => l !== listener);
+  }
+  handleIncomingMessage(message) {
+    for (const listener of this.listeners) {
+      try {
+        listener(message);
+      } catch (e) {
+        Logger.error("ConnectionManager", "Error in message listener", e);
+      }
+    }
+  }
+  send(message) {
+    if (this.client) {
+      this.client.send(message);
+    } else {
+      Logger.warn("ConnectionManager", "Cannot send, client is not started.");
     }
   }
   /**
@@ -35168,14 +35212,22 @@ var StatusBar = ({
   connectionStatus,
   bridgeVersion,
   registryVersion,
-  lastRefresh
+  profileVersion,
+  lastRefresh,
+  hasUnsavedChanges
 }) => {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "panel-status-bar", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "status-left", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `status-dot ${connectionStatus.toLowerCase() === "connected" ? "connected" : "disconnected"}` }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "status-text", children: connectionStatus })
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "status-text", children: connectionStatus }),
+      hasUnsavedChanges && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "unsaved-badge", children: "Unsaved Changes" })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "status-right", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { children: [
+        "Profile: ",
+        profileVersion
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "status-sep", children: "|" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { children: [
         "Bridge: v",
         bridgeVersion
@@ -35187,7 +35239,7 @@ var StatusBar = ({
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "status-sep", children: "|" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { children: [
-        "Refreshed: ",
+        "Synced: ",
         lastRefresh
       ] })
     ] })
@@ -35375,27 +35427,14 @@ var import_react2 = __toESM(require_react());
 
 // src/components/CategorySidebar/CategorySidebar.tsx
 var import_jsx_runtime4 = __toESM(require_jsx_runtime());
-var CATEGORIES = [
-  "All",
-  "Favorites",
-  "Layer",
-  "Animation",
-  "Composition",
-  "Timeline",
-  "Effects",
-  "Masks",
-  "Shapes",
-  "View",
-  "Panels",
-  "Utilities"
-];
 var CategorySidebar = ({
   selectedCategory,
-  onSelectCategory
+  onSelectCategory,
+  categories
 }) => {
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "category-sidebar", children: [
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "category-sidebar-title", children: "Categories" }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "category-list", children: CATEGORIES.map((category) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("li", { className: "category-list-item", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "category-list", children: categories.map((category) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("li", { className: "category-list-item", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
       "button",
       {
         type: "button",
@@ -35436,161 +35475,27 @@ var CommandCard = ({
   );
 };
 
-// src/services/MockCommandRegistry.ts
-var MOCK_COMMANDS = [
-  {
-    id: "pre_compose",
-    name: "Pre-compose",
-    category: "Layer",
-    description: "Moves selected layers into a new composition.",
-    executionType: "Native"
-  },
-  {
-    id: "easy_ease",
-    name: "Easy Ease",
-    category: "Animation",
-    description: "Applies easy ease interpolation to selected keyframes.",
-    executionType: "Native"
-  },
-  {
-    id: "trim_paths",
-    name: "Trim Paths",
-    category: "Shapes",
-    description: "Adds a trim paths operator to selected shape layers.",
-    executionType: "Native"
-  },
-  {
-    id: "graph_editor",
-    name: "Graph Editor",
-    category: "Timeline",
-    description: "Toggles between the time graph and value graph views.",
-    executionType: "Native"
-  },
-  {
-    id: "duplicate_layer",
-    name: "Duplicate Layer",
-    category: "Layer",
-    description: "Duplicates the currently selected layer(s).",
-    executionType: "Native"
-  },
-  {
-    id: "null_object",
-    name: "Create Null Object",
-    category: "Utilities",
-    description: "Creates a new Null Object layer in the active composition.",
-    executionType: "Native"
-  },
-  {
-    id: "parent_layer",
-    name: "Parent Layer",
-    category: "Layer",
-    description: "Sets parent-child relationship between layers.",
-    executionType: "Native"
-  },
-  {
-    id: "fast_blur",
-    name: "Fast Box Blur",
-    category: "Effects",
-    description: "Applies a Fast Box Blur effect to the selected layer.",
-    executionType: "Native"
-  },
-  {
-    id: "toggle_mask",
-    name: "Toggle Mask Path",
-    category: "Masks",
-    description: "Toggles visibility of mask and shape path outlines.",
-    executionType: "Native"
-  },
-  {
-    id: "shape_layer",
-    name: "Create Shape Layer",
-    category: "Shapes",
-    description: "Creates a new empty shape layer in the composition.",
-    executionType: "Native"
-  },
-  {
-    id: "toggle_grid",
-    name: "Toggle Grid",
-    category: "View",
-    description: "Toggles the composition grid overlay.",
-    executionType: "Native"
-  },
-  {
-    id: "align_panel",
-    name: "Align Panel",
-    category: "Panels",
-    description: "Opens the Align panel in the user interface.",
-    executionType: "Native"
-  },
-  {
-    id: "collect_files",
-    name: "Collect Files",
-    category: "Utilities",
-    description: "Collects source files in After Effects project.",
-    executionType: "Native"
-  },
-  {
-    id: "scale_fit",
-    name: "Scale to Fit",
-    category: "Composition",
-    description: "Scales selected layer to fit the composition dimensions.",
-    executionType: "Native"
-  },
-  {
-    id: "export_frame",
-    name: "Export Frame",
-    category: "Composition",
-    description: "Saves current composition frame as an image.",
-    executionType: "Native"
-  },
-  {
-    id: "time_reverse",
-    name: "Time-Reverse Keyframes",
-    category: "Animation",
-    description: "Reverses the order of selected keyframes in time.",
-    executionType: "Native"
-  }
-];
-var MockCommandRegistry = class {
-  static getAll() {
-    return MOCK_COMMANDS;
-  }
-  static getById(id) {
-    return MOCK_COMMANDS.find((cmd) => cmd.id === id);
-  }
-  static search(query, category) {
-    let results = MOCK_COMMANDS;
-    if (category !== "All") {
-      if (category === "Favorites") {
-        results = MOCK_COMMANDS.filter((cmd) => cmd.id === "pre_compose" || cmd.id === "easy_ease");
-      } else {
-        results = MOCK_COMMANDS.filter((cmd) => cmd.category.toLowerCase() === category.toLowerCase());
-      }
-    }
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      results = results.filter(
-        (cmd) => cmd.name.toLowerCase().includes(q) || cmd.category.toLowerCase().includes(q) || cmd.description.toLowerCase().includes(q)
-      );
-    }
-    return results;
-  }
-};
-
 // src/components/CommandPicker/CommandPicker.tsx
 var import_jsx_runtime6 = __toESM(require_jsx_runtime());
 var CommandPicker = ({
   isOpen,
   onClose,
   onSelectCommand,
-  selectedCommandId
+  selectedCommandId,
+  commands,
+  categories
 }) => {
   const [searchQuery, setSearchQuery] = (0, import_react2.useState)("");
   const [selectedCategory, setSelectedCategory] = (0, import_react2.useState)("All");
   const [focusedIndex, setFocusedIndex] = (0, import_react2.useState)(-1);
   const searchInputRef = (0, import_react2.useRef)(null);
   const listContainerRef = (0, import_react2.useRef)(null);
-  const filteredCommands = MockCommandRegistry.search(searchQuery, selectedCategory);
+  const filteredCommands = commands.filter((cmd) => {
+    const categoryMatch = selectedCategory === "All" || selectedCategory === "Favorites" && (cmd.id === "pre_compose" || cmd.id === "easy_ease") || cmd.category.toLowerCase() === selectedCategory.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
+    const queryMatch = !q || cmd.name.toLowerCase().includes(q) || cmd.category.toLowerCase().includes(q) || cmd.description.toLowerCase().includes(q);
+    return categoryMatch && queryMatch;
+  });
   (0, import_react2.useEffect)(() => {
     setFocusedIndex(-1);
   }, [searchQuery, selectedCategory]);
@@ -35670,7 +35575,8 @@ var CommandPicker = ({
             CategorySidebar,
             {
               selectedCategory,
-              onSelectCategory: setSelectedCategory
+              onSelectCategory: setSelectedCategory,
+              categories
             }
           ),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "picker-results-pane", children: [
@@ -35705,23 +35611,19 @@ var CommandPicker = ({
 
 // src/components/App.tsx
 var import_jsx_runtime7 = __toESM(require_jsx_runtime());
-var INITIAL_SECTORS = Array.from({ length: 8 }, (_, i) => ({
-  number: i + 1,
-  assignedCommandId: i === 0 ? "pre_compose" : i === 1 ? "easy_ease" : null
-}));
-var INITIAL_PROFILE = {
-  name: "AE Default Profile",
-  application: "Adobe After Effects",
-  sectorCount: 8,
-  sectors: INITIAL_SECTORS,
-  lastModified: (/* @__PURE__ */ new Date()).toLocaleTimeString()
-};
 var App = () => {
-  const [profile, setProfile] = (0, import_react3.useState)(INITIAL_PROFILE);
+  const [profile, setProfile] = (0, import_react3.useState)(null);
+  const [syncedProfile, setSyncedProfile] = (0, import_react3.useState)(null);
+  const [availableCommands, setAvailableCommands] = (0, import_react3.useState)([]);
+  const [categories, setCategories] = (0, import_react3.useState)(["All", "Favorites"]);
+  const [registryVersion, setRegistryVersion] = (0, import_react3.useState)("1.2.0");
   const [selectedSectorIndex, setSelectedSectorIndex] = (0, import_react3.useState)(null);
   const [isPickerOpen, setIsPickerOpen] = (0, import_react3.useState)(false);
   const [connectionStatus, setConnectionStatus] = (0, import_react3.useState)("Disconnected");
-  const [lastModifiedStr, setLastModifiedStr] = (0, import_react3.useState)(INITIAL_PROFILE.lastModified);
+  const [lastModifiedStr, setLastModifiedStr] = (0, import_react3.useState)("Never");
+  const [hasPendingChanges, setHasPendingChanges] = (0, import_react3.useState)(false);
+  const [conflictProfile, setConflictProfile] = (0, import_react3.useState)(null);
+  const [isSaving, setIsSaving] = (0, import_react3.useState)(false);
   (0, import_react3.useEffect)(() => {
     const updateStatus = () => {
       const status = connectionManager.getStatus();
@@ -35732,12 +35634,69 @@ var App = () => {
     return () => clearInterval(interval);
   }, []);
   (0, import_react3.useEffect)(() => {
+    const handleMessage = (msg) => {
+      console.log("[AE Panel] Received message type:", msg.type);
+      if (msg.type === "PROFILE_DATA") {
+        const p = msg.profile;
+        setProfile(p);
+        setSyncedProfile(p);
+        setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
+        setAvailableCommands(msg.availableCommands || []);
+        if (msg.categories) {
+          setCategories(["All", "Favorites", ...msg.categories]);
+        }
+        if (msg.registryVersion) {
+          setRegistryVersion(msg.registryVersion);
+        }
+        setHasPendingChanges(false);
+        setConflictProfile(null);
+        setIsSaving(false);
+      } else if (msg.type === "PROFILE_UPDATED") {
+        const p = msg.profile;
+        if (isSaving) {
+          setProfile(p);
+          setSyncedProfile(p);
+          setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
+          setHasPendingChanges(false);
+          setIsSaving(false);
+        } else if (hasPendingChanges) {
+          console.warn("[AE Panel] Conflict detected!");
+          setConflictProfile(p);
+        } else {
+          setProfile(p);
+          setSyncedProfile(p);
+          setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
+        }
+      } else if (msg.type === "COMMAND_REGISTRY_UPDATED") {
+        connectionManager.send({
+          type: "GET_PROFILE",
+          application: "After Effects"
+        });
+      }
+    };
+    connectionManager.addMessageListener(handleMessage);
+    return () => connectionManager.removeMessageListener(handleMessage);
+  }, [isSaving, hasPendingChanges]);
+  (0, import_react3.useEffect)(() => {
+    if (connectionStatus === "Connected") {
+      connectionManager.send({
+        type: "GET_PROFILE",
+        application: "After Effects"
+      });
+    } else {
+      setProfile(null);
+      setSyncedProfile(null);
+      setHasPendingChanges(false);
+      setConflictProfile(null);
+    }
+  }, [connectionStatus]);
+  (0, import_react3.useEffect)(() => {
     const handleGlobalKeyDown = (e) => {
       var _a, _b;
       if (((_a = document.activeElement) == null ? void 0 : _a.tagName) === "INPUT" || ((_b = document.activeElement) == null ? void 0 : _b.tagName) === "TEXTAREA") {
         return;
       }
-      if (isPickerOpen) return;
+      if (isPickerOpen || !profile) return;
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedSectorIndex((prev) => {
@@ -35759,77 +35718,111 @@ var App = () => {
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [selectedSectorIndex, isPickerOpen]);
+  }, [selectedSectorIndex, isPickerOpen, profile]);
   const handleSelectSector = (index) => {
     setSelectedSectorIndex(index);
   };
   const handleAssignCommand = (command) => {
-    if (selectedSectorIndex === null) return;
+    if (selectedSectorIndex === null || !profile) return;
     const updatedSectors = profile.sectors.map((sec, idx) => {
       if (idx === selectedSectorIndex) {
         return { ...sec, assignedCommandId: command.id };
       }
       return sec;
     });
-    const now = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-    setProfile((prev) => ({
-      ...prev,
-      sectors: updatedSectors
-    }));
-    setLastModifiedStr(now);
+    setProfile((prev) => {
+      if (!prev) return null;
+      return { ...prev, sectors: updatedSectors };
+    });
+    setHasPendingChanges(true);
     setIsPickerOpen(false);
   };
   const handleClearCommand = () => {
-    if (selectedSectorIndex === null) return;
+    if (selectedSectorIndex === null || !profile) return;
     const updatedSectors = profile.sectors.map((sec, idx) => {
       if (idx === selectedSectorIndex) {
         return { ...sec, assignedCommandId: null };
       }
       return sec;
     });
-    const now = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-    setProfile((prev) => ({
-      ...prev,
-      sectors: updatedSectors
-    }));
-    setLastModifiedStr(now);
+    setProfile((prev) => {
+      if (!prev) return null;
+      return { ...prev, sectors: updatedSectors };
+    });
+    setHasPendingChanges(true);
   };
   const handleResetSector = () => {
-    if (selectedSectorIndex === null) return;
-    const defaultSec = INITIAL_PROFILE.sectors[selectedSectorIndex];
+    if (selectedSectorIndex === null || !profile || !syncedProfile) return;
+    const originalSec = syncedProfile.sectors[selectedSectorIndex];
     const updatedSectors = profile.sectors.map((sec, idx) => {
       if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: defaultSec.assignedCommandId };
+        return { ...sec, assignedCommandId: originalSec.assignedCommandId };
       }
       return sec;
     });
-    const now = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-    setProfile((prev) => ({
-      ...prev,
-      sectors: updatedSectors
-    }));
-    setLastModifiedStr(now);
-  };
-  const handleRefresh = () => {
-    setProfile({
-      ...INITIAL_PROFILE,
-      lastModified: (/* @__PURE__ */ new Date()).toLocaleTimeString()
+    setProfile((prev) => {
+      if (!prev) return null;
+      return { ...prev, sectors: updatedSectors };
     });
-    setLastModifiedStr((/* @__PURE__ */ new Date()).toLocaleTimeString());
-    setSelectedSectorIndex(null);
+    const diff = updatedSectors.some((sec, idx) => sec.assignedCommandId !== syncedProfile.sectors[idx].assignedCommandId);
+    setHasPendingChanges(diff);
   };
-  const selectedSector = selectedSectorIndex !== null ? profile.sectors[selectedSectorIndex] : null;
-  const assignedCount = profile.sectors.filter((sec) => sec.assignedCommandId !== null).length;
+  const handleSaveChanges = () => {
+    if (!profile) return;
+    setIsSaving(true);
+    connectionManager.send({
+      type: "UPDATE_PROFILE",
+      application: "after_effects",
+      profile
+    });
+  };
+  const handleDiscardChanges = () => {
+    if (!syncedProfile) return;
+    setProfile(syncedProfile);
+    setHasPendingChanges(false);
+  };
+  const handleResolveReload = () => {
+    if (!conflictProfile) return;
+    setProfile(conflictProfile);
+    setSyncedProfile(conflictProfile);
+    setLastModifiedStr(conflictProfile.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
+    setConflictProfile(null);
+    setHasPendingChanges(false);
+  };
+  const handleResolveKeepMine = () => {
+    if (!conflictProfile || !profile) return;
+    setProfile((prev) => {
+      if (!prev) return null;
+      return { ...prev, version: conflictProfile.version };
+    });
+    setSyncedProfile(conflictProfile);
+    setConflictProfile(null);
+    setHasPendingChanges(true);
+  };
+  const selectedSector = selectedSectorIndex !== null && profile ? profile.sectors[selectedSectorIndex] : null;
+  const assignedCount = profile ? profile.sectors.filter((sec) => sec.assignedCommandId !== null).length : 0;
+  const isConnected = connectionStatus === "Connected";
+  const showWaiting = !isConnected || !profile;
   return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "panel-layout", children: [
     /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
       Header,
       {
         connectionStatus,
-        profileName: profile.name,
+        profileName: profile ? profile.name : "Waiting for profile...",
         version: "1.0.0"
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("main", { className: "panel-main-content", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "panel-left-pane", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("main", { className: "panel-main-content", style: { position: "relative" }, children: showWaiting ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "waiting-overlay", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "waiting-spinner" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "waiting-text", children: "Waiting for EasyWheel Host..." })
+    ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "panel-left-pane", children: [
+      conflictProfile && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "conflict-banner", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "conflict-text", children: "Configuration changed on another client." }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "conflict-actions", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "conflict-btn btn-primary", onClick: handleResolveReload, children: "Reload" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "conflict-btn btn-secondary", onClick: handleResolveKeepMine, children: "Keep Mine" })
+        ] })
+      ] }),
       /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "profile-info-details", children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { className: "section-title", children: [
           /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "Profile Info" }),
@@ -35865,14 +35858,42 @@ var App = () => {
             ] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-meta-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Last Modified" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Unsaved Changes" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: `profile-meta-val ${hasPendingChanges ? "highlight-val" : "muted-val"}`, children: hasPendingChanges ? "Yes" : "No" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-meta-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Version" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-val", children: profile.version })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-meta-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Last Modified By" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-val muted-val", children: profile.lastModifiedBy || "Host" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-meta-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Last Synced" }),
             /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-val muted-val", children: lastModifiedStr })
           ] })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "profile-btn btn-secondary", onClick: handleRefresh, children: "Refresh" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "profile-btn btn-secondary", disabled: true, title: "Import (Disabled - Phase 2)", children: "Import" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "profile-btn btn-secondary", disabled: true, title: "Export (Disabled - Phase 2)", children: "Export" })
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "profile-btn btn-primary",
+              onClick: handleSaveChanges,
+              disabled: !hasPendingChanges,
+              children: "Save Changes"
+            }
+          ),
+          hasPendingChanges && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "profile-btn btn-secondary",
+              onClick: handleDiscardChanges,
+              children: "Discard"
+            }
+          )
         ] })
       ] }),
       isPickerOpen ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
@@ -35881,7 +35902,9 @@ var App = () => {
           isOpen: isPickerOpen,
           onClose: () => setIsPickerOpen(false),
           onSelectCommand: handleAssignCommand,
-          selectedCommandId: (selectedSector == null ? void 0 : selectedSector.assignedCommandId) || null
+          selectedCommandId: (selectedSector == null ? void 0 : selectedSector.assignedCommandId) || null,
+          commands: availableCommands,
+          categories
         }
       ) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
         WheelPreview,
@@ -35889,7 +35912,7 @@ var App = () => {
           sectors: profile.sectors,
           selectedSectorIndex,
           onSelectSector: handleSelectSector,
-          commands: MockCommandRegistry.getAll(),
+          commands: availableCommands,
           onAssignClick: () => setIsPickerOpen(true),
           onClearClick: handleClearCommand,
           onResetClick: handleResetSector
@@ -35901,8 +35924,10 @@ var App = () => {
       {
         connectionStatus,
         bridgeVersion: "1.0.0",
-        registryVersion: "1.2.0",
-        lastRefresh: lastModifiedStr
+        registryVersion,
+        profileVersion: profile ? `v${profile.version}` : "v0",
+        lastRefresh: lastModifiedStr,
+        hasUnsavedChanges: hasPendingChanges
       }
     )
   ] });

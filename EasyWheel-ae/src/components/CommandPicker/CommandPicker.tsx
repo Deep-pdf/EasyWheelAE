@@ -2,20 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Command } from '../../types/Command';
 import { CategorySidebar } from '../CategorySidebar/CategorySidebar';
 import { CommandCard } from './CommandCard';
-import { MockCommandRegistry } from '../../services/MockCommandRegistry';
 
 interface CommandPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectCommand: (command: Command) => void;
   selectedCommandId: string | null;
+  commands: Command[];
+  categories: string[];
 }
 
 export const CommandPicker: React.FC<CommandPickerProps> = ({
   isOpen,
   onClose,
   onSelectCommand,
-  selectedCommandId
+  selectedCommandId,
+  commands,
+  categories
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -24,7 +27,19 @@ export const CommandPicker: React.FC<CommandPickerProps> = ({
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   // Filter commands based on search and category
-  const filteredCommands = MockCommandRegistry.search(searchQuery, selectedCategory);
+  const filteredCommands = commands.filter(cmd => {
+    const categoryMatch = selectedCategory === 'All' || 
+      (selectedCategory === 'Favorites' && (cmd.id === 'pre_compose' || cmd.id === 'easy_ease')) ||
+      cmd.category.toLowerCase() === selectedCategory.toLowerCase();
+
+    const q = searchQuery.trim().toLowerCase();
+    const queryMatch = !q || 
+      cmd.name.toLowerCase().includes(q) ||
+      cmd.category.toLowerCase().includes(q) ||
+      cmd.description.toLowerCase().includes(q);
+
+    return categoryMatch && queryMatch;
+  });
 
   // Reset focus index when results change
   useEffect(() => {
@@ -114,6 +129,7 @@ export const CommandPicker: React.FC<CommandPickerProps> = ({
           <CategorySidebar
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            categories={categories}
           />
 
           <div className="picker-results-pane">

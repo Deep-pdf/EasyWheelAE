@@ -251,7 +251,7 @@ impl Default for AppConfig {
         // Profiles — one per supported application plus the mandatory Desktop.
         // Sector assignments: index 0 = Right, advancing clockwise.
         // -----------------------------------------------------------------------
-        let profiles = vec![
+        let mut profiles = vec![
             // Desktop — always present, used as the fallback.
             Profile {
                 name: "Desktop".to_string(),
@@ -263,6 +263,7 @@ impl Default for AppConfig {
                     (3, ConfiguredCommand::legacy("clipboard", "Clipboard")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
             // Adobe After Effects
             Profile {
@@ -277,6 +278,7 @@ impl Default for AppConfig {
                     (5, ConfiguredCommand::legacy("graph_editor", "Graph Editor")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
             // Adobe Photoshop
             Profile {
@@ -287,6 +289,7 @@ impl Default for AppConfig {
                     (1, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
             // Adobe Premiere Pro
             Profile {
@@ -297,6 +300,7 @@ impl Default for AppConfig {
                     (1, ConfiguredCommand::legacy("easy_ease", "Easy Ease")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
             // Visual Studio Code
             Profile {
@@ -308,6 +312,7 @@ impl Default for AppConfig {
                     (2, ConfiguredCommand::legacy("calculator", "Calculator")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
             // Google Chrome
             Profile {
@@ -318,6 +323,7 @@ impl Default for AppConfig {
                     (1, ConfiguredCommand::legacy("clipboard", "Clipboard")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
             // Blender
             Profile {
@@ -327,8 +333,15 @@ impl Default for AppConfig {
                     (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
                     (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
                 ]),
+                ..Default::default()
             },
         ];
+
+        for p in &mut profiles {
+            p.version = 1;
+            p.last_modified = crate::ipc::protocol::get_iso8601_timestamp();
+            p.last_modified_by = "Host".to_string();
+        }
 
         AppConfig {
             schema_version: SCHEMA_VERSION,

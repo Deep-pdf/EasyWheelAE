@@ -969,4 +969,105 @@ body {
   font-family: system-ui, sans-serif;
 }
 
-/* Custom media queries are no longer required for two-column scaling */
+/* Phase 2 Synchronization Styles */
+.waiting-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(22, 22, 26, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.waiting-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.waiting-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.5px;
+}
+
+.conflict-banner {
+  background-color: rgba(255, 69, 58, 0.12);
+  border: 1px solid var(--status-disconnected);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 10px 12px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conflict-text {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.conflict-btn {
+  flex: 1;
+  padding: 3px 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.conflict-btn.btn-primary {
+  background-color: var(--status-disconnected);
+  color: white;
+}
+
+.conflict-btn.btn-primary:hover {
+  background-color: #ff3b30;
+}
+
+.conflict-btn.btn-secondary {
+  background-color: var(--bg-input);
+  color: var(--text-main);
+  border-color: var(--border-light);
+}
+
+.conflict-btn.btn-secondary:hover {
+  background-color: var(--bg-hover);
+}
+
+.unsaved-badge {
+  background-color: var(--status-waiting);
+  color: #000000;
+  font-weight: 700;
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  box-shadow: 0 0 4px var(--status-waiting);
+}
+
