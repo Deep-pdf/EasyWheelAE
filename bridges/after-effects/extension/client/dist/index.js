@@ -35208,14 +35208,12 @@ var StatusBar = ({
   bridgeVersion,
   registryVersion,
   profileVersion,
-  lastRefresh,
-  hasUnsavedChanges
+  lastRefresh
 }) => {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "panel-status-bar", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "status-left", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `status-dot ${connectionStatus.toLowerCase() === "connected" ? "connected" : "disconnected"}` }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "status-text", children: connectionStatus }),
-      hasUnsavedChanges && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "unsaved-badge", children: "Unsaved Changes" })
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "status-text", children: connectionStatus })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "status-right", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { children: [
@@ -35608,7 +35606,6 @@ var CommandPicker = ({
 var import_jsx_runtime7 = __toESM(require_jsx_runtime());
 var App = () => {
   const [profile, setProfile] = (0, import_react3.useState)(null);
-  const [syncedProfile, setSyncedProfile] = (0, import_react3.useState)(null);
   const [availableCommands, setAvailableCommands] = (0, import_react3.useState)([]);
   const [categories, setCategories] = (0, import_react3.useState)(["All", "Favorites"]);
   const [registryVersion, setRegistryVersion] = (0, import_react3.useState)("1.2.0");
@@ -35616,9 +35613,6 @@ var App = () => {
   const [isPickerOpen, setIsPickerOpen] = (0, import_react3.useState)(false);
   const [connectionStatus, setConnectionStatus] = (0, import_react3.useState)("Disconnected");
   const [lastModifiedStr, setLastModifiedStr] = (0, import_react3.useState)("Never");
-  const [hasPendingChanges, setHasPendingChanges] = (0, import_react3.useState)(false);
-  const [conflictProfile, setConflictProfile] = (0, import_react3.useState)(null);
-  const [isSaving, setIsSaving] = (0, import_react3.useState)(false);
   (0, import_react3.useEffect)(() => {
     const updateStatus = () => {
       const status = connectionManager.getStatus();
@@ -35634,7 +35628,6 @@ var App = () => {
       if (msg.type === "PROFILE_DATA") {
         const p = msg.profile;
         setProfile(p);
-        setSyncedProfile(p);
         setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
         setAvailableCommands(msg.availableCommands || []);
         if (msg.categories) {
@@ -35643,35 +35636,25 @@ var App = () => {
         if (msg.registryVersion) {
           setRegistryVersion(msg.registryVersion);
         }
-        setHasPendingChanges(false);
-        setConflictProfile(null);
-        setIsSaving(false);
       } else if (msg.type === "PROFILE_UPDATED") {
         const p = msg.profile;
-        if (isSaving) {
-          setProfile(p);
-          setSyncedProfile(p);
-          setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
-          setHasPendingChanges(false);
-          setIsSaving(false);
-        } else if (hasPendingChanges) {
-          console.warn("[AE Panel] Conflict detected!");
-          setConflictProfile(p);
-        } else {
-          setProfile(p);
-          setSyncedProfile(p);
-          setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
-        }
+        console.log("[AE Panel] AE refreshed");
+        setProfile(p);
+        setLastModifiedStr(p.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
       } else if (msg.type === "COMMAND_REGISTRY_UPDATED") {
         connectionManager.send({
           type: "GET_PROFILE",
           application: "After Effects"
         });
+      } else if (msg.type === "ACK") {
+        console.log("[AE Panel] ACK received:", msg.message);
+      } else if (msg.type === "ERROR") {
+        console.error("[AE Panel] ERROR received:", msg.message);
       }
     };
     connectionManager.addMessageListener(handleMessage);
     return () => connectionManager.removeMessageListener(handleMessage);
-  }, [isSaving, hasPendingChanges]);
+  }, []);
   (0, import_react3.useEffect)(() => {
     if (connectionStatus === "Connected") {
       connectionManager.send({
@@ -35680,9 +35663,6 @@ var App = () => {
       });
     } else {
       setProfile(null);
-      setSyncedProfile(null);
-      setHasPendingChanges(false);
-      setConflictProfile(null);
     }
   }, [connectionStatus]);
   (0, import_react3.useEffect)(() => {
@@ -35719,80 +35699,25 @@ var App = () => {
   };
   const handleAssignCommand = (command) => {
     if (selectedSectorIndex === null || !profile) return;
-    const updatedSectors = profile.sectors.map((sec, idx) => {
-      if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: command.id };
-      }
-      return sec;
+    connectionManager.send({
+      type: "UPDATE_SECTOR",
+      application: "After Effects",
+      sectorIndex: selectedSectorIndex,
+      commandId: command.id
     });
-    setProfile((prev) => {
-      if (!prev) return null;
-      return { ...prev, sectors: updatedSectors };
-    });
-    setHasPendingChanges(true);
     setIsPickerOpen(false);
   };
   const handleClearCommand = () => {
     if (selectedSectorIndex === null || !profile) return;
-    const updatedSectors = profile.sectors.map((sec, idx) => {
-      if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: null };
-      }
-      return sec;
+    connectionManager.send({
+      type: "UPDATE_SECTOR",
+      application: "After Effects",
+      sectorIndex: selectedSectorIndex,
+      commandId: null
     });
-    setProfile((prev) => {
-      if (!prev) return null;
-      return { ...prev, sectors: updatedSectors };
-    });
-    setHasPendingChanges(true);
   };
   const handleResetSector = () => {
-    if (selectedSectorIndex === null || !profile || !syncedProfile) return;
-    const originalSec = syncedProfile.sectors[selectedSectorIndex];
-    const updatedSectors = profile.sectors.map((sec, idx) => {
-      if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: originalSec.assignedCommandId };
-      }
-      return sec;
-    });
-    setProfile((prev) => {
-      if (!prev) return null;
-      return { ...prev, sectors: updatedSectors };
-    });
-    const diff = updatedSectors.some((sec, idx) => sec.assignedCommandId !== syncedProfile.sectors[idx].assignedCommandId);
-    setHasPendingChanges(diff);
-  };
-  const handleSaveChanges = () => {
-    if (!profile) return;
-    setIsSaving(true);
-    connectionManager.send({
-      type: "UPDATE_PROFILE",
-      application: "after_effects",
-      profile
-    });
-  };
-  const handleDiscardChanges = () => {
-    if (!syncedProfile) return;
-    setProfile(syncedProfile);
-    setHasPendingChanges(false);
-  };
-  const handleResolveReload = () => {
-    if (!conflictProfile) return;
-    setProfile(conflictProfile);
-    setSyncedProfile(conflictProfile);
-    setLastModifiedStr(conflictProfile.lastModified || (/* @__PURE__ */ new Date()).toLocaleTimeString());
-    setConflictProfile(null);
-    setHasPendingChanges(false);
-  };
-  const handleResolveKeepMine = () => {
-    if (!conflictProfile || !profile) return;
-    setProfile((prev) => {
-      if (!prev) return null;
-      return { ...prev, version: conflictProfile.version };
-    });
-    setSyncedProfile(conflictProfile);
-    setConflictProfile(null);
-    setHasPendingChanges(true);
+    handleClearCommand();
   };
   const selectedSector = selectedSectorIndex !== null && profile ? profile.sectors[selectedSectorIndex] : null;
   const assignedCount = profile ? profile.sectors.filter((sec) => sec.assignedCommandId !== null).length : 0;
@@ -35811,13 +35736,6 @@ var App = () => {
       /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "waiting-spinner" }),
       /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "waiting-text", children: "Waiting for EasyWheel Host..." })
     ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "panel-left-pane", children: [
-      conflictProfile && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "conflict-banner", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "conflict-text", children: "Configuration changed on another client." }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "conflict-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "conflict-btn btn-primary", onClick: handleResolveReload, children: "Reload" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "conflict-btn btn-secondary", onClick: handleResolveKeepMine, children: "Keep Mine" })
-        ] })
-      ] }),
       /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "profile-info-details", children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { className: "section-title", children: [
           /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "Profile Info" }),
@@ -35853,10 +35771,6 @@ var App = () => {
             ] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-meta-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Unsaved Changes" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: `profile-meta-val ${hasPendingChanges ? "highlight-val" : "muted-val"}`, children: hasPendingChanges ? "Yes" : "No" })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-meta-row", children: [
             /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Version" }),
             /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-val", children: profile.version })
           ] }),
@@ -35868,27 +35782,6 @@ var App = () => {
             /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-lbl", children: "Last Synced" }),
             /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "profile-meta-val muted-val", children: lastModifiedStr })
           ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "profile-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
-            "button",
-            {
-              type: "button",
-              className: "profile-btn btn-primary",
-              onClick: handleSaveChanges,
-              disabled: !hasPendingChanges,
-              children: "Save Changes"
-            }
-          ),
-          hasPendingChanges && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
-            "button",
-            {
-              type: "button",
-              className: "profile-btn btn-secondary",
-              onClick: handleDiscardChanges,
-              children: "Discard"
-            }
-          )
         ] })
       ] }),
       isPickerOpen ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
@@ -35921,8 +35814,7 @@ var App = () => {
         bridgeVersion: "1.0.0",
         registryVersion,
         profileVersion: profile ? `v${profile.version}` : "v0",
-        lastRefresh: lastModifiedStr,
-        hasUnsavedChanges: hasPendingChanges
+        lastRefresh: lastModifiedStr
       }
     )
   ] });

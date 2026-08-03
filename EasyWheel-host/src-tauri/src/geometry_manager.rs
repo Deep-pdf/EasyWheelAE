@@ -202,6 +202,16 @@ impl GeometryManager {
             })
             .unwrap_or(&config.profiles[0]);
 
+        static LAST_SEEN_MODIFIED: std::sync::OnceLock<std::sync::Mutex<String>> = std::sync::OnceLock::new();
+        let last_mod_tracker = LAST_SEEN_MODIFIED.get_or_init(|| std::sync::Mutex::new(String::new()));
+        if let Ok(mut guard) = last_mod_tracker.lock() {
+            let last_mod = format!("{}_{}", matched_profile.name, matched_profile.last_modified);
+            if *guard != last_mod {
+                *guard = last_mod;
+                println!("[Overlay] Overlay refreshed");
+            }
+        }
+
         let mut sector_labels = vec![String::new(); sector_count as usize];
         for i in 0..sector_count {
             if let Some(cmd) = matched_profile.sector_assignments.get(&i) {

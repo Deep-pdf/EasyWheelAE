@@ -9,7 +9,6 @@ import { connectionManager } from '../bridge/connection_manager';
 
 export const App: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [syncedProfile, setSyncedProfile] = useState<Profile | null>(null);
   const [availableCommands, setAvailableCommands] = useState<Command[]>([]);
   const [categories, setCategories] = useState<string[]>(['All', 'Favorites']);
   const [registryVersion, setRegistryVersion] = useState<string>('1.2.0');
@@ -17,9 +16,6 @@ export const App: React.FC = () => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string>('Disconnected');
   const [lastModifiedStr, setLastModifiedStr] = useState<string>('Never');
-  const [hasPendingChanges, setHasPendingChanges] = useState<boolean>(false);
-  const [conflictProfile, setConflictProfile] = useState<Profile | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // Poll connection manager status
   useEffect(() => {
@@ -40,7 +36,6 @@ export const App: React.FC = () => {
       if (msg.type === 'PROFILE_DATA') {
         const p: Profile = msg.profile;
         setProfile(p);
-        setSyncedProfile(p);
         setLastModifiedStr(p.lastModified || new Date().toLocaleTimeString());
         setAvailableCommands(msg.availableCommands || []);
         if (msg.categories) {
@@ -49,40 +44,26 @@ export const App: React.FC = () => {
         if (msg.registryVersion) {
           setRegistryVersion(msg.registryVersion);
         }
-        setHasPendingChanges(false);
-        setConflictProfile(null);
-        setIsSaving(false);
       } else if (msg.type === 'PROFILE_UPDATED') {
         const p: Profile = msg.profile;
-        if (isSaving) {
-          // Confirming our own save
-          setProfile(p);
-          setSyncedProfile(p);
-          setLastModifiedStr(p.lastModified || new Date().toLocaleTimeString());
-          setHasPendingChanges(false);
-          setIsSaving(false);
-        } else if (hasPendingChanges) {
-          // Conflict: another client updated the profile while we have unsaved changes
-          console.warn('[AE Panel] Conflict detected!');
-          setConflictProfile(p);
-        } else {
-          // Auto-sync other client's changes
-          setProfile(p);
-          setSyncedProfile(p);
-          setLastModifiedStr(p.lastModified || new Date().toLocaleTimeString());
-        }
+        console.log('[AE Panel] AE refreshed');
+        setProfile(p);
+        setLastModifiedStr(p.lastModified || new Date().toLocaleTimeString());
       } else if (msg.type === 'COMMAND_REGISTRY_UPDATED') {
-        // Request fresh data from Host
         connectionManager.send({
           type: 'GET_PROFILE',
           application: 'After Effects'
         });
+      } else if (msg.type === 'ACK') {
+        console.log('[AE Panel] ACK received:', msg.message);
+      } else if (msg.type === 'ERROR') {
+        console.error('[AE Panel] ERROR received:', msg.message);
       }
     };
 
     connectionManager.addMessageListener(handleMessage);
     return () => connectionManager.removeMessageListener(handleMessage);
-  }, [isSaving, hasPendingChanges]);
+  }, []);
 
   // Request profile on reconnection
   useEffect(() => {
@@ -92,11 +73,7 @@ export const App: React.FC = () => {
         application: 'After Effects'
       });
     } else {
-      // Clear profile when disconnected so waiting screen is shown
       setProfile(null);
-      setSyncedProfile(null);
-      setHasPendingChanges(false);
-      setConflictProfile(null);
     }
   }, [connectionStatus]);
 
@@ -140,92 +117,28 @@ export const App: React.FC = () => {
   const handleAssignCommand = (command: Command) => {
     if (selectedSectorIndex === null || !profile) return;
 
-    const updatedSectors = profile.sectors.map((sec, idx) => {
-      if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: command.id };
-      }
-      return sec;
+    connectionManager.send({
+      type: 'UPDATE_SECTOR',
+      application: 'After Effects',
+      sectorIndex: selectedSectorIndex,
+      commandId: command.id
     });
-
-    setProfile(prev => {
-      if (!prev) return null;
-      return { ...prev, sectors: updatedSectors };
-    });
-    setHasPendingChanges(true);
     setIsPickerOpen(false);
   };
 
   const handleClearCommand = () => {
     if (selectedSectorIndex === null || !profile) return;
 
-    const updatedSectors = profile.sectors.map((sec, idx) => {
-      if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: null };
-      }
-      return sec;
+    connectionManager.send({
+      type: 'UPDATE_SECTOR',
+      application: 'After Effects',
+      sectorIndex: selectedSectorIndex,
+      commandId: null
     });
-
-    setProfile(prev => {
-      if (!prev) return null;
-      return { ...prev, sectors: updatedSectors };
-    });
-    setHasPendingChanges(true);
   };
 
   const handleResetSector = () => {
-    if (selectedSectorIndex === null || !profile || !syncedProfile) return;
-
-    const originalSec = syncedProfile.sectors[selectedSectorIndex];
-    const updatedSectors = profile.sectors.map((sec, idx) => {
-      if (idx === selectedSectorIndex) {
-        return { ...sec, assignedCommandId: originalSec.assignedCommandId };
-      }
-      return sec;
-    });
-
-    setProfile(prev => {
-      if (!prev) return null;
-      return { ...prev, sectors: updatedSectors };
-    });
-
-    const diff = updatedSectors.some((sec, idx) => sec.assignedCommandId !== syncedProfile.sectors[idx].assignedCommandId);
-    setHasPendingChanges(diff);
-  };
-
-  const handleSaveChanges = () => {
-    if (!profile) return;
-    setIsSaving(true);
-    connectionManager.send({
-      type: 'UPDATE_PROFILE',
-      application: 'after_effects',
-      profile: profile
-    });
-  };
-
-  const handleDiscardChanges = () => {
-    if (!syncedProfile) return;
-    setProfile(syncedProfile);
-    setHasPendingChanges(false);
-  };
-
-  const handleResolveReload = () => {
-    if (!conflictProfile) return;
-    setProfile(conflictProfile);
-    setSyncedProfile(conflictProfile);
-    setLastModifiedStr(conflictProfile.lastModified || new Date().toLocaleTimeString());
-    setConflictProfile(null);
-    setHasPendingChanges(false);
-  };
-
-  const handleResolveKeepMine = () => {
-    if (!conflictProfile || !profile) return;
-    setProfile(prev => {
-      if (!prev) return null;
-      return { ...prev, version: conflictProfile.version };
-    });
-    setSyncedProfile(conflictProfile);
-    setConflictProfile(null);
-    setHasPendingChanges(true);
+    handleClearCommand();
   };
 
   const selectedSector = (selectedSectorIndex !== null && profile) ? profile.sectors[selectedSectorIndex] : null;
@@ -250,20 +163,6 @@ export const App: React.FC = () => {
           </div>
         ) : (
           <div className="panel-left-pane">
-            {conflictProfile && (
-              <div className="conflict-banner">
-                <div className="conflict-text">Configuration changed on another client.</div>
-                <div className="conflict-actions">
-                  <button type="button" className="conflict-btn btn-primary" onClick={handleResolveReload}>
-                    Reload
-                  </button>
-                  <button type="button" className="conflict-btn btn-secondary" onClick={handleResolveKeepMine}>
-                    Keep Mine
-                  </button>
-                </div>
-              </div>
-            )}
-
             <details className="profile-info-details">
               <summary className="section-title">
                 <span>Profile Info</span>
@@ -287,12 +186,6 @@ export const App: React.FC = () => {
                   <span className="profile-meta-val highlight-val">{assignedCount} / {profile.sectorCount}</span>
                 </div>
                 <div className="profile-meta-row">
-                  <span className="profile-meta-lbl">Unsaved Changes</span>
-                  <span className={`profile-meta-val ${hasPendingChanges ? 'highlight-val' : 'muted-val'}`}>
-                    {hasPendingChanges ? 'Yes' : 'No'}
-                  </span>
-                </div>
-                <div className="profile-meta-row">
                   <span className="profile-meta-lbl">Version</span>
                   <span className="profile-meta-val">{profile.version}</span>
                 </div>
@@ -304,25 +197,6 @@ export const App: React.FC = () => {
                   <span className="profile-meta-lbl">Last Synced</span>
                   <span className="profile-meta-val muted-val">{lastModifiedStr}</span>
                 </div>
-              </div>
-              <div className="profile-actions">
-                <button
-                  type="button"
-                  className="profile-btn btn-primary"
-                  onClick={handleSaveChanges}
-                  disabled={!hasPendingChanges}
-                >
-                  Save Changes
-                </button>
-                {hasPendingChanges && (
-                  <button
-                    type="button"
-                    className="profile-btn btn-secondary"
-                    onClick={handleDiscardChanges}
-                  >
-                    Discard
-                  </button>
-                )}
               </div>
             </details>
 
@@ -356,7 +230,6 @@ export const App: React.FC = () => {
         registryVersion={registryVersion}
         profileVersion={profile ? `v${profile.version}` : 'v0'}
         lastRefresh={lastModifiedStr}
-        hasUnsavedChanges={hasPendingChanges}
       />
     </div>
   );

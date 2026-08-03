@@ -75,6 +75,7 @@ impl AEBridge {
                         "profile": cep_profile
                     }).to_string();
                     bridge.client.send_raw(msg);
+                    println!("[AEBridge] PROFILE_UPDATED broadcast");
                 }
             }
         });

@@ -66,6 +66,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
           setConfig(event.payload);
           setOriginalConfig(JSON.parse(JSON.stringify(event.payload)));
           setDirty(false);
+          console.log('[ConfigContext] Host UI refreshed');
         });
       } catch (err) {
         console.error('Failed to setup config-changed listener:', err);

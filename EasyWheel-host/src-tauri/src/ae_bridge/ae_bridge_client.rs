@@ -241,7 +241,7 @@ impl AEBridgeClient {
             if let Some(msg_type) = json.get("type").and_then(|v| v.as_str()) {
                 match msg_type {
                     "GET_PROFILE" => {
-                        println!("[AEBridge] Info: GET_PROFILE request received");
+                        println!("[AEBridge] GET_PROFILE received");
                         let config = ConfigManager::get();
                         if let Some(profile) = config.profiles.iter().find(|p| {
                             p.name.to_ascii_lowercase().contains("after effects") ||
@@ -261,76 +261,62 @@ impl AEBridgeClient {
                             }).to_string();
 
                             self.send_raw(response);
-                            println!("[AEBridge] Info: PROFILE_DATA response sent");
+                            println!("[AEBridge] PROFILE_DATA sent");
                         } else {
                             eprintln!("[AEBridge] Error: After Effects profile not found in configuration");
                         }
                         return;
                     }
-                    "UPDATE_PROFILE" => {
-                        println!("[AEBridge] Info: UPDATE_PROFILE request received");
-                        if let Some(incoming_profile_val) = json.get("profile") {
-                            let incoming_version = incoming_profile_val.get("version").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
-
+                    "UPDATE_SECTOR" => {
+                        println!("[AEBridge] UPDATE_SECTOR received");
+                        if let (Some(sector_idx_val), Some(cmd_id_val)) = (
+                            json.get("sectorIndex").and_then(|v| v.as_u64()),
+                            json.get("commandId")
+                        ) {
+                            let sector_idx = sector_idx_val as u8;
                             let mut config = ConfigManager::get();
                             if let Some(idx) = config.profiles.iter().position(|p| {
                                 p.name.to_ascii_lowercase().contains("after effects") ||
                                 p.executable.to_ascii_lowercase() == "afterfx.exe"
                             }) {
-                                let current_version = config.profiles[idx].version;
-                                if incoming_version < current_version {
-                                    eprintln!("[AEBridge] Error: UPDATE_PROFILE rejected due to outdated version (incoming: {}, current: {})", incoming_version, current_version);
-                                    let cep_profile = self.convert_profile_to_cep(&config.profiles[idx]);
-                                    let error_response = serde_json::json!({
-                                        "type": "PROFILE_DATA",
-                                        "profile": cep_profile,
-                                        "availableCommands": self.get_available_commands(),
-                                        "categories": self.get_categories(),
-                                        "registryVersion": "1.2.0",
-                                        "profileVersion": current_version
-                                    }).to_string();
-                                    self.send_raw(error_response);
-                                    return;
-                                }
-
-                                let next_version = current_version + 1;
                                 let mut updated_profile = config.profiles[idx].clone();
+                                let next_version = updated_profile.version + 1;
                                 updated_profile.version = next_version;
                                 updated_profile.last_modified = crate::ipc::protocol::get_iso8601_timestamp();
                                 updated_profile.last_modified_by = "After Effects Panel".to_string();
 
-                                if let Some(sectors_arr) = incoming_profile_val.get("sectors").and_then(|v| v.as_array()) {
-                                    let mut new_assignments = std::collections::HashMap::new();
-                                    for sector_val in sectors_arr {
-                                        if let (Some(num), Some(cmd_id_val)) = (
-                                            sector_val.get("number").and_then(|v| v.as_u64()),
-                                            sector_val.get("assignedCommandId")
-                                        ) {
-                                            let sector_idx = (num - 1) as u8;
-                                            if !cmd_id_val.is_null() {
-                                                if let Some(cmd_id_str) = cmd_id_val.as_str() {
-                                                    let display_name = crate::command_registry::get_command(cmd_id_str)
-                                                        .map(|c| c.name)
-                                                        .unwrap_or_else(|| cmd_id_str.to_string());
-                                                    new_assignments.insert(
-                                                        sector_idx,
-                                                        crate::models::profile::ConfiguredCommand::legacy(cmd_id_str, &display_name)
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    }
-                                    updated_profile.sector_assignments = new_assignments;
+                                if cmd_id_val.is_null() {
+                                    updated_profile.sector_assignments.remove(&sector_idx);
+                                } else if let Some(cmd_id_str) = cmd_id_val.as_str() {
+                                    let display_name = crate::command_registry::get_command(cmd_id_str)
+                                        .map(|c| c.name)
+                                        .unwrap_or_else(|| cmd_id_str.to_string());
+                                    updated_profile.sector_assignments.insert(
+                                        sector_idx,
+                                        crate::models::profile::ConfiguredCommand::legacy(cmd_id_str, &display_name)
+                                    );
                                 }
 
-                                config.profiles[idx] = updated_profile.clone();
+                                config.profiles[idx] = updated_profile;
+                                println!("[AEBridge] Profile updated");
 
                                 if let Err(e) = ConfigManager::update_and_save(config) {
                                     eprintln!("[AEBridge] Error: Failed to save updated profile: {}", e);
+                                    let error_response = serde_json::json!({
+                                        "type": "ERROR",
+                                        "message": format!("Failed to save profile: {}", e)
+                                    }).to_string();
+                                    self.send_raw(error_response);
                                     return;
                                 }
+                                println!("[AEBridge] profiles.json written");
 
-                                println!("[AEBridge] Info: Profile version {} saved successfully", next_version);
+                                // Send ACK back
+                                let ack_response = serde_json::json!({
+                                    "type": "ACK",
+                                    "message": "Sector updated successfully"
+                                }).to_string();
+                                self.send_raw(ack_response);
                             }
                         }
                         return;
