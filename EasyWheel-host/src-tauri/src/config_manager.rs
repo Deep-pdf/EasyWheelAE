@@ -76,6 +76,15 @@ impl ConfigManager {
         for sub in guard.iter() {
             sub();
         }
+
+        // Emit Tauri event to frontends
+        if let Some(handle) = crate::app_state::get_app_handle() {
+            use tauri::Emitter;
+            let config = Self::get();
+            if let Err(e) = handle.emit("config-changed", config) {
+                eprintln!("[ConfigManager] Error: Failed to emit config-changed event: {}", e);
+            }
+        }
     }
     // -----------------------------------------------------------------------
     // Public API

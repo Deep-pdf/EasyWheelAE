@@ -53,6 +53,35 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
     fetchConfig();
   }, [fetchConfig]);
 
+  // Listen for configuration updates from the backend in real-time
+  useEffect(() => {
+    let unlistenFn: (() => void) | null = null;
+    let active = true;
+
+    const setup = async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        if (!active) return;
+        unlistenFn = await listen<AppConfig>('config-changed', (event) => {
+          setConfig(event.payload);
+          setOriginalConfig(JSON.parse(JSON.stringify(event.payload)));
+          setDirty(false);
+        });
+      } catch (err) {
+        console.error('Failed to setup config-changed listener:', err);
+      }
+    };
+
+    setup();
+
+    return () => {
+      active = false;
+      if (unlistenFn) {
+        unlistenFn();
+      }
+    };
+  }, []);
+
   // Handle unsaved changes window title indicator
   useEffect(() => {
     const title = dirty ? "EasyWheel — Settings *" : "EasyWheel — Settings";
