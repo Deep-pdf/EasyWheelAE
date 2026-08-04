@@ -20,6 +20,24 @@ The applications are decoupled. EasyWheel Host runs two local WebSocket servers:
 
 When a user triggers a "Browser Shortcut" action, the Host queries the Browser Extension for any matching open tabs. If a match is found, the extension activates the tab and the Host natively focuses the browser window. If no match is found, the Host opens the configured URL in a new tab.
 
+### Radial Wheel Sector Geometry
+
+The radial wheel consists of 8 sectors indexed from `0` to `7` advancing clockwise. The index alignment matches standard unit circle angles:
+- **Sector 0**: East (Right / 0°)
+- **Sector 1**: South-East (Bottom-Right / 45°)
+- **Sector 2**: South (Bottom / 90°)
+- **Sector 3**: South-West (Bottom-Left / 135°)
+- **Sector 4**: West (Left / 180°)
+- **Sector 5**: North-West (Top-Left / 225°)
+- **Sector 6**: North (Top / 270°)
+- **Sector 7**: North-East (Top-Right / 315°)
+
+This geometry is synchronized identically across:
+1. The mathematical tracking and mouse vector engine (`geometry_manager.rs`).
+2. The Settings visual layout editor (`WheelEditor.tsx`).
+3. The hardware-accelerated radial overlay UI renderer (`WheelRenderer.tsx`).
+4. The After Effects panel visual wheel preview (`WheelPreview.tsx`).
+
 ---
 
 ## Core Features
