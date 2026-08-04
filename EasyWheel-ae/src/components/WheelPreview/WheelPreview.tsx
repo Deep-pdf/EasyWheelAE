@@ -77,8 +77,8 @@ export const WheelPreview: React.FC<WheelPreviewProps> = ({
           className="wheel-svg"
         >
           {sectors.map((sector, i) => {
-            // Offset by -90 so Sector 0 (index 0) is at 12 o'clock (pointing straight up)
-            const centre = i * sectorSpan - 90;
+            // Sector i is centred at i * sectorSpan degrees, matching host settings and overlay
+            const centre = i * sectorSpan;
             const startAngle = centre - sectorSpan / 2 + sectorGap;
             const endAngle = centre + sectorSpan / 2 - sectorGap;
 

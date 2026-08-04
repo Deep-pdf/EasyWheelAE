@@ -35291,7 +35291,7 @@ var WheelPreview = ({
         className: "wheel-svg",
         children: [
           sectors.map((sector, i) => {
-            const centre = i * sectorSpan - 90;
+            const centre = i * sectorSpan;
             const startAngle = centre - sectorSpan / 2 + sectorGap;
             const endAngle = centre + sectorSpan / 2 - sectorGap;
             const isSelected = selectedSectorIndex === i;

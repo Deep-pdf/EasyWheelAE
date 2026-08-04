@@ -20,6 +20,7 @@
 - [x] Enforce window title changes depending on dirty state (`EasyWheel — Settings *` when modified)
 - [x] Execute `install.bat` to deploy the latest extension bundle.
 - [x] Verify the extension files are updated in Adobe CEP directory.
+- [x] Fix sector mapping misalignment by removing the visual -90° rotation in WheelPreview.tsx to match Host and Overlay.
 - [ ] Restart After Effects and verify the panel transitions to CONNECTED.
 - [ ] Test bidirectional syncing of sector assignments between the Host and the After Effects CEP panel.
 - [ ] Test the radial wheel overlay's dynamic labels and highlights.
