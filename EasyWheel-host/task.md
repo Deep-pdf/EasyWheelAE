@@ -18,9 +18,11 @@
 ## Frontend integration
 - [x] Implement debounced auto-save (400ms) within `ConfigContext.tsx`
 - [x] Enforce window title changes depending on dirty state (`EasyWheel — Settings *` when modified)
-- [x] Ensure saving is cleared only after successful save
-- [/] EasyWheel Host Settings UI (Frontend)
-  - [/] Create `CommandPicker.tsx` searchable palette component
+- [x] Execute `install.bat` to deploy the latest extension bundle.
+- [x] Verify the extension files are updated in Adobe CEP directory.
+- [ ] Restart After Effects and verify the panel transitions to CONNECTED.
+- [ ] Test bidirectional syncing of sector assignments between the Host and the After Effects CEP panel.
+- [ ] Test the radial wheel overlay's dynamic labels and highlights.
 - [x] Propagate dynamic configuration values (`wheel_radius`, `dead_zone_radius`, `sector_count`, `highlight_color`, `default_color`) to the overlay `GeometryState`
 - [x] Update `Overlay.tsx` to read dynamic geometry and colors from `GeometryState` and pass them as props to `WheelRenderer`
 - [x] Refactor `WheelRenderer.tsx` to accept dynamic geometries and colors as props instead of hardcoded constants
