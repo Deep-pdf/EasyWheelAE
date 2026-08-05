@@ -77,6 +77,7 @@ impl OverlayManager {
 
         match Self::get_window(app) {
             Some(window) => {
+                let start = std::time::Instant::now();
                 // Start tracking before showing so the origin is captured
                 // as close to the key-press moment as possible.
                 InputManager::start();
@@ -87,6 +88,7 @@ impl OverlayManager {
                     InputManager::stop();
                 } else {
                     VISIBLE.store(true, Ordering::Relaxed);
+                    println!("[OverlayManager] Info: Overlay window show took {} ms.", start.elapsed().as_millis());
                 }
             }
             None => {

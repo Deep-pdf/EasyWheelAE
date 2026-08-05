@@ -80,13 +80,13 @@ impl CommandProvider for AfterEffectsProvider {
                         err_code, response.message
                     );
                     eprintln!("[AfterEffectsProvider] Error: {}", err_msg);
-                    Err("Unable to execute command.".to_string())
+                    Err(format!("After Effects command failed: {}", response.message))
                 }
             }
             Err(e) => {
                 let err_msg = format!("Failed to communicate with After Effects: {}", e);
                 eprintln!("[AfterEffectsProvider] Error: {}", err_msg);
-                Err("Unable to execute command.".to_string())
+                Err("After Effects Bridge is offline. Please verify that After Effects is running and the EasyWheel panel is open.".to_string())
             }
         }
     }

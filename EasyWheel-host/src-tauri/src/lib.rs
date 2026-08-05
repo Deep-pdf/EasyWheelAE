@@ -39,8 +39,9 @@ use tauri::Manager;
 /// 7. **Register hotkey** — last, dispatches events immediately.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .setup(|app| {
+            let start_time = std::time::Instant::now();
             let handle = app.handle().clone();
 
             println!("[EasyWheel Host] Info: Application started.");
@@ -72,10 +73,9 @@ pub fn run() {
             window_manager::WindowManager::hide(&handle);
 
             // Step 5 — Create the system tray.
-            tray::TrayManager::create(&handle).map_err(|e| {
-                eprintln!("[EasyWheel Host] Fatal: System tray creation failed — {e}");
-                e
-            })?;
+            if let Err(e) = tray::TrayManager::create(&handle) {
+                eprintln!("[EasyWheel Host] Warning: System tray creation failed — {e}. Continuing without tray icon.");
+            }
 
             // Step 6 — Verify the overlay window.
             overlay_manager::OverlayManager::create(&handle);
@@ -84,7 +84,8 @@ pub fn run() {
             hotkey_manager::HotkeyManager::register(&handle);
 
             println!(
-                "[EasyWheel Host] Info: Initialisation complete. Running in system tray."
+                "[EasyWheel Host] Info: Initialisation complete. Running in system tray. Startup took {} ms.",
+                start_time.elapsed().as_millis()
             );
             Ok(())
         })
@@ -103,6 +104,14 @@ pub fn run() {
             commands::pick_folder,
             commands::get_command_registry,
         ])
-        .run(tauri::generate_context!())
-        .expect("Fatal: Tauri application failed to start.");
+        .build(tauri::generate_context!())
+        .expect("Fatal: Failed to build Tauri application.");
+
+    app.run(|_app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            println!("[EasyWheel Host] Info: Shutting down services...");
+            ae_bridge::ConnectionManager::shutdown();
+            browser::browser_bridge::BrowserBridge::shutdown();
+        }
+    });
 }

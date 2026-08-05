@@ -104,18 +104,107 @@ impl ConfigManager {
     ///
     /// Never panics. All error paths produce logged warnings and fall back
     /// to the default configuration.
+    fn sanitize_config(mut config: AppConfig) -> AppConfig {
+        if config.action_library.is_empty() {
+            config.action_library = AppConfig::default().action_library;
+        }
+        for profile in &mut config.profiles {
+            let mut clean_assignments = std::collections::HashMap::new();
+            for (&sector, cmd) in &profile.sector_assignments {
+                if sector < 8 {
+                    if cmd.command_id.is_empty() {
+                        eprintln!(
+                            "[ConfigManager] Warning: Profile '{}' sector {} has empty command ID. Ignoring.",
+                            profile.name, sector
+                        );
+                    } else {
+                        clean_assignments.insert(sector, cmd.clone());
+                    }
+                } else {
+                    eprintln!(
+                        "[ConfigManager] Warning: Profile '{}' has invalid sector index {}. Ignoring.",
+                        profile.name, sector
+                    );
+                }
+            }
+            profile.sector_assignments = clean_assignments;
+        }
+        config
+    }
+
+    fn try_load_split_configs(dir: &std::path::Path) -> Option<AppConfig> {
+        let settings_path = dir.join("settings.json");
+        let profiles_path = dir.join("profiles.json");
+
+        if settings_path.exists() && profiles_path.exists() {
+            let settings_content = std::fs::read_to_string(&settings_path).ok()?;
+            let profiles_content = std::fs::read_to_string(&profiles_path).ok()?;
+
+            let global: crate::models::config::GlobalSettings = match serde_json::from_str(&settings_content) {
+                Ok(g) => g,
+                Err(e) => {
+                    eprintln!("[ConfigManager] Warning: Failed to parse settings.json during recovery: {}", e);
+                    Self::backup_corrupt_file(&settings_path);
+                    return None;
+                }
+            };
+
+            let profiles: Vec<crate::models::profile::Profile> = match serde_json::from_str(&profiles_content) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("[ConfigManager] Warning: Failed to parse profiles.json during recovery: {}", e);
+                    Self::backup_corrupt_file(&profiles_path);
+                    return None;
+                }
+            };
+
+            println!("[ConfigManager] Info: Successfully recovered configuration from split settings.json and profiles.json.");
+            Some(AppConfig {
+                schema_version: crate::models::config::SCHEMA_VERSION,
+                global,
+                profiles,
+                action_library: AppConfig::default().action_library,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn load() {
-        // OnceLock: subsequent calls are no-ops.
         if CONFIG.get().is_some() {
             return;
         }
 
         let config = match Self::config_path() {
             Some(path) => {
+                let parent_dir = path.parent().expect("Config path must have a parent directory");
+                if let Err(e) = std::fs::create_dir_all(parent_dir) {
+                    eprintln!("[ConfigManager] Warning: Failed to create AppData folder {:?} — {}", parent_dir, e);
+                }
+
+                let mut loaded_config = None;
+
                 if path.exists() {
-                    Self::read_from_disk(&path)
+                    match std::fs::read_to_string(&path) {
+                        Ok(contents) => {
+                            match serde_json::from_str::<AppConfig>(&contents) {
+                                Ok(parsed) => {
+                                    println!("[ConfigManager] Info: Unified configuration loaded from {:?}", path);
+                                    loaded_config = Some(Self::sanitize_config(parsed));
+                                }
+                                Err(e) => {
+                                    eprintln!("[ConfigManager] Warning: Failed to parse easywheel.json: {}. Attempting split-config recovery...", e);
+                                    Self::backup_corrupt_file(&path);
+                                    loaded_config = Self::try_load_split_configs(parent_dir);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[ConfigManager] Warning: Failed to read easywheel.json: {}. Attempting split-config recovery...", e);
+                            loaded_config = Self::try_load_split_configs(parent_dir);
+                        }
+                    }
                 } else {
-                    // Try migrating from legacy config.json if it exists
                     let mut legacy_path = path.clone();
                     legacy_path.set_file_name("config.json");
                     if legacy_path.exists() {
@@ -126,22 +215,37 @@ impl ConfigManager {
                     }
 
                     if path.exists() {
-                        Self::read_from_disk(&path)
-                    } else {
-                        println!(
-                            "[ConfigManager] Info: Config file not found. \
-                             Generating default configuration."
-                        );
-                        let default = AppConfig::default();
-                        Self::write_to_disk(&path, &default);
-                        default
+                        match std::fs::read_to_string(&path) {
+                            Ok(contents) => {
+                                if let Ok(parsed) = serde_json::from_str::<AppConfig>(&contents) {
+                                    loaded_config = Some(Self::sanitize_config(parsed));
+                                }
+                            }
+                            Err(_) => {}
+                        }
+                    }
+
+                    if loaded_config.is_none() {
+                        loaded_config = Self::try_load_split_configs(parent_dir);
+                    }
+                }
+
+                match loaded_config {
+                    Some(cfg) => {
+                        Self::write_to_disk(&path, &cfg);
+                        cfg
+                    }
+                    None => {
+                        println!("[ConfigManager] Info: No valid configuration found. Generating defaults.");
+                        let default_cfg = AppConfig::default();
+                        Self::write_to_disk(&path, &default_cfg);
+                        default_cfg
                     }
                 }
             }
             None => {
                 eprintln!(
-                    "[ConfigManager] Warning: Could not resolve %%APPDATA%% directory. \
-                     Using in-memory default configuration."
+                    "[ConfigManager] Warning: Could not resolve %%APPDATA%% directory. Using in-memory default configuration."
                 );
                 AppConfig::default()
             }
@@ -367,28 +471,26 @@ impl ConfigManager {
     fn read_from_disk(path: &PathBuf) -> AppConfig {
         match std::fs::read_to_string(path) {
             Ok(contents) => match serde_json::from_str::<AppConfig>(&contents) {
-                Ok(config) => {
-                    println!(
-                        "[ConfigManager] Info: Configuration loaded from {:?}.",
-                        path
-                    );
-                    config
-                }
+                Ok(config) => Self::sanitize_config(config),
                 Err(e) => {
                     eprintln!(
                         "[ConfigManager] Warning: Failed to parse config — {e}. \
-                         Renaming corrupt file and regenerating defaults."
+                         Renaming corrupt file and recovering or regenerating."
                     );
                     Self::backup_corrupt_file(path);
-                    let default = AppConfig::default();
-                    Self::write_to_disk(path, &default);
-                    default
+                    let parent_dir = path.parent().unwrap();
+                    let recovered = Self::try_load_split_configs(parent_dir).unwrap_or_else(|| {
+                        let default = AppConfig::default();
+                        Self::write_to_disk(path, &default);
+                        default
+                    });
+                    recovered
                 }
             },
             Err(e) => {
                 eprintln!(
                     "[ConfigManager] Warning: Failed to read config file — {e}. \
-                     Generating defaults."
+                     Regenerating defaults."
                 );
                 let default = AppConfig::default();
                 Self::write_to_disk(path, &default);

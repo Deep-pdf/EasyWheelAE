@@ -4,8 +4,11 @@ use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::net::TcpListener;
 use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
 use tungstenite::{accept, Message};
+
+pub static RUNNING: AtomicBool = AtomicBool::new(true);
 
 #[cfg(target_os = "windows")]
 use winapi::shared::windef::HWND;
@@ -122,6 +125,14 @@ impl BrowserBridge {
         })
     }
 
+    pub fn shutdown() {
+        RUNNING.store(false, Ordering::Relaxed);
+        let addr = "127.0.0.1:23436";
+        if let Ok(_) = std::net::TcpStream::connect(addr) {
+            println!("[BrowserBridge] Info: Sent wakeup ping to connection loop for shutdown.");
+        }
+    }
+
     /// Start the WebSocket server in a background thread.
     pub fn start() {
         println!("[BrowserBridge] BrowserBridge starting...");
@@ -130,21 +141,31 @@ impl BrowserBridge {
 
         thread::spawn(move || {
             let addr = "127.0.0.1:23436";
-            let listener = match TcpListener::bind(addr) {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("[BrowserBridge] FATAL: Cannot bind to {} — {}", addr, e);
-                    println!("[BrowserBridge] Server stopped");
+            let listener = loop {
+                if !RUNNING.load(Ordering::Relaxed) {
                     return;
+                }
+                match TcpListener::bind(addr) {
+                    Ok(l) => break l,
+                    Err(e) => {
+                        eprintln!("[BrowserBridge] Warning: Cannot bind to {} — {}. Retrying in 5 seconds...", addr, e);
+                        thread::sleep(Duration::from_secs(5));
+                    }
                 }
             };
 
             println!("[BrowserBridge] Listening on port 23436");
 
             for tcp_stream in listener.incoming() {
+                if !RUNNING.load(Ordering::Relaxed) {
+                    break;
+                }
                 let tcp_stream = match tcp_stream {
                     Ok(s) => s,
                     Err(e) => {
+                        if !RUNNING.load(Ordering::Relaxed) {
+                            break;
+                        }
                         eprintln!("[BrowserBridge] Accept error: {}", e);
                         continue;
                     }

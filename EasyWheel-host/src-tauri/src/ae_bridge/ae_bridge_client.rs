@@ -127,28 +127,9 @@ impl AEBridgeClient {
         }
 
         if !self.is_connected() {
-            // -----------------------------------------------------------------
-            // Offline path: enqueue and wait
-            // -----------------------------------------------------------------
-            if let Err(e) = self.queue.push(req) {
-                let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
-                pending.remove(&req_id);
-                return Err(format!("Queue failed: {}", e));
-            }
-
-            let timeout = Duration::from_millis(config.global.adobe_timeout_ms);
-            match rx.recv_timeout(timeout) {
-                Ok(res)                          => Ok(res),
-                Err(RecvTimeoutError::Timeout)   => {
-                    let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
-                    pending.remove(&req_id);
-                    eprintln!("[AEBridge] Error: Queued request timed out: {}", req_id);
-                    Err("Timeout".to_string())
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    Err("Lost connection".to_string())
-                }
-            }
+            let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+            pending.remove(&req_id);
+            return Err("After Effects Bridge is offline".to_string());
         } else {
             // -----------------------------------------------------------------
             // Online path: forward to server loop via channel

@@ -17,21 +17,23 @@ impl CommandDispatcher {
 
         match provider {
             Some(provider) => {
-
+                let start = std::time::Instant::now();
                 match provider.execute(&context) {
                     Ok(_) => {
                         println!(
-                            "[CommandDispatcher] Info: Provider Executed: '{}' successfully for action '{}'",
+                            "[CommandDispatcher] Info: Provider Executed: '{}' successfully for action '{}' in {} ms",
                             provider.provider_name(),
-                            context.action_id
+                            context.action_id,
+                            start.elapsed().as_millis()
                         );
                         Ok(())
                     }
                     Err(err) => {
                         eprintln!(
-                            "[CommandDispatcher] Error: Execution Failed: provider '{}' failed executing action '{}': {}",
+                            "[CommandDispatcher] Error: Execution Failed: provider '{}' failed executing action '{}' after {} ms: {}",
                             provider.provider_name(),
                             context.action_id,
+                            start.elapsed().as_millis(),
                             err
                         );
                         Err(err)

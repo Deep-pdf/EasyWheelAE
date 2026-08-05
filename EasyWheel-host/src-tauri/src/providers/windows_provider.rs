@@ -240,12 +240,23 @@ pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), Strin
         _ => None,
     };
 
+    let mut spawned = false;
     if let Some(browser_exe) = exe {
-        Command::new(browser_exe)
-            .arg(url)
-            .spawn()
-            .map_err(|e| format!("Failed to launch browser '{}': {}", browser_exe, e))?;
-    } else {
+        match std::process::Command::new(browser_exe).arg(url).spawn() {
+            Ok(_) => {
+                spawned = true;
+            }
+            Err(e) => {
+                eprintln!(
+                    "[WindowsProvider] Warning: Failed to launch browser '{}': {}. \
+                     Falling back to default system browser.",
+                    browser_exe, e
+                );
+            }
+        }
+    }
+
+    if !spawned {
         let verb: Vec<u16> = OsStr::new("open").encode_wide().chain(std::iter::once(0)).collect();
         let file: Vec<u16> = OsStr::new(url).encode_wide().chain(std::iter::once(0)).collect();
         
@@ -260,7 +271,7 @@ pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), Strin
             )
         };
         if (res as usize) <= 32 {
-            return Err(format!("ShellExecuteW failed to open website: error code {}", res as usize));
+            return Err(format!("Could not open website: error code {}", res as usize));
         }
     }
     Ok(())

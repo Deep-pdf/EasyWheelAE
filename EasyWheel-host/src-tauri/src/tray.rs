@@ -101,15 +101,20 @@ impl TrayManager {
     /// Panics with a clear diagnostic if no icon is configured — a missing tray
     /// icon is a packaging error that must surface loudly during development.
     fn load_icon<R: Runtime>(app: &AppHandle<R>) -> tauri::image::Image<'static> {
-        let source = app.default_window_icon().expect(
-            "Fatal: No default window icon found. \
-             Verify that bundle.icon is set in tauri.conf.json.",
-        );
-        tauri::image::Image::new_owned(
-            source.rgba().to_vec(),
-            source.width(),
-            source.height(),
-        )
+        match app.default_window_icon() {
+            Some(source) => {
+                tauri::image::Image::new_owned(
+                    source.rgba().to_vec(),
+                    source.width(),
+                    source.height(),
+                )
+            }
+            None => {
+                eprintln!("[TrayManager] Error: No default window icon found. Using 16x16 fallback.");
+                let fallback_rgba = vec![0u8; 16 * 16 * 4];
+                tauri::image::Image::new_owned(fallback_rgba, 16, 16)
+            }
+        }
     }
 
     /// Dispatches tray context menu item selection events.

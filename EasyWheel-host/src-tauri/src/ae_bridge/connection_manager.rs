@@ -3,23 +3,18 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, TryRecvError};
 use std::thread;
 use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tungstenite::{Message, accept};
 
 use crate::config_manager::ConfigManager;
 use super::ae_bridge_client::AEBridgeClient;
 use super::bridge_status::{BridgeStatusTracker, BridgeStatus};
 
+pub static RUNNING: AtomicBool = AtomicBool::new(true);
+
 /// Orchestrates the WebSocket connection lifecycle: running the server,
 /// accepting connections, performing handshakes, managing heartbeat pings,
 /// and handling disconnects.
-///
-/// # Socket ownership model
-///
-/// Each accepted connection is handled on a dedicated thread that is the **sole
-/// owner** of the `WebSocket`. Outbound messages are delivered to that thread
-/// via an `mpsc::Sender<String>` stored inside `AEBridgeClient`. The main loop
-/// uses a 50 ms read timeout so it can interleave reads and pending writes
-/// without blocking forever in either direction.
 pub struct ConnectionManager {
     client: Arc<AEBridgeClient>,
     status: BridgeStatusTracker,
@@ -46,6 +41,16 @@ impl ConnectionManager {
         });
     }
 
+    pub fn shutdown() {
+        RUNNING.store(false, Ordering::Relaxed);
+        let port = ConfigManager::get().global.adobe_port;
+        let addr = format!("127.0.0.1:{}", port);
+        // Connect a dummy stream to unblock the TcpListener loop
+        if let Ok(_) = std::net::TcpStream::connect(&addr) {
+            println!("[AEBridge] Info: Sent wakeup ping to connection loop for shutdown.");
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Server loop
     // -----------------------------------------------------------------------
@@ -55,22 +60,37 @@ impl ConnectionManager {
         let port   = config.global.adobe_port;
         let addr   = format!("127.0.0.1:{}", port);
 
-        let listener = match std::net::TcpListener::bind(&addr) {
-            Ok(l)  => {
-                println!("[AEBridge] Listening on port {}", port);
-                l
-            }
-            Err(e) => {
-                eprintln!("[AEBridge] Error: Failed to bind WebSocket server to {} — {}", addr, e);
-                status.set(BridgeStatus::Disconnected);
+        let listener = loop {
+            if !RUNNING.load(Ordering::Relaxed) {
                 return;
+            }
+            match std::net::TcpListener::bind(&addr) {
+                Ok(l)  => {
+                    println!("[AEBridge] Listening on port {}", port);
+                    break l;
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[AEBridge] Warning: Failed to bind WebSocket server to {} — {}. \
+                         Retrying in 5 seconds...",
+                        addr, e
+                    );
+                    status.set(BridgeStatus::Disconnected);
+                    std::thread::sleep(Duration::from_secs(5));
+                }
             }
         };
 
         for stream in listener.incoming() {
+            if !RUNNING.load(Ordering::Relaxed) {
+                break;
+            }
             let stream = match stream {
                 Ok(s)  => s,
                 Err(e) => {
+                    if !RUNNING.load(Ordering::Relaxed) {
+                        break;
+                    }
                     eprintln!("[AEBridge] Error: Failed to accept incoming stream — {}", e);
                     continue;
                 }
@@ -223,7 +243,9 @@ impl ConnectionManager {
                 // 8. Cleanup on disconnect.
                 // ----------------------------------------------------------
                 client_conn.remove_write_channel(conn_id);
-                status_conn.set(BridgeStatus::Disconnected);
+                if !client_conn.is_connected() {
+                    status_conn.set(BridgeStatus::Disconnected);
+                }
             });
         }
     }
@@ -234,11 +256,16 @@ impl ConnectionManager {
 
     /// Sends a ping text frame every 30 seconds via the write channel.
     fn heartbeat_loop(client: Arc<AEBridgeClient>, _status: BridgeStatusTracker) {
-        loop {
-            thread::sleep(Duration::from_secs(30));
+        while RUNNING.load(Ordering::Relaxed) {
+            // Sleep in small increments to allow responsive shutdown
+            for _ in 0..300 {
+                if !RUNNING.load(Ordering::Relaxed) {
+                    return;
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
 
             let ping_msg = serde_json::json!({ "type": "ping" }).to_string();
-            // send_raw returns false if not connected — that is fine, we just skip.
             client.send_raw(ping_msg);
         }
     }
