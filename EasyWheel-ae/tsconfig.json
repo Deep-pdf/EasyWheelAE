@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "CommonJS",
     "moduleResolution": "node",
-    "outDir": "../bridges/after-effects/extension/client/dist",
+    "outDir": "../extensions/after-effects/client/dist",
     "rootDir": "./src",
     "strict": true,
     "jsx": "react-jsx",

@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "bundle": "esbuild src/index.ts --bundle --outfile=../bridges/after-effects/extension/client/dist/index.js --platform=node --target=node16 --external:fs --external:path --external:os --external:util",
+    "bundle": "esbuild src/index.ts --bundle --outfile=../extensions/after-effects/client/dist/index.js --platform=node --target=node16 --external:fs --external:path --external:os --external:util",
     "watch": "npm run bundle -- --watch"
   },
   "dependencies": {

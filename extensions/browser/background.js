@@ -107,26 +107,14 @@ async function activateTab(tabId, windowId) {
 
     // Step 2 — Sequence A: activate tab → focus window
     try {
-        console.log(`[EasyWheel] Sequence A — tabs.update(${tabId}) then windows.update(${windowId})`);
-        const updatedTab = await chrome.tabs.update(tabId, { active: true });
-        console.log("[EasyWheel] tabs.update result:", updatedTab);
-
-        const updatedWin = await chrome.windows.update(windowId, { focused: true });
-        console.log("[EasyWheel] windows.update result:", updatedWin);
-
+        await chrome.tabs.update(tabId, { active: true });
+        await chrome.windows.update(windowId, { focused: true });
         return { success: true };
     } catch (errA) {
-        console.warn("[EasyWheel] Sequence A failed:", errA.message);
-
         // Step 3 — Sequence B fallback: focus window → activate tab
         try {
-            console.log(`[EasyWheel] Sequence B — windows.update(${windowId}) then tabs.update(${tabId})`);
-            const updatedWin = await chrome.windows.update(windowId, { focused: true });
-            console.log("[EasyWheel] windows.update result:", updatedWin);
-
-            const updatedTab = await chrome.tabs.update(tabId, { active: true });
-            console.log("[EasyWheel] tabs.update result:", updatedTab);
-
+            await chrome.windows.update(windowId, { focused: true });
+            await chrome.tabs.update(tabId, { active: true });
             return { success: true };
         } catch (errB) {
             const msg = errB.message || String(errB);
@@ -195,8 +183,6 @@ function connectHost() {
             return;
         }
 
-        console.log("[EasyWheel] Received from host:", data);
-
         if (data.type === "ACTIVATE_TAB") {
             const tabId    = parseInt(data.tabId,    10);
             const windowId = parseInt(data.windowId, 10);
@@ -208,12 +194,9 @@ function connectHost() {
                 return;
             }
 
-            console.log(`[EasyWheel] Activating tab ${tabId} in window ${windowId}`);
             const result = await activateTab(tabId, windowId);
 
-            if (result.success) {
-                console.log("[EasyWheel] Tab activated successfully");
-            } else {
+            if (!result.success) {
                 console.error("[EasyWheel] Activation failed:", result.error);
             }
 
@@ -223,8 +206,6 @@ function connectHost() {
 }
 
 function scheduleReconnect() {
-    const sec = (reconnectDelay / 1000).toFixed(0);
-    console.log(`[EasyWheel] Retrying in ${sec} second${sec === "1" ? "" : "s"}...`);
     reconnectTimer  = setTimeout(connectHost, reconnectDelay);
     reconnectDelay  = Math.min(reconnectDelay * 2, MAX_DELAY);
 }

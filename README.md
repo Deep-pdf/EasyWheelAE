@@ -96,24 +96,22 @@ EasyWheelAE/
 │   └── package.json              # TypeScript compilation dependencies
 │
 ├── extensions/
-│   └── easywheel-browser/        # Web Extension (Chrome, Edge, Brave, Opera, etc.)
-│       ├── manifest.json         # Extension manifest with permissions (tabs, windows, alarms)
-│       └── background.js         # MV3 service worker handling socket updates and tab focus
-│
-└── bridges/
-    └── after-effects/
-        └── extension/            # Adobe Common Extensibility Platform (CEP) Extension
-            ├── CSXS/
-            │   └── manifest.xml  # Panel extension metadata configuration
-            ├── client/
-            │   ├── index.html    # Panel UI (dark theme layout)
-            │   ├── index.css     # Panel styles matching native After Effects panels
-            │   ├── index.js      # CEP environment verification & bootstrap loader
-            │   └── dist/         # Compiled bridge client runtime (outputs from EasyWheel-ae)
-            ├── jsx/
-            │   └── bootstrap.jsx # ExtendScript engine executor
-            ├── icons/            # Extension panel menu icons
-            └── installer/        # CEP development and deployment scripts (install, enable_debug)
+│   ├── browser/                  # Web Extension (Chrome, Edge, Brave, Opera, etc.)
+│   │   ├── manifest.json         # Extension manifest with permissions (tabs, windows, alarms)
+│   │   └── background.js         # MV3 service worker handling socket updates and tab focus
+│   │
+│   └── after-effects/            # Adobe Common Extensibility Platform (CEP) Extension
+│       ├── CSXS/
+│       │   └── manifest.xml      # Panel extension metadata configuration
+│       ├── client/
+│       │   ├── index.html        # Panel UI (dark theme layout)
+│       │   ├── index.css         # Panel styles matching native After Effects panels
+│       │   ├── index.js          # CEP environment verification & bootstrap loader
+│       │   └── dist/             # Compiled bridge client runtime (outputs from EasyWheel-ae)
+│       ├── jsx/
+│       │   └── bootstrap.jsx     # ExtendScript engine executor
+│       ├── icons/                # Extension panel menu icons
+│       └── installer/            # CEP development and deployment scripts (install, enable_debug)
 ```
 
 ---
@@ -169,7 +167,7 @@ npm run tauri build
 #### Setup for Development (Registry & CEP)
 1. Run the debug helper script as Administrator to allow unsigned panels inside After Effects:
    ```cmd
-   cd bridges/after-effects/extension/installer
+   cd extensions/after-effects/installer
    enable_debug.bat
    ```
 2. Install the extension files into the Adobe CEP extensions directory:
@@ -204,7 +202,7 @@ npm run tauri build
    - Edge: `edge://extensions/`
 2. Enable **Developer mode** using the toggle switch (typically in the top-right or top-left corner).
 3. Click the **Load unpacked** button.
-4. Select the `extensions/easywheel-browser/` folder from this repository.
+4. Select the `extensions/browser/` folder from this repository.
 5. The extension will automatically load and connect to the Host app on port `23436`.
 6. To verify connectivity, look at the service worker console log (click the **service worker** link on the extension card). You should see `[EasyWheel] Connected`.
 

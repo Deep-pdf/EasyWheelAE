@@ -22,26 +22,20 @@ export class JSXExecutor {
     
     return new Promise((resolve) => {
       try {
-        console.log(`[Bridge]\nCalling evalScript:\n${command}`);
-        
         if (typeof window !== 'undefined' && (window as any).evalScriptInBrowser) {
           (window as any).evalScriptInBrowser(command, (result: any) => {
-            console.log('[Bridge]\nevalScript callback fired');
-            console.log(`[Bridge]\nResult:\n${result}`);
             resolve({ success: true, message: 'Execution succeeded', result });
           });
         } else if (typeof window !== 'undefined' && (window as any).__adobe_cep__) {
           (window as any).__adobe_cep__.evalScript(command, (result: any) => {
-            console.log('[Bridge]\nevalScript callback fired');
-            console.log(`[Bridge]\nResult:\n${result}`);
             resolve({ success: true, message: 'Execution succeeded', result });
           });
         } else {
-          console.log('[Bridge]\nError: CEP environment not available');
+          Logger.error('JSXExecutor', 'CEP environment not available');
           resolve({ success: false, message: 'CEP environment not available' });
         }
       } catch (e: any) {
-        console.log(`[Bridge]\nException: ${e.message}`);
+        Logger.error('JSXExecutor', `Exception during execution: ${e.message}`);
         resolve({ success: false, message: e.message || 'evalScript failed' });
       }
     });
