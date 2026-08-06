@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "EasyWheel Browser Integration",
+  "version": "1.0.0",
+  "description": "Integrates Chrome, Edge, Brave, and Opera with the EasyWheel radial menu.",
+  "permissions": [
+    "tabs",
+    "windows",
+    "alarms"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

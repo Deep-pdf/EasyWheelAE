@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "EasyWheel Host",
-  "version": "0.1.0",
+  "productName": "EasyWheel",
+  "version": "1.0.0",
   "identifier": "com.easywheelae.host",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -50,6 +50,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "hooks.nsh"
+      }
+    }
   }
 }
