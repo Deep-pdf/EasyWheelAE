@@ -133,6 +133,11 @@ impl BrowserBridge {
         }
     }
 
+    pub fn is_connected(&self) -> bool {
+        let guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        !guard.sessions.is_empty()
+    }
+
     /// Start the WebSocket server in a background thread.
     pub fn start() {
         println!("[BrowserBridge] BrowserBridge starting...");

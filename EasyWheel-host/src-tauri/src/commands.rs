@@ -517,3 +517,157 @@ pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>,
     Ok(crate::command_registry::get_commands().clone())
 }
 
+use std::path::Path;
+
+pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+pub struct WizardStatus {
+    pub config_ready: bool,
+    pub ae_installed: bool,
+    pub ae_connected: bool,
+    pub browser_connected: bool,
+    pub version: String,
+}
+
+#[tauri::command]
+pub fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+#[tauri::command]
+pub fn get_wizard_status() -> WizardStatus {
+    let config_ready = crate::config_manager::ConfigManager::config_path()
+        .map(|p| p.exists())
+        .unwrap_or(false);
+
+    let mut ae_installed = false;
+    if let Some(app_data) = dirs::data_dir() {
+        let cep_dir = app_data.join("Adobe").join("CEP").join("extensions").join("EasyWheelAE");
+        ae_installed = cep_dir.exists();
+    }
+
+    let ae_connected = crate::ae_bridge::AEBridge::global().is_connected();
+    let browser_connected = crate::browser::browser_bridge::BrowserBridge::global().is_connected();
+    let version = env!("CARGO_PKG_VERSION").to_string();
+
+    WizardStatus {
+        config_ready,
+        ae_installed,
+        ae_connected,
+        browser_connected,
+        version,
+    }
+}
+
+#[tauri::command]
+pub fn install_ae_extension(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let resource_dir = app.path().resource_dir()
+        .map_err(|e| format!("Failed to find resource directory: {}", e))?;
+    
+    let src_dir = resource_dir.join("extensions").join("after-effects");
+    if !src_dir.exists() {
+        return Err("After Effects extension source files not found in application resources.".to_string());
+    }
+
+    let cep_dir = dirs::data_dir()
+        .ok_or_else(|| "Failed to resolve APPDATA directory".to_string())?
+        .join("Adobe")
+        .join("CEP")
+        .join("extensions")
+        .join("EasyWheelAE");
+
+    println!("[ReleaseEngineering] Installing AE extension from {:?} to {:?}", src_dir, cep_dir);
+    if cep_dir.exists() {
+        let _ = std::fs::remove_dir_all(&cep_dir);
+    }
+    
+    copy_dir_all(&src_dir, &cep_dir)
+        .map_err(|e| format!("Failed to copy CEP extension: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_browser_extension_folder(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let resource_dir = app.path().resource_dir()
+        .map_err(|e| format!("Failed to find resource directory: {}", e))?;
+    let path = resource_dir.join("extensions").join("browser");
+    if path.exists() {
+        std::process::Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err("Browser extension folder not found in resources.".to_string())
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct DiagnosticsInfo {
+    pub version: String,
+    pub config_path: String,
+    pub app_data_path: String,
+    pub program_files_path: String,
+    pub ae_status: String,
+    pub browser_status: String,
+    pub profiles: Vec<String>,
+}
+
+#[tauri::command]
+pub fn get_diagnostics_info() -> DiagnosticsInfo {
+    let version = env!("CARGO_PKG_VERSION").to_string();
+    let config_path = crate::config_manager::ConfigManager::config_path()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Unknown".to_string());
+    
+    let app_data_path = dirs::data_dir()
+        .map(|p| p.join("EasyWheel").to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    let program_files_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    let ae_status = if crate::ae_bridge::AEBridge::global().is_connected() {
+        "Connected".to_string()
+    } else {
+        "Disconnected".to_string()
+    };
+
+    let browser_status = if crate::browser::browser_bridge::BrowserBridge::global().is_connected() {
+        "Connected".to_string()
+    } else {
+        "Disconnected".to_string()
+    };
+
+    let config = crate::config_manager::ConfigManager::get();
+    let profiles = config.profiles.iter().map(|p| p.name.clone()).collect();
+
+    DiagnosticsInfo {
+        version,
+        config_path,
+        app_data_path,
+        program_files_path,
+        ae_status,
+        browser_status,
+        profiles,
+    }
+}
+

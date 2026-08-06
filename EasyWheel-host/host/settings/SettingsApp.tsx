@@ -6,6 +6,8 @@ import { ProfilesPage } from './pages/ProfilesPage';
 import { ActionsPage } from './pages/ActionsPage';
 import { AppearancePage } from './pages/AppearancePage';
 import { AboutPage } from './pages/AboutPage';
+import { WizardPage } from './pages/WizardPage';
+import { DiagnosticsPage } from './pages/DiagnosticsPage';
 import '../styles/settings.css';
 
 function MainLayout(): React.JSX.Element {
@@ -23,15 +25,21 @@ function MainLayout(): React.JSX.Element {
         return <AppearancePage />;
       case 'about':
         return <AboutPage />;
+      case 'wizard':
+        return <WizardPage />;
+      case 'diagnostics':
+        return <DiagnosticsPage />;
       default:
         return <GeneralPage />;
     }
   };
 
+  const showSidebar = activePage !== 'wizard';
+
   return (
     <div className="flex h-screen w-screen bg-zinc-950 overflow-hidden text-zinc-100 select-none">
       {/* Sidebar Panel */}
-      <Sidebar />
+      {showSidebar && <Sidebar />}
 
       {/* Dynamic Content Panel */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">

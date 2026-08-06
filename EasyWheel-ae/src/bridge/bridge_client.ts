@@ -28,7 +28,7 @@ export class BridgeClient {
         return 23435;
       }
 
-      const configPath = path.join(appData, 'EasyWheelAE', 'easywheel.json');
+      const configPath = path.join(appData, 'EasyWheel', 'easywheel.json');
       if (fs.existsSync(configPath)) {
         const content = fs.readFileSync(configPath, 'utf8');
         const config = JSON.parse(content);

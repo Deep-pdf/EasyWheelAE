@@ -454,9 +454,9 @@ impl ConfigManager {
     ///
     /// Returns `None` if `dirs::data_dir()` is unavailable (e.g., on a
     /// headless server or non-standard Windows installation).
-    fn config_path() -> Option<PathBuf> {
+    pub(crate) fn config_path() -> Option<PathBuf> {
         dirs::data_dir().map(|mut p| {
-            p.push("EasyWheelAE");
+            p.push("EasyWheel");
             p.push("easywheel.json");
             p
         })

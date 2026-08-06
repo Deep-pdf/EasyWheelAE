@@ -1,10 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Button } from '../components/ui/Button';
+import { invoke } from '@tauri-apps/api/core';
 
 export function AboutPage(): React.JSX.Element {
+  const [version, setVersion] = useState('1.0.0');
+
+  useEffect(() => {
+    invoke<string>('get_app_version')
+      .then(setVersion)
+      .catch((e) => console.error('Failed to fetch version:', e));
+  }, []);
+
   const handleCheckUpdates = () => {
-    alert('You are running the latest version of EasyWheelAE.');
+    alert(`You are running the latest version of EasyWheelAE (v${version}).`);
   };
 
   return (
@@ -30,7 +39,7 @@ export function AboutPage(): React.JSX.Element {
         <div className="w-full border-t border-b border-zinc-800 divide-y divide-zinc-800/60 text-sm font-medium">
           <div className="flex justify-between py-3">
             <span className="text-zinc-500">Version</span>
-            <span className="text-zinc-200 font-mono">0.1.0</span>
+            <span className="text-zinc-200 font-mono">{version}</span>
           </div>
           <div className="flex justify-between py-3">
             <span className="text-zinc-500">Build Number</span>

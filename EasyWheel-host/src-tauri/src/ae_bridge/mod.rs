@@ -83,6 +83,10 @@ impl AEBridge {
 
 
 
+    pub fn is_connected(&self) -> bool {
+        self.client.is_connected()
+    }
+
     /// Sends a command request over the client, returning the response or error.
     pub fn send_request(&self, req: CommandRequest) -> Result<CommandResponse, String> {
         self.client.send_request(req)

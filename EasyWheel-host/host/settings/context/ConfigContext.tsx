@@ -3,7 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppConfig, GlobalSettings, Profile } from '../types';
 import { getConfig, saveConfig, reloadConfig as ipcReloadConfig } from '../../ipc/settings';
 
-export type SettingsPage = 'general' | 'profiles' | 'actions' | 'appearance' | 'about';
+export type SettingsPage = 'general' | 'profiles' | 'actions' | 'appearance' | 'about' | 'wizard' | 'diagnostics';
 
 interface ConfigContextProps {
   config: AppConfig | null;
@@ -12,9 +12,9 @@ interface ConfigContextProps {
   error: string | null;
   activePage: SettingsPage;
   setActivePage: (page: SettingsPage) => void;
-  updateGlobal: (global: Partial<GlobalSettings>) => void;
+  updateGlobal: (updatedFields: Partial<GlobalSettings>) => void;
   addProfile: (profile: Profile) => boolean;
-  updateProfile: (name: string, updated: Partial<Profile>) => boolean;
+  updateProfile: (name: string, updatedFields: Partial<Profile>) => boolean;
   deleteProfile: (name: string) => void;
   saveChanges: () => Promise<boolean>;
   reload: () => Promise<void>;
@@ -43,6 +43,9 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
       setOriginalConfig(JSON.parse(JSON.stringify(data)));
       setDirty(false);
       setError(null);
+      if (data && data.global && data.global.first_run) {
+        setActivePage('wizard');
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(`Failed to load configuration: ${msg}`);

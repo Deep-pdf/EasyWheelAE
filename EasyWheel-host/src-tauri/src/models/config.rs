@@ -58,6 +58,7 @@ fn default_adobe_max_retries() -> u32 { 5 }
 fn default_adobe_enabled() -> bool { true }
 fn default_adobe_heartbeat_interval() -> u64 { 5000 }
 fn default_adobe_max_queue_size() -> usize { 100 }
+fn default_first_run() -> bool { true }
 
 /// Global, application-wide settings.
 ///
@@ -132,6 +133,11 @@ pub struct GlobalSettings {
     /// Default: 100
     #[serde(default = "default_adobe_max_queue_size")]
     pub adobe_max_queue_size: usize,
+
+    /// Flag indicating whether the application should open the setup wizard.
+    /// Default: true
+    #[serde(default = "default_first_run")]
+    pub first_run: bool,
 }
 
 impl Default for AppConfig {
@@ -161,6 +167,7 @@ impl Default for AppConfig {
             adobe_heartbeat_interval_ms: 5000,
             adobe_max_retries: 5,
             adobe_max_queue_size: 100,
+            first_run: true,
         };
 
         // -----------------------------------------------------------------------

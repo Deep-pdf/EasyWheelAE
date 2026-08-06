@@ -66,6 +66,26 @@ pub fn run() {
             // Start Browser communication bridge.
             browser::browser_bridge::BrowserBridge::start();
 
+            // Silent CEP extension auto-deployment if Adobe CEP folder exists
+            if let Some(app_data) = dirs::data_dir() {
+                let cep_dir = app_data.join("Adobe").join("CEP").join("extensions");
+                if cep_dir.exists() {
+                    let target_dir = cep_dir.join("EasyWheelAE");
+                    if !target_dir.exists() {
+                        use tauri::Manager;
+                        if let Ok(resource_dir) = handle.path().resource_dir() {
+                            let src_dir = resource_dir.join("extensions").join("after-effects");
+                            if src_dir.exists() {
+                                println!("[EasyWheel Host] Info: Automatically deploying CEP extension to {:?}", target_dir);
+                                if let Err(e) = crate::commands::copy_dir_all(&src_dir, &target_dir) {
+                                    eprintln!("[EasyWheel Host] Warning: Silent CEP deployment failed — {}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Step 3 — Intercept window close events.
             window_manager::WindowManager::register_close_handler(&handle);
 
@@ -103,6 +123,11 @@ pub fn run() {
             commands::pick_file,
             commands::pick_folder,
             commands::get_command_registry,
+            commands::get_app_version,
+            commands::get_wizard_status,
+            commands::install_ae_extension,
+            commands::open_browser_extension_folder,
+            commands::get_diagnostics_info,
         ])
         .build(tauri::generate_context!())
         .expect("Fatal: Failed to build Tauri application.");

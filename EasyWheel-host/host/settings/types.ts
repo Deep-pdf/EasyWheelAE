@@ -33,6 +33,8 @@ export interface GlobalSettings {
   default_color: string;
   /** Opacity of the wheel overlay (0.0 to 1.0) */
   wheel_opacity: number;
+  /** Flag for setup wizard */
+  first_run: boolean;
 }
 
 export interface ConfiguredCommand {
