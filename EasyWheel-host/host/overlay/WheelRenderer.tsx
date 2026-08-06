@@ -121,7 +121,18 @@ export interface WheelRendererProps {
   sectorCount?: number;
   highlightColor?: string;
   defaultColor?: string;
-  
+
+  /**
+   * Overall opacity for the wheel (0.0–1.0).
+   *
+   * Applied directly on the <svg> element to avoid creating a compositing
+   * layer on the full-viewport .overlay-root div, which causes a faint
+   * rectangle artifact on some Windows/GPU configurations.
+   *
+   * Defaults to 1.0 (fully opaque) when not provided.
+   */
+  wheelOpacity?: number;
+
   /** Array of display labels for each sector. */
   sectorLabels?: string[];
 }
@@ -144,6 +155,7 @@ function WheelRenderer({
   sectorCount = SECTOR_COUNT,
   highlightColor,
   defaultColor,
+  wheelOpacity = 1.0,
   sectorLabels = [],
 }: WheelRendererProps): React.JSX.Element {
   const sectorSpan = 360 / sectorCount;
@@ -153,6 +165,7 @@ function WheelRenderer({
       className="overlay-svg"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
+      style={{ opacity: wheelOpacity }}
     >
       {/* ------------------------------------------------------------------ */}
       {/* Sectors — annular slices rendered back-to-front                     */}

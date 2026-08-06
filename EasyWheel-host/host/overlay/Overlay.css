@@ -26,7 +26,7 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: transparent;
+  background: transparent !important;
 }
 
 /* Full-viewport positioning context for absolutely placed children. */
@@ -34,7 +34,7 @@ body,
   position: relative;
   width: 100%;
   height: 100%;
-  background: transparent;
+  background: transparent !important;
   pointer-events: none;
 }
 

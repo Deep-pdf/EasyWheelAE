@@ -151,12 +151,18 @@ function Overlay(): React.JSX.Element {
   const center = toCssPx(geo.origin_x, geo.origin_y, windowOffset);
 
   return (
-    <div className="overlay-root" style={{ opacity: geo.wheel_opacity }}>
+    <div className="overlay-root">
       {/*
        * Suppress rendering entirely until tracking is active.
        * The brief gap between window.show() and the first fresh poll
        * resolving would otherwise flash the wheel at stale coordinates
        * from the previous session.
+       *
+       * NOTE: opacity is intentionally NOT set on this div. Applying
+       * opacity < 1 to a full-viewport container forces WebView2 to
+       * allocate a separate compositing surface, which bleeds a faint
+       * rectangle on some Windows/GPU configurations. Opacity control
+       * is applied directly on the <svg> element inside WheelRenderer.
        */}
       {geo.active && (
         <WheelRenderer
@@ -169,6 +175,7 @@ function Overlay(): React.JSX.Element {
           sectorCount={geo.sector_count}
           highlightColor={geo.highlight_color}
           defaultColor={geo.default_color}
+          wheelOpacity={geo.wheel_opacity}
           sectorLabels={geo.sector_labels}
         />
       )}
