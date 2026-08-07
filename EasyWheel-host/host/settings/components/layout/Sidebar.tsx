@@ -57,7 +57,7 @@ export function Sidebar(): React.JSX.Element {
     <aside
       className="w-64 flex flex-col h-full select-none flex-shrink-0"
       style={{
-        background: 'var(--color-surface)',
+        background: 'var(--color-nav)',
         borderRight: '1px solid var(--color-border)',
       }}
     >

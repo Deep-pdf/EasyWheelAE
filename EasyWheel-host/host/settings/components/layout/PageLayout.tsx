@@ -28,7 +28,7 @@ export function PageLayout({
         className="px-8 py-5 flex items-center justify-between flex-shrink-0"
         style={{
           borderBottom: '1px solid var(--color-border)',
-          background: 'rgba(0,0,0,0.06)',
+          background: 'linear-gradient(180deg, var(--color-nav) 0%, var(--color-bg) 100%)',
         }}
       >
         <div className="flex flex-col text-left">

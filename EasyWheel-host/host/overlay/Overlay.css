@@ -86,7 +86,7 @@ body,
 /* Outer bounding ring — thin, barely visible frame. */
 .wheel-outer-ring {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.18);
+  stroke: rgba(131, 175, 155, 0.45);
   stroke-width: 1;
 }
 
@@ -95,14 +95,14 @@ body,
  * the center well from the interactive ring.
  */
 .wheel-dead-zone {
-  fill: rgba(18, 18, 32, 0.85);
-  stroke: rgba(255, 255, 255, 0.14);
+  fill: rgba(26, 23, 24, 0.85);
+  stroke: rgba(255, 67, 101, 0.1);
   stroke-width: 1;
 }
 
 /* Center anchor dot — small, bright reference point at the origin. */
 .wheel-center-dot {
-  fill: rgba(255, 255, 255, 0.70);
+  fill: rgba(255, 67, 101, 0.90);
 }
 
 /* Sector labels — clean typography, centered. */
@@ -110,7 +110,7 @@ body,
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 10px;
   font-weight: 700;
-  fill: #f4f4f5;
+  fill: #F7F1EE;
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;

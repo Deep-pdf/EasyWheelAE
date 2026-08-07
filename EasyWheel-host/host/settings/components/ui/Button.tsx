@@ -25,15 +25,15 @@ export function Button({
 
   const variantStyles: Record<string, React.CSSProperties> = {
     primary: {
-      background: 'var(--color-primary)',
+      background: 'linear-gradient(135deg, #FF4365 0%, #FC909A 100%)',
       color: '#fff',
       border: '1px solid transparent',
-      boxShadow: '0 1px 6px rgba(255,67,101,0.25)',
+      boxShadow: '0 2px 10px rgba(255, 67, 101, 0.25), 0 0 12px rgba(255, 67, 101, 0.12)',
     },
     secondary: {
-      background: 'var(--color-surface-elevated)',
+      background: 'rgba(255, 67, 101, 0.03)',
       color: 'var(--color-text)',
-      border: '1px solid var(--color-border-strong)',
+      border: '1px solid rgba(255, 67, 101, 0.2)',
     },
     danger: {
       background: 'var(--color-danger-bg)',
@@ -51,19 +51,21 @@ export function Button({
     variant === 'primary'
       ? {
           onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
-            (e.currentTarget as HTMLElement).style.background = 'var(--color-primary-hover)';
+            (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, #FC909A 0%, #FF4365 100%)';
           },
           onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
-            (e.currentTarget as HTMLElement).style.background = 'var(--color-primary)';
+            (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, #FF4365 0%, #FC909A 100%)';
           },
         }
       : variant === 'secondary'
       ? {
           onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
-            (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-hover)';
+            (e.currentTarget as HTMLElement).style.background = 'rgba(255, 67, 101, 0.08)';
+            (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255, 67, 101, 0.4)';
           },
           onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
-            (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-elevated)';
+            (e.currentTarget as HTMLElement).style.background = 'rgba(255, 67, 101, 0.03)';
+            (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255, 67, 101, 0.2)';
           },
         }
       : variant === 'danger'
@@ -79,7 +81,7 @@ export function Button({
         }
       : {
           onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
-            (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-elevated)';
+            (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-hover)';
             (e.currentTarget as HTMLElement).style.color = 'var(--color-text)';
           },
           onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {

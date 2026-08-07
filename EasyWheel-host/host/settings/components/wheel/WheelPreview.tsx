@@ -87,8 +87,8 @@ export function WheelPreview({
               key={i}
               d={annularSectorPath(cx, cy, innerR + 1, outerR, startAngle, endAngle)}
               style={{
-                fill: isHighlighted ? highlightColor : defaultColor,
-                stroke: isHighlighted ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                fill: isHighlighted ? highlightColor || '#FF4365' : defaultColor || 'rgba(45, 38, 40, 0.70)',
+                stroke: isHighlighted ? '#FC909A' : 'rgba(255, 67, 101, 0.12)',
                 strokeWidth: 1,
               }}
             />
@@ -100,7 +100,8 @@ export function WheelPreview({
           cx={cx}
           cy={cy}
           r={outerR}
-          className="fill-none stroke-zinc-700/20"
+          className="fill-none"
+          style={{ stroke: '#83AF9B', opacity: 0.45 }}
           strokeWidth={1}
         />
 
@@ -109,7 +110,8 @@ export function WheelPreview({
           cx={cx}
           cy={cy}
           r={innerR}
-          className="fill-zinc-950/40 stroke-zinc-700/30"
+          className="fill-none"
+          style={{ fill: 'rgba(26, 23, 24, 0.85)', stroke: 'rgba(255, 67, 101, 0.1)' }}
           strokeWidth={1}
         />
 
@@ -118,10 +120,10 @@ export function WheelPreview({
           cx={cx}
           cy={cy}
           r={3}
-          className="fill-zinc-500"
+          style={{ fill: '#FF4365' }}
         />
       </svg>
-      <span className="text-[10px] text-zinc-500 mt-4">Sector index 0 highlighted</span>
+      <span className="text-[10px] mt-4" style={{ color: 'var(--color-text-faint)' }}>Sector index 0 highlighted</span>
     </div>
   );
 }

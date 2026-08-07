@@ -105,11 +105,11 @@ export function WheelEditor({
                 className="transition-all duration-150"
                 style={{
                   fill: isSelected
-                    ? highlight_color || 'rgba(99, 102, 241, 0.88)'
+                    ? highlight_color || '#FF4365'
                     : isHovered
-                    ? 'rgba(255, 255, 255, 0.15)'
-                    : default_color || 'rgba(12, 12, 22, 0.80)',
-                  stroke: isSelected ? 'rgba(99, 102, 241, 0.9)' : 'rgba(255, 255, 255, 0.08)',
+                    ? 'rgba(252, 144, 154, 0.35)'
+                    : default_color || 'rgba(45, 38, 40, 0.70)',
+                  stroke: isSelected ? '#FC909A' : 'rgba(255, 67, 101, 0.12)',
                   strokeWidth: isSelected ? 1.5 : 1,
                 }}
               />
@@ -122,7 +122,8 @@ export function WheelEditor({
                   textAnchor="middle"
                   dominantBaseline="central"
                   transform={`translate(${labelPos.x}, ${labelPos.y}) rotate(${centre > 90 && centre < 270 ? centre + 180 : centre})`}
-                  className="fill-zinc-300 text-[10px] font-bold pointer-events-none tracking-wide select-none transition-colors duration-150 group-hover:fill-white"
+                  className="text-[10px] font-bold pointer-events-none tracking-wide select-none transition-colors duration-150 group-hover:fill-white"
+                  style={{ fill: 'var(--color-text)' }}
                 >
                   {displayName.length > 11 ? `${displayName.substring(0, 8)}...` : displayName}
                 </text>
@@ -135,7 +136,8 @@ export function WheelEditor({
                   y={labelPos.y}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  className="fill-zinc-650 text-[9px] pointer-events-none"
+                  className="text-[9px] pointer-events-none"
+                  style={{ fill: 'var(--color-text-faint)' }}
                 >
                   {i}
                 </text>
@@ -149,7 +151,8 @@ export function WheelEditor({
           cx={cx}
           cy={cy}
           r={outerR}
-          className="fill-none stroke-zinc-700/30"
+          className="fill-none"
+          style={{ stroke: '#83AF9B', opacity: 0.45 }}
           strokeWidth={1}
         />
 
@@ -158,7 +161,8 @@ export function WheelEditor({
           cx={cx}
           cy={cy}
           r={innerR}
-          className="fill-zinc-950/80 stroke-zinc-700/50"
+          className="fill-zinc-950/80"
+          style={{ fill: 'rgba(26, 23, 24, 0.85)', stroke: 'rgba(255, 67, 101, 0.1)' }}
           strokeWidth={1}
         />
 
@@ -167,7 +171,7 @@ export function WheelEditor({
           cx={cx}
           cy={cy}
           r={3}
-          className="fill-zinc-400"
+          style={{ fill: '#FF4365' }}
         />
 
         {/* Center label */}
@@ -176,7 +180,8 @@ export function WheelEditor({
           y={cy}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-zinc-550 text-[9px] font-semibold tracking-wider pointer-events-none uppercase"
+          className="text-[9px] font-semibold tracking-wider pointer-events-none uppercase"
+          style={{ fill: 'var(--color-text-faint)' }}
           dy={innerR > 35 ? "0px" : "15px"}
         >
           {innerR > 35 ? "Dead Zone" : ""}
