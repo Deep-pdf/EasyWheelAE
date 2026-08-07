@@ -69,7 +69,10 @@ export function WheelEditor({
   const sectorGap = 1.5;
 
   return (
-    <div className="flex flex-col items-center justify-center bg-zinc-950/30 border border-zinc-800/50 rounded-xl p-6 relative select-none">
+    <div
+      className="flex flex-col items-center justify-center rounded-xl p-6 relative select-none"
+      style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+    >
       <svg
         width={size}
         height={size}

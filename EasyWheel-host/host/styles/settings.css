@@ -1,19 +1,160 @@
+/* ============================================================
+   EasyWheel Design System — settings.css
+   Palette: Primary #FF4365 · Secondary #83AF9B · Hover #FC909A
+            Warning #F9CDAD · Neutral #C8C8A9
+   ============================================================ */
+
 @import "tailwindcss";
 
-@theme {
-  --color-bg-dark: #09090b;
-  --color-panel-dark: #18181b;
-  --color-panel-hover: #27272a;
-  --color-brand-primary: #6366f1;
-  --color-brand-hover: #4f46e5;
-  --color-border-accent: rgba(255, 255, 255, 0.08);
-  --color-border-focus: rgba(99, 102, 241, 0.5);
+/* ------------------------------------------------------------
+   CSS Custom Property Tokens — Dark Theme (default)
+   ------------------------------------------------------------ */
+:root {
+  /* Brand palette */
+  --color-primary:          #FF4365;
+  --color-primary-hover:    #FC909A;
+  --color-secondary:        #83AF9B;
+  --color-warning:          #F9CDAD;
+  --color-neutral:          #C8C8A9;
+
+  /* Backgrounds */
+  --color-bg:               #121214;
+  --color-surface:          #1A1A1F;
+  --color-surface-elevated: #23232A;
+  --color-surface-hover:    #2C2C35;
+
+  /* Borders */
+  --color-border:           rgba(255, 255, 255, 0.07);
+  --color-border-strong:    rgba(255, 255, 255, 0.13);
+  --color-border-focus:     rgba(255, 67, 101, 0.55);
+
+  /* Text */
+  --color-text:             #F0EFE9;
+  --color-text-muted:       rgba(240, 239, 233, 0.45);
+  --color-text-faint:       rgba(240, 239, 233, 0.25);
+
+  /* Semantic */
+  --color-success:          #83AF9B;
+  --color-danger:           #E05252;
+  --color-danger-bg:        rgba(224, 82, 82, 0.10);
+  --color-danger-border:    rgba(224, 82, 82, 0.22);
+
+  /* Scroll */
+  --scrollbar-thumb:        rgba(255, 255, 255, 0.10);
+  --scrollbar-thumb-hover:  rgba(255, 255, 255, 0.20);
+
+  /* Shadows */
+  --shadow-sm:              0 1px 4px rgba(0,0,0,0.35);
+  --shadow-md:              0 4px 16px rgba(0,0,0,0.45);
+  --shadow-primary:         0 0 20px rgba(255,67,101,0.15);
 }
 
-/* Custom premium scrollbar styling */
+/* ------------------------------------------------------------
+   Light Theme
+   ------------------------------------------------------------ */
+[data-theme="light"] {
+  --color-bg:               #FAFAF8;
+  --color-surface:          #FFFFFF;
+  --color-surface-elevated: #F0EFEA;
+  --color-surface-hover:    #E8E6DE;
+
+  --color-border:           #E8E6DE;
+  --color-border-strong:    #D0CEC5;
+  --color-border-focus:     rgba(255, 67, 101, 0.45);
+
+  --color-text:             #232323;
+  --color-text-muted:       rgba(35, 35, 35, 0.55);
+  --color-text-faint:       rgba(35, 35, 35, 0.30);
+
+  --color-danger-bg:        rgba(224, 82, 82, 0.07);
+  --color-danger-border:    rgba(224, 82, 82, 0.18);
+
+  --scrollbar-thumb:        rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb-hover:  rgba(0, 0, 0, 0.22);
+
+  --shadow-sm:              0 1px 4px rgba(0,0,0,0.08);
+  --shadow-md:              0 4px 16px rgba(0,0,0,0.10);
+  --shadow-primary:         0 0 20px rgba(255,67,101,0.10);
+}
+
+/* ------------------------------------------------------------
+   System Theme — follows OS preference when data-theme="system"
+   ------------------------------------------------------------ */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --color-bg:               #FAFAF8;
+    --color-surface:          #FFFFFF;
+    --color-surface-elevated: #F0EFEA;
+    --color-surface-hover:    #E8E6DE;
+    --color-border:           #E8E6DE;
+    --color-border-strong:    #D0CEC5;
+    --color-border-focus:     rgba(255, 67, 101, 0.45);
+    --color-text:             #232323;
+    --color-text-muted:       rgba(35, 35, 35, 0.55);
+    --color-text-faint:       rgba(35, 35, 35, 0.30);
+    --color-danger-bg:        rgba(224, 82, 82, 0.07);
+    --color-danger-border:    rgba(224, 82, 82, 0.18);
+    --scrollbar-thumb:        rgba(0, 0, 0, 0.12);
+    --scrollbar-thumb-hover:  rgba(0, 0, 0, 0.22);
+    --shadow-sm:              0 1px 4px rgba(0,0,0,0.08);
+    --shadow-md:              0 4px 16px rgba(0,0,0,0.10);
+    --shadow-primary:         0 0 20px rgba(255,67,101,0.10);
+  }
+}
+
+/* ------------------------------------------------------------
+   Tailwind @theme bridge — semantic class names
+   ------------------------------------------------------------ */
+@theme {
+  --color-ew-primary:          var(--color-primary);
+  --color-ew-primary-hover:    var(--color-primary-hover);
+  --color-ew-secondary:        var(--color-secondary);
+  --color-ew-warning:          var(--color-warning);
+  --color-ew-neutral:          var(--color-neutral);
+  --color-ew-bg:               var(--color-bg);
+  --color-ew-surface:          var(--color-surface);
+  --color-ew-elevated:         var(--color-surface-elevated);
+  --color-ew-border:           var(--color-border);
+  --color-ew-text:             var(--color-text);
+  --color-ew-muted:            var(--color-text-muted);
+  /* Keep old tokens for backward compat with unchanged component files */
+  --color-brand-primary:       var(--color-primary);
+  --color-brand-hover:         var(--color-primary-hover);
+  --color-bg-dark:             var(--color-bg);
+  --color-panel-dark:          var(--color-surface);
+  --color-panel-hover:         var(--color-surface-elevated);
+  --color-border-accent:       var(--color-border);
+  --color-border-focus:        var(--color-border-focus);
+}
+
+/* ------------------------------------------------------------
+   Base / Reset
+   ------------------------------------------------------------ */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  user-select: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ------------------------------------------------------------
+   Focus ring — uses primary accent
+   ------------------------------------------------------------ */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------
+   Scrollbar — themed
+   ------------------------------------------------------------ */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -21,23 +162,35 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
+  transition: background 0.15s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-hover);
 }
 
-/* Ensure no outline on focus except customized ones */
-*:focus-visible {
-  outline: 2px solid var(--color-brand-primary);
-  outline-offset: 2px;
+/* ------------------------------------------------------------
+   Subtle entrance animation (used on modal, scale-up)
+   ------------------------------------------------------------ */
+@keyframes ew-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-body {
-  background-color: var(--color-bg-dark);
-  color: #f4f4f5;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  user-select: none;
+@keyframes ew-scale-up {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.animate-fade-in  { animation: ew-fade-in  0.15s ease-out both; }
+.animate-scale-up { animation: ew-scale-up 0.18s ease-out both; }
+
+/* ------------------------------------------------------------
+   Accent transition helper — applied on interactive surfaces
+   ------------------------------------------------------------ */
+.ew-transition {
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+              color 0.15s ease, box-shadow 0.15s ease;
 }

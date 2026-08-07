@@ -22,7 +22,14 @@ export function SearchBar({
       </div>
       <input
         type="text"
-        className="w-full pl-9 pr-8 py-2 bg-zinc-950/50 border border-zinc-800 focus:border-brand-primary rounded-lg text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all duration-150"
+        className="w-full pl-9 pr-8 py-2 rounded-lg text-sm transition-all duration-150 focus:outline-none"
+        style={{
+          background: 'var(--color-surface-elevated)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-text)',
+        }}
+        onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+        onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

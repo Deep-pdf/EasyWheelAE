@@ -148,11 +148,18 @@ export function CommandPicker({
           <input
             ref={inputRef}
             type="text"
-            className="w-full pl-10 pr-10 py-3 bg-zinc-950/80 border border-zinc-800 focus:border-brand-primary rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all duration-150 shadow-inner"
+            className="w-full pl-10 pr-10 py-3 rounded-xl text-sm placeholder-opacity-50 focus:outline-none transition-all duration-150 shadow-inner"
+            style={{
+              background: 'var(--color-surface-elevated)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
             placeholder="Search by name, category, or description..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+            onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
           />
           {search && (
             <button

@@ -65,7 +65,10 @@ export function RunningAppsDialog({
         />
 
         {/* List */}
-        <div className="border border-zinc-800 rounded-lg bg-zinc-950/20 max-h-[50vh] overflow-y-auto min-h-[200px]">
+        <div
+          className="rounded-lg max-h-[50vh] overflow-y-auto min-h-[200px]"
+          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface-elevated)' }}
+        >
           {loading && (
             <div className="py-12 text-center text-zinc-400 text-sm flex flex-col items-center justify-center gap-2">
               <svg className="animate-spin h-5 w-5 text-brand-primary" fill="none" viewBox="0 0 24 24">
@@ -93,7 +96,10 @@ export function RunningAppsDialog({
               {filteredApps.map((app) => (
                 <div
                   key={app.executable}
-                  className="flex items-center justify-between p-3 hover:bg-zinc-800/20 transition-colors"
+                  className="flex items-center justify-between p-3 transition-colors cursor-default"
+                  style={{ borderBottom: '1px solid var(--color-border)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
                   <div className="flex flex-col text-left max-w-[70%]">
                     <span className="font-semibold text-zinc-200 text-sm">{app.name}</span>

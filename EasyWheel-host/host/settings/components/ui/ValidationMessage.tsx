@@ -17,9 +17,24 @@ export function ValidationMessage({
 
   const bgColors = {
     error: 'bg-red-500/10 border-red-500/20 text-red-400',
-    warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-    success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+    warning: '',
+    success: '',
     info: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+  };
+
+  const inlineColors: Record<string, React.CSSProperties> = {
+    error: {},
+    warning: {
+      background: 'rgba(249,205,173,0.10)',
+      borderColor: 'rgba(249,205,173,0.28)',
+      color: 'var(--color-warning)',
+    },
+    success: {
+      background: 'rgba(131,175,155,0.10)',
+      borderColor: 'rgba(131,175,155,0.28)',
+      color: 'var(--color-secondary)',
+    },
+    info: {},
   };
 
   const icons = {
@@ -46,7 +61,12 @@ export function ValidationMessage({
   };
 
   return (
-    <div className={`flex items-start gap-3 p-4 border rounded-lg text-sm ${bgColors[type]} ${className}`}>
+    <div
+      className={`flex items-start gap-3 p-4 border rounded-lg text-sm ${
+        type === 'error' || type === 'info' ? bgColors[type] : ''
+      } ${className}`}
+      style={inlineColors[type]}
+    >
       {icons[type]}
       <div className="flex-1 font-medium">{message}</div>
       {onClear && (

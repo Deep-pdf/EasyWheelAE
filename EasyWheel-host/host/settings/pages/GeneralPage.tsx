@@ -1,5 +1,6 @@
 import React from 'react';
 import { useConfig } from '../context/ConfigContext';
+import { useTheme, ThemeValue } from '../SettingsApp';
 import { PageLayout } from '../components/layout/PageLayout';
 import { HotkeyRecorder } from '../components/ui/HotkeyRecorder';
 import { Slider } from '../components/ui/Slider';
@@ -8,6 +9,7 @@ import { Button } from '../components/ui/Button';
 
 export function GeneralPage(): React.JSX.Element {
   const { config, updateGlobal, saveChanges, dirty, saving } = useConfig();
+  const { theme, setTheme } = useTheme();
 
   if (!config) {
     return (
@@ -46,8 +48,11 @@ export function GeneralPage(): React.JSX.Element {
         />
 
         {/* Geometry sliders */}
-        <div className="p-4 bg-zinc-950/20 border border-zinc-800 rounded-lg flex flex-col gap-5">
-          <span className="text-sm text-zinc-400 font-medium">Wheel Geometry</span>
+        <div
+          className="p-4 rounded-lg flex flex-col gap-5"
+          style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+        >
+          <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>Wheel Geometry</span>
           
           <Slider
             label="Wheel Radius"
@@ -86,7 +91,10 @@ export function GeneralPage(): React.JSX.Element {
         </div>
 
         {/* Global Color Options */}
-        <div className="p-4 bg-zinc-950/20 border border-zinc-800 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div
+          className="p-4 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-5"
+          style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+        >
           <ColorPicker
             label="Highlight Color"
             value={highlight_color}
@@ -99,25 +107,28 @@ export function GeneralPage(): React.JSX.Element {
           />
         </div>
 
-        {/* Theme select placeholder */}
-        <div className="p-4 bg-zinc-950/20 border border-zinc-800 rounded-lg flex flex-col gap-2">
-          <span className="text-sm text-zinc-400 font-medium">Application Theme</span>
+        {/* Application Theme — functional */}
+        <div
+          className="p-4 rounded-lg flex flex-col gap-3"
+          style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+        >
+          <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>Application Theme</span>
           <div className="grid grid-cols-3 gap-2">
-            {['System', 'Dark', 'Light'].map((theme) => {
-              // Stub: theme state could be stored in config.global or local storage
-              // Let's assume standard Dark Mode is force enabled for now.
-              const isActive = theme === 'Dark';
+            {(['system', 'dark', 'light'] as ThemeValue[]).map((t) => {
+              const labels: Record<ThemeValue, string> = { system: 'System', dark: 'Dark', light: 'Light' };
+              const isActive = theme === t;
               return (
                 <button
-                  key={theme}
-                  disabled={theme !== 'Dark'} // Dark-mode first
-                  className={`px-3 py-2 text-xs rounded-lg border font-medium transition-all ${
-                    isActive
-                      ? 'bg-brand-primary/10 border-brand-primary text-brand-primary'
-                      : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 cursor-not-allowed'
-                  }`}
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className="px-3 py-2 text-xs rounded-lg border font-medium transition-all cursor-pointer"
+                  style={{
+                    background: isActive ? 'rgba(255,67,101,0.12)' : 'var(--color-surface)',
+                    border: isActive ? '1px solid rgba(255,67,101,0.45)' : '1px solid var(--color-border)',
+                    color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  }}
                 >
-                  {theme}
+                  {labels[t]}
                 </button>
               );
             })}

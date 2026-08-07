@@ -20,18 +20,14 @@ export function Modal({
 }: ModalProps): React.JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape' && isOpen) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Focus lock or restore focus can be added if needed, let's keep it simple and robust
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -42,29 +38,51 @@ export function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div 
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
         ref={modalRef}
-        className={`w-full ${sizeClasses[size]} bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col max-h-[85vh] transform transition-all scale-100 duration-200 animate-scale-up`}
+        className={`w-full ${sizeClasses[size]} flex flex-col max-h-[85vh] rounded-xl animate-scale-up overflow-hidden`}
+        style={{
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-md)',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-          <h3 className="text-lg font-semibold text-zinc-100">{title}</h3>
-          <Button variant="ghost" size="sm" onClick={onClose} className="!p-1">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div
+          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          style={{
+            borderBottom: '1px solid var(--color-border)',
+            background: 'var(--color-surface-elevated)',
+          }}
+        >
+          <h3 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
+            {title}
+          </h3>
+          <Button variant="ghost" size="sm" onClick={onClose} className="!p-1.5">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </Button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 text-zinc-300">
+        <div className="flex-1 overflow-y-auto px-6 py-5" style={{ color: 'var(--color-text)' }}>
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-950/40 rounded-b-xl">
+          <div
+            className="flex items-center justify-end gap-3 px-6 py-4 flex-shrink-0"
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              background: 'var(--color-surface-elevated)',
+            }}
+          >
             {footer}
           </div>
         )}

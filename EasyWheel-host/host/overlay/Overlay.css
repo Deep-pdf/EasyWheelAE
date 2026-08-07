@@ -69,13 +69,13 @@ body,
 }
 
 /*
- * Active sector — indigo accent.
- * Electric indigo (#6366f1) at high opacity for a crisp, modern highlight.
+ * Active sector — primary accent from EasyWheel palette.
+ * #FF4365 at high opacity for a crisp, modern highlight.
  * The short transition keeps the highlight feeling responsive without lag.
  */
 .wheel-sector--active {
-  fill: rgba(99, 102, 241, 0.88);
-  stroke: rgba(139, 92, 246, 0.9);
+  fill: rgba(255, 67, 101, 0.82);
+  stroke: rgba(252, 144, 154, 0.85);
   stroke-width: 1.5;
 }
 

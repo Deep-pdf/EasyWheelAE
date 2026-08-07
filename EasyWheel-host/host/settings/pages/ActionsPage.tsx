@@ -61,7 +61,10 @@ export function ActionsPage(): React.JSX.Element {
           {Object.entries(groupedActions).map(([category, list]) => (
             <div key={category} className="space-y-3">
               {/* Category Header */}
-              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">
+              <h3
+                className="text-xs font-semibold uppercase tracking-wider pb-2"
+                style={{ color: 'var(--color-secondary)', borderBottom: '1px solid var(--color-border)' }}
+              >
                 {category} ({list.length})
               </h3>
 
@@ -70,26 +73,38 @@ export function ActionsPage(): React.JSX.Element {
                 {list.map((action) => (
                   <div
                     key={action.id}
-                    className="p-4 bg-zinc-950/20 border border-zinc-800 rounded-xl flex items-start gap-4 hover:border-zinc-700/50 transition-colors"
+                    className="p-4 rounded-xl flex items-start gap-4 ew-transition"
+                    style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-strong)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
                   >
                     {/* Icon placeholder */}
-                    <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold flex-shrink-0">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center font-bold flex-shrink-0"
+                      style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)' }}
+                    >
                       {action.display_name.charAt(0)}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center gap-2">
-                        <h4 className="font-semibold text-zinc-200 text-sm truncate">{action.display_name}</h4>
-                        <span className="text-[9px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500 font-mono">
+                        <h4 className="font-semibold text-sm truncate" style={{ color: 'var(--color-text)' }}>{action.display_name}</h4>
+                        <span
+                          className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                          style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                        >
                           {action.category}
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2 min-h-[2rem]">
+                      <p className="text-xs mt-1 line-clamp-2 min-h-[2rem]" style={{ color: 'var(--color-text-muted)' }}>
                         {action.description}
                       </p>
-                      <div className="mt-3 flex justify-between items-center text-[10px] text-zinc-600 font-mono">
+                      <div className="mt-3 flex justify-between items-center text-[10px] font-mono" style={{ color: 'var(--color-text-faint)' }}>
                         <span>ID: {action.id}</span>
-                        <span className="bg-zinc-900/60 px-1.5 py-0.5 rounded text-zinc-500">Read-Only</span>
+                        <span
+                          className="px-1.5 py-0.5 rounded"
+                          style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                        >Read-Only</span>
                       </div>
                     </div>
                   </div>

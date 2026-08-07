@@ -59,8 +59,11 @@ export function AppearancePage(): React.JSX.Element {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start text-left">
         {/* Left Side: Sliders and Color Pickers */}
         <div className="flex flex-col gap-6">
-          <div className="p-5 bg-zinc-950/20 border border-zinc-800 rounded-xl flex flex-col gap-5">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Geometry Configuration</span>
+          <div
+            className="p-5 rounded-xl flex flex-col gap-5"
+            style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-neutral)' }}>Geometry Configuration</span>
             
             <Slider
               label="Wheel Radius"
@@ -83,8 +86,11 @@ export function AppearancePage(): React.JSX.Element {
             />
           </div>
 
-          <div className="p-5 bg-zinc-950/20 border border-zinc-800 rounded-xl flex flex-col gap-5">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Color Customization</span>
+          <div
+            className="p-5 rounded-xl flex flex-col gap-5"
+            style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-neutral)' }}>Color Customization</span>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <ColorPicker
@@ -115,9 +121,15 @@ export function AppearancePage(): React.JSX.Element {
             </div>
           </div>
 
-          <div className="p-5 bg-zinc-950/20 border border-zinc-800 rounded-xl flex flex-col gap-3">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Animations</span>
-            <div className="p-4 bg-zinc-900/40 rounded-lg border border-zinc-800/80 text-center text-zinc-500 text-xs">
+          <div
+            className="p-5 rounded-xl flex flex-col gap-3"
+            style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-neutral)' }}>Animations</span>
+            <div
+              className="p-4 rounded-lg border text-center text-xs"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
+            >
               Animation transitions and easing customization planned for future phase release.
             </div>
           </div>
@@ -137,8 +149,11 @@ export function AppearancePage(): React.JSX.Element {
 
         {/* Right Side: Preview */}
         <div className="flex flex-col gap-3 lg:sticky lg:top-0">
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Visual Preview well</span>
-          <div style={{ opacity: bgOpacity / 100 }}>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Visual Preview well</span>
+          <div
+            style={{ opacity: bgOpacity / 100 }}
+            className="rounded-xl overflow-hidden"
+          >
             <WheelPreview
               wheelRadius={wheelRadius}
               deadZoneRadius={deadZoneRadius}

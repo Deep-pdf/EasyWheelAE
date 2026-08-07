@@ -12,38 +12,46 @@ export function AboutPage(): React.JSX.Element {
       title="About EasyWheel"
       description="EasyWheel Host background worker and settings editor utility details."
     >
-      <div className="flex flex-col items-center justify-center py-8 text-center max-w-xl mx-auto gap-6 bg-zinc-950/20 border border-zinc-800 rounded-xl p-8">
-        {/* Logo Icon Placeholder */}
-        <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-brand-hover to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-primary/25 border border-indigo-400/20">
-          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div
+        className="flex flex-col items-center justify-center py-8 text-center max-w-xl mx-auto gap-6 p-8 rounded-xl"
+        style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+      >
+        {/* Logo Icon */}
+        <div
+          className="w-20 h-20 rounded-2xl flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,67,101,0.25) 0%, rgba(252,144,154,0.18) 100%)',
+            border: '1px solid rgba(255,67,101,0.35)',
+            boxShadow: '0 0 24px rgba(255,67,101,0.18)',
+          }}
+        >
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--color-primary)' }}>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           </svg>
         </div>
 
         {/* Title */}
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-zinc-100 tracking-tight">EasyWheelAE</h3>
-          <p className="text-xs text-zinc-500">Radial Hotkey Trigger Utility for After Effects</p>
+          <h3 className="text-xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>EasyWheelAE</h3>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Radial Hotkey Trigger Utility for After Effects</p>
         </div>
 
         {/* Metadata Details table */}
-        <div className="w-full border-t border-b border-zinc-800 divide-y divide-zinc-800/60 text-sm font-medium">
-          <div className="flex justify-between py-3">
-            <span className="text-zinc-500">Version</span>
-            <span className="text-zinc-200 font-mono">0.1.0</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-zinc-500">Build Number</span>
-            <span className="text-zinc-200 font-mono">#2026.07.18</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-zinc-500">Author</span>
-            <span className="text-zinc-200">EasyWheel Team</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-zinc-500">License</span>
-            <span className="text-zinc-200">MIT License</span>
-          </div>
+        <div
+          className="w-full divide-y text-sm font-medium"
+          style={{ borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)', divideColor: 'var(--color-border)' }}
+        >
+          {[
+            { label: 'Version', value: '1.0.0', mono: true },
+            { label: 'Build Number', value: '#2026.08.07', mono: true },
+            { label: 'Author', value: 'EasyWheel Team', mono: false },
+            { label: 'License', value: 'MIT License', mono: false },
+          ].map(({ label, value, mono }) => (
+            <div key={label} className="flex justify-between py-3">
+              <span style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+              <span className={mono ? 'font-mono' : ''} style={{ color: 'var(--color-text)' }}>{value}</span>
+            </div>
+          ))}
         </div>
 
         {/* Action Link buttons */}

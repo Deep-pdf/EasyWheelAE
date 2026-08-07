@@ -197,9 +197,12 @@ export function ProfilesPage(): React.JSX.Element {
     >
       <div className="flex-1 flex gap-6 min-h-0 overflow-hidden">
         {/* Left Side: Profiles List */}
-        <div className="w-80 bg-zinc-950/20 border border-zinc-800 rounded-xl p-4 flex flex-col gap-4">
+        <div
+          className="w-80 rounded-xl p-4 flex flex-col gap-4 flex-shrink-0"
+          style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+        >
           <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Profiles</span>
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Profiles</span>
             <Button
               variant="primary"
               size="sm"
@@ -229,14 +232,15 @@ export function ProfilesPage(): React.JSX.Element {
                     setSelectedProfileName(p.name);
                     setSelectedSector(null);
                   }}
-                  className={`w-full flex flex-col text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-zinc-800 border-zinc-700/60 shadow-sm'
-                      : 'bg-zinc-900/10 border-transparent hover:bg-zinc-900/40 hover:border-zinc-800/40 text-zinc-300'
-                  }`}
+                  className={`w-full flex flex-col text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer`}
+                  style={{
+                    background: isSelected ? 'var(--color-surface-hover)' : 'transparent',
+                    border: isSelected ? '1px solid var(--color-border-strong)' : '1px solid transparent',
+                    color: isSelected ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  }}
                 >
-                  <span className="font-semibold text-sm">{p.name}</span>
-                  <span className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate max-w-full">
+                  <span className="font-semibold text-sm" style={{ color: isSelected ? 'var(--color-text)' : undefined }}>{p.name}</span>
+                  <span className="text-[10px] font-mono mt-0.5 truncate max-w-full" style={{ color: 'var(--color-text-muted)' }}>
                     {p.executable}
                   </span>
                 </button>
@@ -246,30 +250,42 @@ export function ProfilesPage(): React.JSX.Element {
         </div>
 
         {/* Right Side: Profile Details and Visual Editor */}
-        <div className="flex-1 bg-zinc-950/10 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6 overflow-y-auto">
+        <div
+          className="flex-1 rounded-xl p-6 flex flex-col gap-6 overflow-y-auto"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
           {/* Profile Name & Exe editing */}
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-start border-b border-zinc-800 pb-5">
+          <div
+            className="flex flex-col md:flex-row gap-4 justify-between items-start pb-5"
+            style={{ borderBottom: '1px solid var(--color-border)' }}
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 w-full text-left">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-medium">Profile Name</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Profile Name</label>
                 <input
                   type="text"
                   value={activeProfile.name}
                   onChange={(e) => updateProfile(activeProfile.name, { name: e.target.value })}
                   disabled={activeProfile.name.toLowerCase() === 'desktop'}
-                  className="px-3 py-2 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary disabled:opacity-50 transition-all font-semibold"
+                  className="px-3 py-2 rounded-lg text-sm font-semibold focus:outline-none disabled:opacity-50 transition-all"
+                  style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                  onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+                  onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-medium">Target Executable(s)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Target Executable(s)</label>
                 <input
                   type="text"
                   value={activeProfile.executable}
                   onChange={(e) => updateProfile(activeProfile.name, { executable: e.target.value })}
                   disabled={activeProfile.name.toLowerCase() === 'desktop'}
                   placeholder="e.g. Photoshop.exe, photoshop_render.exe"
-                  className="px-3 py-2 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary disabled:opacity-50 transition-all font-mono"
+                  className="px-3 py-2 rounded-lg text-sm font-mono focus:outline-none disabled:opacity-50 transition-all"
+                  style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                  onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+                  onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
                 />
               </div>
             </div>
@@ -311,42 +327,60 @@ export function ProfilesPage(): React.JSX.Element {
             </div>
 
             {/* Sector Assignment Panel */}
-            <div className="bg-zinc-950/20 border border-zinc-800 rounded-xl p-5 flex flex-col gap-5 text-left h-full">
-              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Sector Details</span>
+            <div
+              className="rounded-xl p-5 flex flex-col gap-5 text-left h-full"
+              style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+            >
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Sector Details</span>
               
               {selectedSector !== null ? (
                 <div className="flex flex-col justify-between flex-1 gap-5">
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-zinc-900/60 p-3 rounded-lg border border-zinc-800">
-                      <div>
-                        <span className="text-xs text-zinc-400 font-medium">Sector Location</span>
-                        <h4 className="font-semibold text-zinc-100 mt-0.5 text-sm">Sector {selectedSector}</h4>
+                      <div
+                        className="flex justify-between items-center p-3 rounded-lg"
+                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                      >
+                        <div>
+                          <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Sector Location</span>
+                          <h4 className="font-semibold mt-0.5 text-sm" style={{ color: 'var(--color-text)' }}>Sector {selectedSector}</h4>
+                        </div>
+                        <span
+                          className="text-[10px] font-mono px-2 py-1 rounded"
+                          style={{ background: 'var(--color-surface-elevated)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                        >
+                          Angle: {selectedSector * (360 / config.global.sector_count)}°
+                        </span>
                       </div>
-                      <span className="text-[10px] text-zinc-500 font-mono bg-zinc-800 px-2 py-1 rounded">
-                        Angle: {selectedSector * (360 / config.global.sector_count)}°
-                      </span>
-                    </div>
 
-                    <div className="space-y-2">
-                      <span className="text-xs text-zinc-400 font-medium">Assigned Shortcut Action</span>
-                      {assignedAction ? (
-                        <div className="bg-zinc-900/40 p-4 border border-zinc-800 rounded-lg flex flex-col gap-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-zinc-200 text-sm">{assignedAction.display_name}</span>
-                            <span className="text-[9px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500 font-mono">
-                              {assignedAction.category}
+                      <div className="space-y-2">
+                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Assigned Shortcut Action</span>
+                        {assignedAction ? (
+                          <div
+                            className="p-4 rounded-lg flex flex-col gap-1"
+                            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-sm" style={{ color: 'var(--color-text)' }}>{assignedAction.display_name}</span>
+                              <span
+                                className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                                style={{ background: 'var(--color-surface-elevated)', color: 'var(--color-text-muted)' }}
+                              >
+                                {assignedAction.category}
+                              </span>
+                            </div>
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{assignedAction.description}</p>
+                            <span className="text-[10px] font-mono mt-3 select-all" style={{ color: 'var(--color-text-faint)' }}>
+                              ID: {assignedAction.id}
                             </span>
                           </div>
-                          <p className="text-xs text-zinc-400 mt-1">{assignedAction.description}</p>
-                          <span className="text-[10px] text-zinc-600 font-mono mt-3 select-all">
-                            ID: {assignedAction.id}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="bg-zinc-950/40 border border-zinc-800/80 rounded-lg p-4 text-center text-zinc-500 text-xs">
-                          No shortcut assigned. Releasing on this sector will perform no action.
-                        </div>
-                      )}
+                        ) : (
+                          <div
+                            className="rounded-lg p-4 text-center text-xs"
+                            style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
+                          >
+                            No shortcut assigned. Releasing on this sector will perform no action.
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -399,10 +433,13 @@ export function ProfilesPage(): React.JSX.Element {
       >
         <div className="flex flex-col gap-6 text-left">
           {/* Option 1: running processes */}
-          <div className="p-4 bg-zinc-950/20 border border-zinc-800 rounded-lg flex flex-col gap-3">
+          <div
+            className="p-4 rounded-lg flex flex-col gap-3"
+            style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+          >
             <div>
-              <h4 className="font-semibold text-zinc-200 text-sm">Option 1: From Running Applications</h4>
-              <p className="text-xs text-zinc-400 mt-1">
+              <h4 className="font-semibold text-sm" style={{ color: 'var(--color-text)' }}>Option 1: From Running Applications</h4>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                 Scan active desktop windows and automatically configure executable metadata.
               </p>
             </div>
@@ -416,10 +453,14 @@ export function ProfilesPage(): React.JSX.Element {
           </div>
 
           {/* Option 2: custom text inputs */}
-          <form onSubmit={handleCreateManualProfile} className="p-4 bg-zinc-950/20 border border-zinc-800 rounded-lg flex flex-col gap-4">
+          <form
+            onSubmit={handleCreateManualProfile}
+            className="p-4 rounded-lg flex flex-col gap-4"
+            style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+          >
             <div>
-              <h4 className="font-semibold text-zinc-200 text-sm">Option 2: Direct Configuration</h4>
-              <p className="text-xs text-zinc-400 mt-1">
+              <h4 className="font-semibold text-sm" style={{ color: 'var(--color-text)' }}>Option 2: Direct Configuration</h4>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                 Specify manual executable details and profile title.
               </p>
             </div>
@@ -432,24 +473,30 @@ export function ProfilesPage(): React.JSX.Element {
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-400">Profile Name</label>
+                <label className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Profile Name</label>
                 <input
                   type="text"
                   value={customProfileName}
                   onChange={(e) => setCustomProfileName(e.target.value)}
                   placeholder="e.g. Adobe Premiere Pro"
-                  className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all duration-150"
+                  className="px-3 py-1.5 rounded-lg text-sm focus:outline-none transition-all duration-150"
+                  style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                  onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+                  onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-400">Executable Name</label>
+                <label className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Executable Name</label>
                 <input
                   type="text"
                   value={customProfileExe}
                   onChange={(e) => setCustomProfileExe(e.target.value)}
                   placeholder="e.g. Premiere.exe"
-                  className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all duration-150 font-mono"
+                  className="px-3 py-1.5 rounded-lg text-sm font-mono focus:outline-none transition-all duration-150"
+                  style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                  onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+                  onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
                 />
               </div>
             </div>

@@ -109,17 +109,26 @@ export function HotkeyRecorder({
   }, [isRecording, modifierValue, onUpdate]);
 
   return (
-    <div ref={containerRef} className={`flex flex-col gap-3 p-4 bg-zinc-950/20 border border-zinc-800 rounded-lg ${className}`}>
-      <span className="text-sm text-zinc-400 font-medium">Activation Hotkey</span>
+    <div
+      ref={containerRef}
+      className={`flex flex-col gap-3 p-4 rounded-lg ${className}`}
+      style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+    >
+      <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>Activation Hotkey</span>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Modifier Select */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-zinc-500 font-medium">Modifier Key</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Modifier Key</label>
           <select
             value={modifierValue}
             onChange={(e) => onUpdate(e.target.value, keyValue)}
             disabled={isRecording}
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary disabled:opacity-50 transition-all cursor-pointer"
+            className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none disabled:opacity-50 transition-all cursor-pointer"
+            style={{
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           >
             {MODIFIERS.map((mod) => (
               <option key={mod.value} value={mod.value}>
@@ -131,7 +140,7 @@ export function HotkeyRecorder({
 
         {/* Trigger Key Recorder */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-zinc-500 font-medium">Trigger Key</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Trigger Key</label>
           <Button
             type="button"
             variant={isRecording ? 'primary' : 'secondary'}
@@ -139,13 +148,19 @@ export function HotkeyRecorder({
             className="w-full justify-between h-9 text-left font-mono font-semibold"
           >
             <span>{isRecording ? 'Recording...' : keyValue}</span>
-            <span className="text-[10px] bg-zinc-950/50 text-zinc-400 px-1.5 py-0.5 rounded">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{
+                background: 'rgba(0,0,0,0.25)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
               {isRecording ? 'Press any key' : 'Click to change'}
             </span>
           </Button>
         </div>
       </div>
-      <p className="text-[11px] text-zinc-500">
+      <p className="text-[11px]" style={{ color: 'var(--color-text-faint)' }}>
         Hold the modifier key first, then press the trigger key to activate the wheel.
       </p>
     </div>

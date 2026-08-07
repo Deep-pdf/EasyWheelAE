@@ -24,10 +24,16 @@ export function Slider({
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       <div className="flex justify-between items-center text-sm">
-        <span className="text-zinc-400 font-medium">{label}</span>
-        <span className="text-zinc-200 font-semibold font-mono bg-zinc-800/60 px-2 py-0.5 rounded border border-zinc-700/30">
-          {value}
-          {unit}
+        <span className="font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+        <span
+          className="font-semibold font-mono text-xs px-2 py-0.5 rounded"
+          style={{
+            color: 'var(--color-text)',
+            background: 'var(--color-surface-elevated)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          {value}{unit}
         </span>
       </div>
       <input
@@ -37,9 +43,10 @@ export function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-brand-primary focus:outline-none transition-all"
+        className="w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none"
+        style={{ accentColor: 'var(--color-primary)' }}
       />
-      <div className="flex justify-between text-[10px] text-zinc-600 font-mono">
+      <div className="flex justify-between text-[10px] font-mono" style={{ color: 'var(--color-text-faint)' }}>
         <span>{min}{unit}</span>
         <span>{max}{unit}</span>
       </div>

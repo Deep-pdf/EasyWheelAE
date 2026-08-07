@@ -66,8 +66,11 @@ export function WheelPreview({
   const sectorGap = 1.5;
 
   return (
-    <div className="flex flex-col items-center justify-center bg-zinc-950/20 border border-zinc-800 rounded-xl p-4">
-      <h4 className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-4">Live Preview</h4>
+    <div
+      className="flex flex-col items-center justify-center rounded-xl p-4"
+      style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+    >
+      <h4 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--color-text-muted)' }}>Live Preview</h4>
       <svg
         width={size}
         height={size}

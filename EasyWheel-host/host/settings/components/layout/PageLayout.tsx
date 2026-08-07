@@ -19,12 +19,30 @@ export function PageLayout({
   const { error, clearError, dirty, saveChanges, saving } = useConfig();
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-zinc-900/10 text-zinc-100 overflow-hidden">
+    <div
+      className="flex-1 flex flex-col h-full overflow-hidden"
+      style={{ color: 'var(--color-text)' }}
+    >
       {/* Title Header bar */}
-      <header className="px-8 py-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/20 flex-shrink-0">
+      <header
+        className="px-8 py-5 flex items-center justify-between flex-shrink-0"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'rgba(0,0,0,0.06)',
+        }}
+      >
         <div className="flex flex-col text-left">
-          <h2 className="text-xl font-bold text-zinc-100 tracking-tight">{title}</h2>
-          {description && <p className="text-xs text-zinc-400 mt-1">{description}</p>}
+          <h2
+            className="text-xl font-bold tracking-tight"
+            style={{ color: 'var(--color-text)' }}
+          >
+            {title}
+          </h2>
+          {description && (
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+              {description}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {actions}

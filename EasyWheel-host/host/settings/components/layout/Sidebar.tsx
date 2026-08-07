@@ -54,31 +54,69 @@ export function Sidebar(): React.JSX.Element {
   ];
 
   return (
-    <aside className="w-64 bg-zinc-950/40 border-r border-zinc-800 flex flex-col h-full select-none">
+    <aside
+      className="w-64 flex flex-col h-full select-none flex-shrink-0"
+      style={{
+        background: 'var(--color-surface)',
+        borderRight: '1px solid var(--color-border)',
+      }}
+    >
       {/* Brand Header */}
-      <div className="p-6 flex items-center gap-3 border-b border-zinc-800/50">
-        <div className="w-8 h-8 rounded-lg bg-brand-primary/20 border border-brand-primary flex items-center justify-center text-brand-primary font-bold text-base shadow-sm shadow-brand-primary/10">
+      <div
+        className="p-6 flex items-center gap-3 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--color-border)' }}
+      >
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
+          style={{
+            background: 'rgba(255,67,101,0.15)',
+            border: '1px solid rgba(255,67,101,0.35)',
+            color: 'var(--color-primary)',
+            boxShadow: '0 0 12px rgba(255,67,101,0.12)',
+          }}
+        >
           EW
         </div>
         <div className="flex flex-col text-left">
-          <span className="font-semibold text-zinc-100 text-sm tracking-wide">EasyWheel</span>
-          <span className="text-[10px] text-zinc-500 font-mono">SETTINGS</span>
+          <span className="font-semibold text-sm tracking-wide" style={{ color: 'var(--color-text)' }}>
+            EasyWheel
+          </span>
+          <span
+            className="text-[10px] font-mono tracking-widest"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            SETTINGS
+          </span>
         </div>
       </div>
 
       {/* Nav List */}
-      <nav className="flex-1 px-4 py-6 space-y-1">
+      <nav className="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = activePage === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActivePage(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                  : 'text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200'
-              }`}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 cursor-pointer relative"
+              style={{
+                background: isActive ? 'var(--color-surface-elevated)' : 'transparent',
+                color: isActive ? 'var(--color-text)' : 'var(--color-text-muted)',
+                borderLeft: isActive ? '2px solid var(--color-primary)' : '2px solid transparent',
+                paddingLeft: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-hover)';
+                  (e.currentTarget as HTMLElement).style.color = 'var(--color-text)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)';
+                }
+              }}
             >
               {item.icon}
               <span>{item.label}</span>
@@ -87,24 +125,27 @@ export function Sidebar(): React.JSX.Element {
         })}
       </nav>
 
-      {/* Save Status / Footer */}
-      <div className="p-4 border-t border-zinc-800/50 bg-zinc-950/20 text-xs">
+      {/* Save Status Footer */}
+      <div
+        className="p-4 text-xs flex-shrink-0"
+        style={{ borderTop: '1px solid var(--color-border)', background: 'rgba(0,0,0,0.08)' }}
+      >
         {saving ? (
-          <div className="flex items-center gap-2 text-zinc-500 font-medium">
-            <svg className="animate-spin h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24">
+          <div className="flex items-center gap-2 font-medium" style={{ color: 'var(--color-text-muted)' }}>
+            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" style={{ color: 'var(--color-primary)' }}>
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
             <span>Saving config...</span>
           </div>
         ) : dirty ? (
-          <div className="flex items-center gap-2 text-amber-500/90 font-medium animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+          <div className="flex items-center gap-2 font-medium animate-pulse" style={{ color: 'var(--color-warning)' }}>
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--color-warning)' }} />
             <span>Unsaved Changes</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-zinc-500 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
+          <div className="flex items-center gap-2 font-medium" style={{ color: 'var(--color-secondary)' }}>
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--color-secondary)' }} />
             <span>Config Synchronized</span>
           </div>
         )}
