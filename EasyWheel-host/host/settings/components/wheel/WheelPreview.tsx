@@ -72,10 +72,8 @@ export function WheelPreview({
     >
       <h4 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--color-text-muted)' }}>Live Preview</h4>
       <svg
-        width={size}
-        height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="overflow-visible"
+        className="w-full h-auto max-w-[300px] overflow-visible"
       >
         {/* Draw sectors */}
         {Array.from({ length: sectorCount }, (_, i) => {

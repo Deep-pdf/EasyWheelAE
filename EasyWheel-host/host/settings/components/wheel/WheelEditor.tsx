@@ -74,10 +74,8 @@ export function WheelEditor({
       style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
     >
       <svg
-        width={size}
-        height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="overflow-visible"
+        className="w-full h-auto max-w-[380px] overflow-visible"
       >
         {/* Sector arcs */}
         {Array.from({ length: sector_count }, (_, i) => {
