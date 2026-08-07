@@ -38,16 +38,20 @@ export function AboutPage(): React.JSX.Element {
 
         {/* Metadata Details table */}
         <div
-          className="w-full divide-y text-sm font-medium"
-          style={{ borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)', divideColor: 'var(--color-border)' }}
+          className="w-full text-sm font-medium"
+          style={{ borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)' }}
         >
           {[
             { label: 'Version', value: '1.0.0', mono: true },
             { label: 'Build Number', value: '#2026.08.07', mono: true },
             { label: 'Author', value: 'EasyWheel Team', mono: false },
             { label: 'License', value: 'MIT License', mono: false },
-          ].map(({ label, value, mono }) => (
-            <div key={label} className="flex justify-between py-3">
+          ].map(({ label, value, mono }, idx) => (
+            <div
+              key={label}
+              className="flex justify-between py-3"
+              style={idx > 0 ? { borderTop: '1px solid var(--color-border)' } : {}}
+            >
               <span style={{ color: 'var(--color-text-muted)' }}>{label}</span>
               <span className={mono ? 'font-mono' : ''} style={{ color: 'var(--color-text)' }}>{value}</span>
             </div>

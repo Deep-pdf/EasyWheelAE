@@ -198,7 +198,7 @@ export function ProfilesPage(): React.JSX.Element {
       <div className="flex-1 flex gap-6 min-h-0 overflow-hidden">
         {/* Left Side: Profiles List */}
         <div
-          className="w-80 rounded-xl p-4 flex flex-col gap-4 flex-shrink-0"
+          className="w-64 rounded-xl p-4 flex flex-col gap-4 flex-shrink-0"
           style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
         >
           <div className="flex justify-between items-center">
@@ -313,111 +313,134 @@ export function ProfilesPage(): React.JSX.Element {
             </div>
           </div>
 
-          {/* Interactive Area: Wheel left, Assignments panel right */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {/* Visual interactive wheel */}
-            <div className="flex flex-col gap-3">
-              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider text-left">Interactive Wheel Layout</span>
-              <WheelEditor
-                config={config}
-                profile={activeProfile}
-                selectedSector={selectedSector}
-                onSelectSector={handleSelectSector}
-              />
+          {/* Interactive Area: Unified Wheel Editor & Sector Details */}
+          <div
+            className="flex-grow rounded-xl p-6 flex flex-col lg:flex-row gap-8 items-stretch min-h-0"
+            style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
+          >
+            {/* Left Column: Interactive Wheel Layout */}
+            <div className="flex-[1.3] flex flex-col min-w-0">
+              <div className="w-full flex justify-between items-center mb-4">
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                  Interactive Wheel Layout
+                </span>
+                <div className="flex gap-3 text-xs text-zinc-500 font-mono">
+                  <span>Sectors: {config.global.sector_count}</span>
+                  {selectedSector !== null && <span>Selected: Sector {selectedSector}</span>}
+                </div>
+              </div>
+              
+              <div className="w-full flex-grow flex items-center justify-center min-h-[300px]">
+                <WheelEditor
+                  config={config}
+                  profile={activeProfile}
+                  selectedSector={selectedSector}
+                  onSelectSector={handleSelectSector}
+                />
+              </div>
             </div>
 
-            {/* Sector Assignment Panel */}
-            <div
-              className="rounded-xl p-5 flex flex-col gap-5 text-left h-full"
-              style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
-            >
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Sector Details</span>
-              
-              {selectedSector !== null ? (
-                <div className="flex flex-col justify-between flex-1 gap-5">
-                  <div className="space-y-4">
-                      <div
-                        className="flex justify-between items-center p-3 rounded-lg"
-                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                      >
-                        <div>
-                          <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Sector Location</span>
-                          <h4 className="font-semibold mt-0.5 text-sm" style={{ color: 'var(--color-text)' }}>Sector {selectedSector}</h4>
-                        </div>
-                        <span
-                          className="text-[10px] font-mono px-2 py-1 rounded"
-                          style={{ background: 'var(--color-surface-elevated)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
-                        >
-                          Angle: {selectedSector * (360 / config.global.sector_count)}°
-                        </span>
-                      </div>
+            {/* Vertical divider line */}
+            <div className="hidden lg:block w-px self-stretch" style={{ background: 'var(--color-border)' }} />
 
-                      <div className="space-y-2">
-                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Assigned Shortcut Action</span>
-                        {assignedAction ? (
-                          <div
-                            className="p-4 rounded-lg flex flex-col gap-1"
-                            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-sm" style={{ color: 'var(--color-text)' }}>{assignedAction.display_name}</span>
-                              <span
-                                className="text-[9px] px-1.5 py-0.5 rounded font-mono"
-                                style={{ background: 'var(--color-surface-elevated)', color: 'var(--color-text-muted)' }}
-                              >
-                                {assignedAction.category}
-                              </span>
-                            </div>
-                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{assignedAction.description}</p>
-                            <span className="text-[10px] font-mono mt-3 select-all" style={{ color: 'var(--color-text-faint)' }}>
-                              ID: {assignedAction.id}
+            {/* Right Column: Sector Details */}
+            <div className="flex-1 flex flex-col justify-between text-left min-w-0">
+              <div className="space-y-5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                    Sector Details
+                  </span>
+                  {selectedSector !== null && (
+                    <span
+                      className="text-[10px] font-mono px-2 py-0.5 rounded"
+                      style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                    >
+                      Angle: {selectedSector * (360 / config.global.sector_count)}°
+                    </span>
+                  )}
+                </div>
+
+                {selectedSector !== null ? (
+                  <div className="space-y-4">
+                    <div
+                      className="flex justify-between items-center p-3 rounded-lg"
+                      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                    >
+                      <div>
+                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Sector Location</span>
+                        <h4 className="font-semibold mt-0.5 text-sm" style={{ color: 'var(--color-text)' }}>Sector {selectedSector}</h4>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Assigned Shortcut Action</span>
+                      {assignedAction ? (
+                        <div
+                          className="p-4 rounded-lg flex flex-col gap-1"
+                          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-sm" style={{ color: 'var(--color-text)' }}>{assignedAction.display_name}</span>
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                              style={{ background: 'var(--color-surface-elevated)', color: 'var(--color-text-muted)' }}
+                            >
+                              {assignedAction.category}
                             </span>
                           </div>
-                        ) : (
-                          <div
-                            className="rounded-lg p-4 text-center text-xs"
-                            style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
-                          >
-                            No shortcut assigned. Releasing on this sector will perform no action.
-                          </div>
-                        )}
+                          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{assignedAction.description}</p>
+                          <span className="text-[10px] font-mono mt-3 select-all" style={{ color: 'var(--color-text-faint)' }}>
+                            ID: {assignedAction.id}
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          className="rounded-lg p-4 text-center text-xs"
+                          style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
+                        >
+                          No shortcut assigned. Releasing on this sector will perform no action.
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  {/* Buttons for action picker */}
-                  <div className="flex gap-2 mt-auto">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        if (activeProfile.name === 'Adobe After Effects') {
-                          setIsCommandPickerOpen(true);
-                        } else {
-                          setIsActionPickerOpen(true);
-                        }
-                      }}
-                      className="flex-1"
-                    >
-                      {assignedAction ? 'Change Action' : 'Assign Action'}
-                    </Button>
-                    {assignedAction && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleClearSector}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        Clear
-                      </Button>
-                    )}
+                ) : (
+                  <div className="flex-grow flex flex-col items-center justify-center py-12 text-center text-zinc-500 text-sm gap-3">
+                    <svg className="w-8 h-8 text-zinc-650" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--color-text-faint)' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                    </svg>
+                    <span className="text-xs px-4" style={{ color: 'var(--color-text-muted)' }}>
+                      Hover and click any sector slice on the left wheel layout to configure its action binding.
+                    </span>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center py-12 text-center text-zinc-500 text-sm gap-2">
-                  <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                  </svg>
-                  <span>Hover and click any sector slice on the left wheel layout to configure its action binding.</span>
+                )}
+              </div>
+
+              {selectedSector !== null && (
+                <div className="flex gap-2 mt-6">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      if (activeProfile.name === 'Adobe After Effects') {
+                        setIsCommandPickerOpen(true);
+                      } else {
+                        setIsActionPickerOpen(true);
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    {assignedAction ? 'Change Action' : 'Assign Action'}
+                  </Button>
+                  {assignedAction && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearSector}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

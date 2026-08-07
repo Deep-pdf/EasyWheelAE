@@ -69,13 +69,10 @@ export function WheelEditor({
   const sectorGap = 1.5;
 
   return (
-    <div
-      className="flex flex-col items-center justify-center rounded-xl p-6 relative select-none"
-      style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
-    >
+    <div className="w-full flex flex-col items-center justify-center relative select-none">
       <svg
         viewBox={`0 0 ${size} ${size}`}
-        className="w-full h-auto max-w-[380px] overflow-visible"
+        className="w-full h-auto max-w-[420px] overflow-visible"
       >
         {/* Sector arcs */}
         {Array.from({ length: sector_count }, (_, i) => {
@@ -138,7 +135,7 @@ export function WheelEditor({
                   y={labelPos.y}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  className="fill-zinc-600 text-[9px] pointer-events-none"
+                  className="fill-zinc-650 text-[9px] pointer-events-none"
                 >
                   {i}
                 </text>
@@ -179,17 +176,12 @@ export function WheelEditor({
           y={cy}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-zinc-500 text-[9px] font-semibold tracking-wider pointer-events-none uppercase"
+          className="fill-zinc-550 text-[9px] font-semibold tracking-wider pointer-events-none uppercase"
           dy={innerR > 35 ? "0px" : "15px"}
         >
           {innerR > 35 ? "Dead Zone" : ""}
         </text>
       </svg>
-
-      <div className="absolute bottom-4 left-4 right-4 flex justify-between text-xs text-zinc-500">
-        <span>Sector Count: {sector_count}</span>
-        <span>Selected: {selectedSector !== null ? `Sector ${selectedSector}` : 'None'}</span>
-      </div>
     </div>
   );
 }
