@@ -140,6 +140,23 @@ EasyWheelAE/
 
 ## Development & Installation
 
+### End-User Installation (From Release Bundle)
+
+1. Run the **EasyWheel_Setup.exe** installer inside the `Installer` directory to install the desktop host service.
+2. **Browser Extension**:
+   - Open Google Chrome (or any Chromium-based browser) and navigate to `chrome://extensions/`.
+   - Enable **Developer mode** using the toggle switch in the top-right corner.
+   - Click the **Load unpacked** button.
+   - Select the **Browser Extension** folder inside the `Installer` directory.
+3. **After Effects Extension**:
+   - Navigate into the **EasyWheelAE** folder inside the `Installer` directory.
+   - Go into the **installer** folder.
+   - Run the **install.bat** batch file to automatically install the extension.
+
+---
+
+### Development Setup
+
 ### 1. EasyWheel Host (Desktop Service)
 
 #### Prerequisites

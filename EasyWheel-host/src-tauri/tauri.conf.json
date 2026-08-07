@@ -55,7 +55,9 @@
     "windows": {
       "nsis": {
         "installMode": "perMachine",
-        "installerHooks": "hooks.nsh"
+        "installerHooks": "hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
       }
     }
   }
