@@ -60,10 +60,10 @@ export function AppearancePage(): React.JSX.Element {
         {/* Left Side: Sliders and Color Pickers */}
         <div className="flex flex-col gap-6">
           <div
-            className="p-5 rounded-xl flex flex-col gap-5"
+            className="p-5 rounded-xl flex flex-col gap-5 ew-card"
             style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
           >
-            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-neutral)' }}>Geometry Configuration</span>
+            <span className="text-xs font-semibold uppercase tracking-wider ew-card-title" style={{ color: 'var(--color-neutral)' }}>Geometry Configuration</span>
             
             <Slider
               label="Wheel Radius"
@@ -87,10 +87,10 @@ export function AppearancePage(): React.JSX.Element {
           </div>
 
           <div
-            className="p-5 rounded-xl flex flex-col gap-5"
+            className="p-5 rounded-xl flex flex-col gap-5 ew-card"
             style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
           >
-            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-neutral)' }}>Color Customization</span>
+            <span className="text-xs font-semibold uppercase tracking-wider ew-card-title" style={{ color: 'var(--color-neutral)' }}>Color Customization</span>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <ColorPicker
@@ -122,10 +122,10 @@ export function AppearancePage(): React.JSX.Element {
           </div>
 
           <div
-            className="p-5 rounded-xl flex flex-col gap-3"
+            className="p-5 rounded-xl flex flex-col gap-3 ew-card"
             style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
           >
-            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-neutral)' }}>Animations</span>
+            <span className="text-xs font-semibold uppercase tracking-wider ew-card-title" style={{ color: 'var(--color-neutral)' }}>Animations</span>
             <div
               className="p-4 rounded-lg border text-center text-xs"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}

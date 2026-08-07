@@ -198,3 +198,24 @@ body {
   transition: background-color 0.15s ease, border-color 0.15s ease,
               color 0.15s ease, box-shadow 0.15s ease;
 }
+
+/* ------------------------------------------------------------
+   Premium Card Hover Effects
+   ------------------------------------------------------------ */
+.ew-card {
+  transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ew-card:hover {
+  border-color: var(--color-border-strong) !important;
+  box-shadow: var(--shadow-primary-glow) !important;
+}
+
+.ew-card-title {
+  transition: color 0.2s ease;
+}
+
+.ew-card:hover .ew-card-title {
+  color: var(--color-primary) !important;
+}

@@ -73,10 +73,8 @@ export function ActionsPage(): React.JSX.Element {
                 {list.map((action) => (
                   <div
                     key={action.id}
-                    className="p-4 rounded-xl flex items-start gap-4 ew-transition"
+                    className="p-4 rounded-xl flex items-start gap-4 ew-card"
                     style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-strong)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
                   >
                     {/* Icon placeholder */}
                     <div
@@ -88,7 +86,7 @@ export function ActionsPage(): React.JSX.Element {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center gap-2">
-                        <h4 className="font-semibold text-sm truncate" style={{ color: 'var(--color-text)' }}>{action.display_name}</h4>
+                        <h4 className="font-semibold text-sm truncate ew-card-title" style={{ color: 'var(--color-text)' }}>{action.display_name}</h4>
                         <span
                           className="text-[9px] px-1.5 py-0.5 rounded font-mono"
                           style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}

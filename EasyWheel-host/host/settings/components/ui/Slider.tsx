@@ -44,7 +44,11 @@ export function Slider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none"
-        style={{ accentColor: 'var(--color-primary)' }}
+        style={{
+          accentColor: 'var(--color-primary)',
+          background: 'rgba(255, 255, 255, 0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.03)',
+        }}
       />
       <div className="flex justify-between text-[10px] font-mono" style={{ color: 'var(--color-text-faint)' }}>
         <span>{min}{unit}</span>

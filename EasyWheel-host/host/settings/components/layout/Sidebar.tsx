@@ -63,31 +63,14 @@ export function Sidebar(): React.JSX.Element {
     >
       {/* Brand Header */}
       <div
-        className="p-6 flex items-center gap-3 flex-shrink-0"
+        className="p-3 flex items-center justify-start flex-shrink-0"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
-          style={{
-            background: 'rgba(255,67,101,0.15)',
-            border: '1px solid rgba(255,67,101,0.35)',
-            color: 'var(--color-primary)',
-            boxShadow: '0 0 12px rgba(255,67,101,0.12)',
-          }}
-        >
-          EW
-        </div>
-        <div className="flex flex-col text-left">
-          <span className="font-semibold text-sm tracking-wide" style={{ color: 'var(--color-text)' }}>
-            EasyWheel
-          </span>
-          <span
-            className="text-[10px] font-mono tracking-widest"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            SETTINGS
-          </span>
-        </div>
+        <img
+          src="/assets/LogoMainTitle.png"
+          alt="EasyWheel Settings"
+          className="h-14 w-auto max-w-full object-contain"
+        />
       </div>
 
       {/* Nav List */}

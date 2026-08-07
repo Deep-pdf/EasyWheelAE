@@ -232,11 +232,25 @@ export function ProfilesPage(): React.JSX.Element {
                     setSelectedProfileName(p.name);
                     setSelectedSector(null);
                   }}
-                  className={`w-full flex flex-col text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer`}
+                  className={`w-full flex flex-col text-left px-3 py-2.5 rounded-lg border ew-transition cursor-pointer`}
                   style={{
                     background: isSelected ? 'var(--color-surface-hover)' : 'transparent',
                     border: isSelected ? '1px solid var(--color-border-strong)' : '1px solid transparent',
                     color: isSelected ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'var(--color-surface-hover)';
+                      e.currentTarget.style.borderColor = 'var(--color-border-strong)';
+                      e.currentTarget.style.color = 'var(--color-text)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--color-text-muted)';
+                    }
                   }}
                 >
                   <span className="font-semibold text-sm" style={{ color: isSelected ? 'var(--color-text)' : undefined }}>{p.name}</span>
@@ -315,13 +329,13 @@ export function ProfilesPage(): React.JSX.Element {
 
           {/* Interactive Area: Unified Wheel Editor & Sector Details */}
           <div
-            className="flex-grow rounded-xl p-6 flex flex-col lg:flex-row gap-8 items-stretch min-h-0"
+            className="flex-grow rounded-xl p-6 flex flex-col lg:flex-row gap-8 items-stretch min-h-0 ew-card"
             style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
           >
             {/* Left Column: Interactive Wheel Layout */}
             <div className="flex-[1.3] flex flex-col min-w-0">
               <div className="w-full flex justify-between items-center mb-4">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                <span className="text-xs font-semibold uppercase tracking-wider ew-card-title" style={{ color: 'var(--color-text-muted)' }}>
                   Interactive Wheel Layout
                 </span>
                 <div className="flex gap-3 text-xs text-zinc-500 font-mono">
@@ -347,7 +361,7 @@ export function ProfilesPage(): React.JSX.Element {
             <div className="flex-1 flex flex-col justify-between text-left min-w-0">
               <div className="space-y-5">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                  <span className="text-xs font-semibold uppercase tracking-wider ew-card-title" style={{ color: 'var(--color-text-muted)' }}>
                     Sector Details
                   </span>
                   {selectedSector !== null && (

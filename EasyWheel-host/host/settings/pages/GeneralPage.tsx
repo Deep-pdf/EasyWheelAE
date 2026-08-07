@@ -49,10 +49,10 @@ export function GeneralPage(): React.JSX.Element {
 
         {/* Geometry sliders */}
         <div
-          className="p-4 rounded-lg flex flex-col gap-5"
+          className="p-4 rounded-lg flex flex-col gap-5 ew-card"
           style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>Wheel Geometry</span>
+          <span className="text-sm font-medium ew-card-title" style={{ color: 'var(--color-text-muted)' }}>Wheel Geometry</span>
           
           <Slider
             label="Wheel Radius"
@@ -92,7 +92,7 @@ export function GeneralPage(): React.JSX.Element {
 
         {/* Global Color Options */}
         <div
-          className="p-4 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-5"
+          className="p-4 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-5 ew-card"
           style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
         >
           <ColorPicker
@@ -109,10 +109,10 @@ export function GeneralPage(): React.JSX.Element {
 
         {/* Application Theme — functional */}
         <div
-          className="p-4 rounded-lg flex flex-col gap-3"
+          className="p-4 rounded-lg flex flex-col gap-3 ew-card"
           style={{ background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)' }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>Application Theme</span>
+          <span className="text-sm font-medium ew-card-title" style={{ color: 'var(--color-text-muted)' }}>Application Theme</span>
           <div className="grid grid-cols-3 gap-2">
             {(['system', 'dark', 'light'] as ThemeValue[]).map((t) => {
               const labels: Record<ThemeValue, string> = { system: 'System', dark: 'Dark', light: 'Light' };
