@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EasyWheel Overlay</title>
+    <!--
+      Inline style applied before any JS or CSS bundle loads.
+      WebView2 starts rendering with a default opaque background; without this
+      block it paints a white or semi-opaque rectangle on the first frame.
+      This declaration must be inline — an external stylesheet arrives too late.
+    -->
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        background: transparent !important;
+        overflow: hidden;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
