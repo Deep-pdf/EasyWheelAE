@@ -126,7 +126,11 @@ pub fn get_running_apps() -> Vec<RunningApp> {
     {
         get_running_apps_windows()
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    {
+        get_running_apps_linux()
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         vec![]
     }
@@ -275,6 +279,95 @@ fn get_running_apps_windows() -> Vec<RunningApp> {
     }
 
     unsafe { CloseHandle(snapshot) };
+
+    let mut result: Vec<RunningApp> = apps.into_values().collect();
+    result.sort_by_key(|a| a.name.to_ascii_lowercase());
+    result
+}
+
+// ---------------------------------------------------------------------------
+// Private — Linux process enumeration
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "linux")]
+fn get_running_apps_linux() -> Vec<RunningApp> {
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    const EXCLUDED: &[&str] = &[
+        "systemd",
+        "dbus-daemon",
+        "pipewire",
+        "wireplumber",
+        "pulseaudio",
+        "xwayland",
+        "xorg",
+        "bash",
+        "sh",
+        "zsh",
+        "fish",
+        "sshd",
+        "kworker",
+        "systemd-journald",
+        "systemd-udevd",
+        "systemd-resolved",
+        "systemd-logind",
+        "polkitd",
+        "easywheel-host",
+    ];
+
+    let mut apps: HashMap<String, RunningApp> = HashMap::new();
+
+    let entries = match std::fs::read_dir("/proc") {
+        Ok(e) => e,
+        Err(_) => return vec![],
+    };
+
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let pid_str = file_name.to_string_lossy();
+
+        if !pid_str.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+
+        let pid_path = entry.path();
+
+        // Check if cmdline exists and is non-empty (skips kernel threads)
+        let cmdline_path = pid_path.join("cmdline");
+        if let Ok(cmdline) = std::fs::read(&cmdline_path) {
+            if cmdline.is_empty() {
+                continue;
+            }
+        } else {
+            continue;
+        }
+
+        // Read executable symlink
+        let exe_link = pid_path.join("exe");
+        if let Ok(target_path) = std::fs::read_link(&exe_link) {
+            let full_path = target_path.to_string_lossy().into_owned();
+            let exe_file = Path::new(&full_path)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+
+            let key = exe_file.to_ascii_lowercase();
+
+            if !key.is_empty() && !EXCLUDED.contains(&key.as_str()) {
+                let comm_path = pid_path.join("comm");
+                let display_name = std::fs::read_to_string(comm_path)
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_else(|_| exe_file.clone());
+
+                apps.entry(key).or_insert_with(|| RunningApp {
+                    name: display_name,
+                    executable: exe_file,
+                    path: full_path,
+                });
+            }
+        }
+    }
 
     let mut result: Vec<RunningApp> = apps.into_values().collect();
     result.sort_by_key(|a| a.name.to_ascii_lowercase());

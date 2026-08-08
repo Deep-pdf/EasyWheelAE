@@ -259,8 +259,47 @@ impl InputManager {
         }
     }
 
-    /// Stub implementation for non-Windows build targets.
-    #[cfg(not(target_os = "windows"))]
+    /// Reads the current global cursor position on Linux (X11) via x11rb.
+    #[cfg(target_os = "linux")]
+    fn read_cursor() -> Option<(f64, f64)> {
+        use std::cell::RefCell;
+        use x11rb::connection::Connection;
+        use x11rb::protocol::xproto::{query_pointer, Window};
+        use x11rb::rust_connection::RustConnection;
+
+        thread_local! {
+            static X11_CONN: RefCell<Option<(RustConnection, Window)>> = const { RefCell::new(None) };
+        }
+
+        X11_CONN.with(|cell| {
+            let mut opt = cell.borrow_mut();
+            if opt.is_none() {
+                if let Ok((conn, screen_num)) = x11rb::connect(None) {
+                    if let Some(root) = conn.setup().roots.get(screen_num).map(|s| s.root) {
+                        *opt = Some((conn, root));
+                    }
+                }
+            }
+
+            let result = if let Some((ref conn, root)) = *opt {
+                match query_pointer(conn, root) {
+                    Ok(cookie) => cookie.reply().ok().map(|r| (r.root_x as f64, r.root_y as f64)),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+
+            if result.is_none() && opt.is_some() {
+                *opt = None;
+            }
+
+            result
+        })
+    }
+
+    /// Stub implementation for other non-Windows / non-Linux build targets.
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     fn read_cursor() -> Option<(f64, f64)> {
         Some((0.0, 0.0))
     }

@@ -1,10 +1,14 @@
+#[cfg(target_os = "windows")]
 use winapi::shared::windef::HWND;
+#[cfg(target_os = "windows")]
 use winapi::um::winuser::{EnumWindows, GetClassNameW, IsWindowVisible, GetWindowTextW};
 
+#[cfg(target_os = "windows")]
 struct State {
     all_windows: Vec<(HWND, String, String)>,
 }
 
+#[cfg(target_os = "windows")]
 unsafe extern "system" fn enum_callback(hwnd: HWND, lparam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::BOOL {
     let state = &mut *(lparam as *mut State);
     if IsWindowVisible(hwnd) != 0 {
@@ -23,6 +27,7 @@ unsafe extern "system" fn enum_callback(hwnd: HWND, lparam: winapi::shared::minw
     1
 }
 
+#[cfg(target_os = "windows")]
 fn main() {
     println!("=== EASYWHEEL DIAGNOSE START ===");
 
@@ -49,4 +54,9 @@ fn main() {
     }
 
     println!("\n=== DIAGNOSE END ===");
+}
+
+#[cfg(not(target_os = "windows"))]
+fn main() {
+    println!("diagnose tool is only supported on Windows.");
 }

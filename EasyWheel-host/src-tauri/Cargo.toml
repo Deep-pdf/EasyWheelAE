@@ -49,3 +49,5 @@ winapi = { version = "0.3", features = [
     "objbase",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = "0.13"
