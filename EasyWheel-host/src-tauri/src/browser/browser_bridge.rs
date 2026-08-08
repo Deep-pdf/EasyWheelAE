@@ -380,7 +380,7 @@ impl BrowserBridge {
                 println!("[BrowserBridge] Tab activated successfully");
 
                 // Bring the browser window to the foreground at OS level.
-                #[cfg(target_os = "windows")]
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 {
                     let browser = {
                         let guard = self.state.lock().unwrap();
@@ -412,7 +412,24 @@ impl BrowserBridge {
         {
             crate::providers::windows_provider::open_website_windows(url, browser)?;
         }
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "linux")]
+        {
+            let browser_lower = browser.to_ascii_lowercase();
+            let exe = match browser_lower.as_str() {
+                "chrome" => "google-chrome",
+                "firefox" => "firefox",
+                "brave" => "brave-browser",
+                "edge" => "microsoft-edge",
+                "opera" => "opera",
+                _ => "xdg-open",
+            };
+            std::process::Command::new(exe)
+                .arg(url)
+                .spawn()
+                .or_else(|_| std::process::Command::new("xdg-open").arg(url).spawn())
+                .map_err(|e| format!("Failed to open URL on Linux: {}", e))?;
+        }
+        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
         {
             println!("[BrowserBridge] Stub: open_launch_url '{}'", url);
         }
@@ -624,5 +641,179 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
         if state.focused { return true; }
         thread::sleep(Duration::from_millis(30));
     }
+    false
+}
+
+// ---------------------------------------------------------------------------
+// Linux (X11) window focus helpers
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "linux")]
+pub fn focus_window(browser: &str, tab_title: &str) -> bool {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::{
+        AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, GetPropertyReply, Window,
+    };
+
+    let (conn, screen_num) = match x11rb::connect(None) {
+        Ok(res) => res,
+        Err(_) => return false,
+    };
+
+    let root = match conn.setup().roots.get(screen_num) {
+        Some(s) => s.root,
+        None => return false,
+    };
+
+    let net_client_list = match conn.intern_atom(false, b"_NET_CLIENT_LIST") {
+        Ok(c) => match c.reply() {
+            Ok(r) => r.atom,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let net_active_window = match conn.intern_atom(false, b"_NET_ACTIVE_WINDOW") {
+        Ok(c) => match c.reply() {
+            Ok(r) => r.atom,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let utf8_string = match conn.intern_atom(false, b"UTF8_STRING") {
+        Ok(c) => match c.reply() {
+            Ok(r) => r.atom,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let net_wm_name = match conn.intern_atom(false, b"_NET_WM_NAME") {
+        Ok(c) => match c.reply() {
+            Ok(r) => r.atom,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let browser_filter = browser.to_ascii_lowercase();
+    let needle = tab_title.to_lowercase();
+
+    // Query _NET_CLIENT_LIST on root window
+    let client_list_reply: GetPropertyReply = match conn
+        .get_property(false, root, net_client_list, AtomEnum::WINDOW, 0, 1024)
+    {
+        Ok(c) => match c.reply() {
+            Ok(r) => r,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let windows: Vec<Window> = match client_list_reply.value32() {
+        Some(iter) => iter.collect(),
+        None => return false,
+    };
+
+    let mut target_window: Option<Window> = None;
+
+    for win in windows {
+        // 1. Check WM_CLASS to match the browser
+        let mut matches_browser = browser_filter.is_empty();
+        if !matches_browser {
+            if let Ok(class_cookie) = conn.get_property(
+                false,
+                win,
+                AtomEnum::WM_CLASS,
+                AtomEnum::STRING,
+                0,
+                1024,
+            ) {
+                if let Ok(class_reply) = class_cookie.reply() {
+                    let class_str = String::from_utf8_lossy(&class_reply.value).to_lowercase();
+                    matches_browser = match browser_filter.as_str() {
+                        "firefox" => class_str.contains("firefox") || class_str.contains("navigator"),
+                        "chrome" => class_str.contains("chrome") || class_str.contains("chromium"),
+                        "brave" => class_str.contains("brave"),
+                        "edge" => class_str.contains("edge"),
+                        "opera" => class_str.contains("opera"),
+                        other => class_str.contains(other),
+                    };
+                }
+            }
+        }
+
+        if !matches_browser {
+            continue;
+        }
+
+        // 2. Check window title via _NET_WM_NAME (UTF8_STRING) or fallback to WM_NAME (STRING)
+        let mut title_found = String::new();
+        if let Ok(name_cookie) = conn.get_property(
+            false,
+            win,
+            net_wm_name,
+            utf8_string,
+            0,
+            1024,
+        ) {
+            if let Ok(name_reply) = name_cookie.reply() {
+                if !name_reply.value.is_empty() {
+                    title_found = String::from_utf8_lossy(&name_reply.value).to_lowercase();
+                }
+            }
+        }
+
+        if title_found.is_empty() {
+            if let Ok(name_cookie) = conn.get_property(
+                false,
+                win,
+                AtomEnum::WM_NAME,
+                AtomEnum::STRING,
+                0,
+                1024,
+            ) {
+                if let Ok(name_reply) = name_cookie.reply() {
+                    title_found = String::from_utf8_lossy(&name_reply.value).to_lowercase();
+                }
+            }
+        }
+
+        // If tab_title needle is contained or if needle is empty
+        if needle.is_empty() || title_found.contains(&needle) {
+            target_window = Some(win);
+            break;
+        }
+    }
+
+    if let Some(target_win) = target_window {
+        // Send _NET_ACTIVE_WINDOW ClientMessage to root window (EWMH standard)
+        let event = ClientMessageEvent {
+            response_type: x11rb::protocol::xproto::CLIENT_MESSAGE_EVENT,
+            format: 32,
+            sequence: 0,
+            window: target_win,
+            type_: net_active_window,
+            data: x11rb::protocol::xproto::ClientMessageData::from([
+                2u32, // 2 = from pager / user application
+                0u32, // timestamp (0 = current)
+                0u32, // requestor's currently active window
+                0u32,
+                0u32,
+            ]),
+        };
+
+        let _ = conn.send_event(
+            false,
+            root,
+            EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+            event,
+        );
+
+        let _ = conn.flush();
+        return true;
+    }
+
     false
 }
