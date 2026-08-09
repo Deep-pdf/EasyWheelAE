@@ -163,100 +163,136 @@ impl ForegroundApplicationService {
 
     #[cfg(target_os = "linux")]
     fn get_executable_linux() -> String {
+        use std::sync::Mutex;
+        use std::time::{Duration, Instant};
         use x11rb::connection::Connection;
-        use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, GetPropertyReply};
+        use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, Window};
+        use x11rb::rust_connection::RustConnection;
 
-        let (conn, screen_num) = match x11rb::connect(None) {
-            Ok(res) => res,
-            Err(_) => return FALLBACK_EXECUTABLE.to_string(),
+        struct X11State {
+            conn: RustConnection,
+            root: Window,
+            net_active_window: Atom,
+            net_wm_pid: Atom,
+        }
+
+        struct Cache {
+            last_checked: Instant,
+            cached_exe: String,
+        }
+
+        const CACHE_TTL: Duration = Duration::from_millis(150);
+
+        static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
+        static X11_STATE: Mutex<Option<X11State>> = Mutex::new(None);
+
+        let now = Instant::now();
+
+        // 1. Return cached executable if queried within CACHE_TTL window
+        if let Ok(guard) = CACHE.lock() {
+            if let Some(ref cache) = *guard {
+                if now.duration_since(cache.last_checked) < CACHE_TTL {
+                    return cache.cached_exe.clone();
+                }
+            }
+        }
+
+        // 2. Query X11 using reused connection & pre-interned atoms
+        let mut x11_guard = match X11_STATE.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
         };
 
-        let root = conn.setup().roots[screen_num].root;
+        if x11_guard.is_none() {
+            if let Ok((conn, screen_num)) = x11rb::connect(None) {
+                if let Some(screen) = conn.setup().roots.get(screen_num) {
+                    let root = screen.root;
+                    let net_active_window = conn
+                        .intern_atom(false, b"_NET_ACTIVE_WINDOW")
+                        .ok()
+                        .and_then(|c| c.reply().ok())
+                        .map(|r| r.atom);
+                    let net_wm_pid = conn
+                        .intern_atom(false, b"_NET_WM_PID")
+                        .ok()
+                        .and_then(|c| c.reply().ok())
+                        .map(|r| r.atom);
 
-        // Query _NET_ACTIVE_WINDOW on the root window
-        let net_active_window = match conn.intern_atom(false, b"_NET_ACTIVE_WINDOW") {
-            Ok(c) => match c.reply() {
-                Ok(r) => r.atom,
-                Err(_) => return FALLBACK_EXECUTABLE.to_string(),
-            },
-            Err(_) => return FALLBACK_EXECUTABLE.to_string(),
-        };
-
-        let active_win_reply: GetPropertyReply = match conn
-            .get_property(false, root, net_active_window, AtomEnum::WINDOW, 0, 1)
-        {
-            Ok(c) => match c.reply() {
-                Ok(r) => r,
-                Err(_) => return FALLBACK_EXECUTABLE.to_string(),
-            },
-            Err(_) => return FALLBACK_EXECUTABLE.to_string(),
-        };
-
-        let active_window = match active_win_reply.value32() {
-            Some(mut iter) => match iter.next() {
-                Some(w) if w != 0 => w,
-                _ => return FALLBACK_EXECUTABLE.to_string(),
-            },
-            None => return FALLBACK_EXECUTABLE.to_string(),
-        };
-
-        // Try getting the PID via _NET_WM_PID
-        if let Ok(net_wm_pid_cookie) = conn.intern_atom(false, b"_NET_WM_PID") {
-            if let Ok(net_wm_pid_reply) = net_wm_pid_cookie.reply() {
-                let pid_atom = net_wm_pid_reply.atom;
-                if let Ok(prop_cookie) = conn.get_property(
-                    false,
-                    active_window,
-                    pid_atom,
-                    AtomEnum::CARDINAL,
-                    0,
-                    1,
-                ) {
-                    if let Ok(prop_reply) = prop_cookie.reply() {
-                        if let Some(mut iter) = prop_reply.value32() {
-                            if let Some(pid) = iter.next() {
-                                if pid > 0 {
-                                    if let Ok(exe_path) =
-                                        std::fs::read_link(format!("/proc/{pid}/exe"))
-                                    {
-                                        if let Some(file_name) = exe_path.file_name() {
-                                            return file_name.to_string_lossy().into_owned();
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    if let (Some(net_active_window), Some(net_wm_pid)) =
+                        (net_active_window, net_wm_pid)
+                    {
+                        *x11_guard = Some(X11State {
+                            conn,
+                            root,
+                            net_active_window,
+                            net_wm_pid,
+                        });
                     }
                 }
             }
         }
 
-        // Fallback: Query WM_CLASS property
-        if let Ok(class_cookie) = conn.get_property(
-            false,
-            active_window,
-            AtomEnum::WM_CLASS,
-            AtomEnum::STRING,
-            0,
-            1024,
-        ) {
-            if let Ok(class_reply) = class_cookie.reply() {
-                if !class_reply.value.is_empty() {
-                    // WM_CLASS contains instance_name\0class_name\0
-                    let parts: Vec<&str> = class_reply
-                        .value
-                        .split(|&b| b == 0)
-                        .filter_map(|s| std::str::from_utf8(s).ok())
-                        .filter(|s| !s.is_empty())
-                        .collect();
+        let detected = if let Some(ref state) = *x11_guard {
+            let active_window = state
+                .conn
+                .get_property(false, state.root, state.net_active_window, AtomEnum::WINDOW, 0, 1)
+                .ok()
+                .and_then(|c| c.reply().ok())
+                .and_then(|r| r.value32().and_then(|mut iter| iter.next()))
+                .filter(|&w| w != 0);
 
-                    if let Some(class_name) = parts.last() {
-                        return class_name.to_string();
-                    }
-                }
+            if let Some(win) = active_window {
+                // Try reading PID from _NET_WM_PID
+                let pid = state
+                    .conn
+                    .get_property(false, win, state.net_wm_pid, AtomEnum::CARDINAL, 0, 1)
+                    .ok()
+                    .and_then(|c| c.reply().ok())
+                    .and_then(|r| r.value32().and_then(|mut iter| iter.next()))
+                    .filter(|&p| p > 0);
+
+                let exe = if let Some(pid) = pid {
+                    std::fs::read_link(format!("/proc/{pid}/exe"))
+                        .ok()
+                        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+                } else {
+                    None
+                };
+
+                // Fallback: WM_CLASS string property
+                exe.or_else(|| {
+                    state
+                        .conn
+                        .get_property(false, win, AtomEnum::WM_CLASS, AtomEnum::STRING, 0, 1024)
+                        .ok()
+                        .and_then(|c| c.reply().ok())
+                        .and_then(|r| {
+                            let parts: Vec<&str> = r
+                                .value
+                                .split(|&b| b == 0)
+                                .filter_map(|s| std::str::from_utf8(s).ok())
+                                .filter(|s| !s.is_empty())
+                                .collect();
+                            parts.last().map(|s| s.to_string())
+                        })
+                })
+            } else {
+                None
             }
+        } else {
+            None
+        };
+
+        let result = detected.unwrap_or_else(|| FALLBACK_EXECUTABLE.to_string());
+
+        // 3. Update cache
+        if let Ok(mut guard) = CACHE.lock() {
+            *guard = Some(Cache {
+                last_checked: now,
+                cached_exe: result.clone(),
+            });
         }
 
-        FALLBACK_EXECUTABLE.to_string()
+        result
     }
 }

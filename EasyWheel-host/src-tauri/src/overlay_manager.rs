@@ -121,6 +121,7 @@ impl OverlayManager {
         // at this point because the overlay itself is not a foreground window
         // (it is click-through and transparent).
         let last_sector = InputManager::get_last_sector();
+        println!("[OverlayManager:DIAG] hide() called, last_sector={:?}", last_sector);
 
         match Self::get_window(app) {
             Some(window) => {
@@ -144,7 +145,10 @@ impl OverlayManager {
         // cosmetically irrelevant but establishes the correct pattern for
         // future phases that may interact with the foreground application.
         if let Some(sector) = last_sector {
+            println!("[OverlayManager:DIAG] Calling ActionManager::execute_for_sector({})", sector);
             ActionManager::execute_for_sector(sector);
+        } else {
+            println!("[OverlayManager:DIAG] last_sector is None, no action dispatched");
         }
     }
 

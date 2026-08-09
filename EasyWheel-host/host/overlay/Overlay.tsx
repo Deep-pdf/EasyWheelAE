@@ -101,6 +101,7 @@ function toCssPx(screenX: number, screenY: number, offset: WindowOffset): { x: n
 function Overlay(): React.JSX.Element {
   const [geo, setGeo] = useState<GeometryState>(DEFAULT_STATE);
   const [windowOffset, setWindowOffset] = useState<WindowOffset>({ x: 0, y: 0 });
+  const windowOffsetRef = useRef<WindowOffset>({ x: 0, y: 0 });
 
   // Stores the RAF cancellation ID for cleanup on unmount.
   const rafRef = useRef<number>(0);
@@ -111,11 +112,26 @@ function Overlay(): React.JSX.Element {
     // is sufficient for the entire application lifetime.
     getCurrentWindow()
       .innerPosition()
-      .then((pos) => setWindowOffset({ x: pos.x, y: pos.y }))
+      .then((pos) => {
+        setWindowOffset({ x: pos.x, y: pos.y });
+        windowOffsetRef.current = { x: pos.x, y: pos.y };
+      })
       .catch(() => {
         // Non-fatal: wheel will appear at slightly wrong position if the
         // window has a non-zero physical origin. Acceptable fallback.
       });
+
+    // Report pointer motion on the overlay surface to the Rust backend
+    const handlePointer = (e: PointerEvent): void => {
+      const dpr = window.devicePixelRatio || 1;
+      const physX = e.clientX * dpr + windowOffsetRef.current.x;
+      const physY = e.clientY * dpr + windowOffsetRef.current.y;
+      invoke("report_pointer_position", { x: physX, y: physY }).catch(() => {});
+    };
+
+    window.addEventListener("pointermove", handlePointer, { passive: true });
+    window.addEventListener("pointerdown", handlePointer, { passive: true });
+    window.addEventListener("pointerenter", handlePointer, { passive: true });
 
     let alive = true;
 
@@ -144,6 +160,9 @@ function Overlay(): React.JSX.Element {
     return () => {
       alive = false;
       cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("pointermove", handlePointer);
+      window.removeEventListener("pointerdown", handlePointer);
+      window.removeEventListener("pointerenter", handlePointer);
     };
   }, []);
 
@@ -153,18 +172,10 @@ function Overlay(): React.JSX.Element {
   return (
     <div className="overlay-root">
       {/*
-       * Suppress rendering entirely until tracking is active.
-       * The brief gap between window.show() and the first fresh poll
-       * resolving would otherwise flash the wheel at stale coordinates
-       * from the previous session.
-       *
-       * NOTE: opacity is intentionally NOT set on this div. Applying
-       * opacity < 1 to a full-viewport container forces WebView2 to
-       * allocate a separate compositing surface, which bleeds a faint
-       * rectangle on some Windows/GPU configurations. Opacity control
-       * is applied directly on the <svg> element inside WheelRenderer.
+       * Suppress rendering entirely until tracking is active and an origin
+       * has been captured.
        */}
-      {geo.active && (
+      {geo.active && (geo.origin_x !== 0 || geo.origin_y !== 0) && (
         <WheelRenderer
           cx={center.x}
           cy={center.y}

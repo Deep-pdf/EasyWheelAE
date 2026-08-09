@@ -655,9 +655,14 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
         AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, GetPropertyReply, Window,
     };
 
+    println!("[BrowserFocus:DIAG] focus_window() called: browser='{}', tab_title='{}'", browser, tab_title);
+
     let (conn, screen_num) = match x11rb::connect(None) {
         Ok(res) => res,
-        Err(_) => return false,
+        Err(e) => {
+            println!("[BrowserFocus:DIAG] x11rb::connect failed: {:?}", e);
+            return false;
+        }
     };
 
     let root = match conn.setup().roots.get(screen_num) {
@@ -706,9 +711,15 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
     {
         Ok(c) => match c.reply() {
             Ok(r) => r,
-            Err(_) => return false,
+            Err(e) => {
+                println!("[BrowserFocus:DIAG] Failed to get _NET_CLIENT_LIST reply: {:?}", e);
+                return false;
+            }
         },
-        Err(_) => return false,
+        Err(e) => {
+            println!("[BrowserFocus:DIAG] Failed to query _NET_CLIENT_LIST: {:?}", e);
+            return false;
+        }
     };
 
     let windows: Vec<Window> = match client_list_reply.value32() {
@@ -716,22 +727,25 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
         None => return false,
     };
 
+    println!("[BrowserFocus:DIAG] Found {} client windows to inspect", windows.len());
+
     let mut target_window: Option<Window> = None;
 
     for win in windows {
         // 1. Check WM_CLASS to match the browser
         let mut matches_browser = browser_filter.is_empty();
-        if !matches_browser {
-            if let Ok(class_cookie) = conn.get_property(
-                false,
-                win,
-                AtomEnum::WM_CLASS,
-                AtomEnum::STRING,
-                0,
-                1024,
-            ) {
-                if let Ok(class_reply) = class_cookie.reply() {
-                    let class_str = String::from_utf8_lossy(&class_reply.value).to_lowercase();
+        let mut class_str = String::new();
+        if let Ok(class_cookie) = conn.get_property(
+            false,
+            win,
+            AtomEnum::WM_CLASS,
+            AtomEnum::STRING,
+            0,
+            1024,
+        ) {
+            if let Ok(class_reply) = class_cookie.reply() {
+                class_str = String::from_utf8_lossy(&class_reply.value).to_lowercase();
+                if !browser_filter.is_empty() {
                     matches_browser = match browser_filter.as_str() {
                         "firefox" => class_str.contains("firefox") || class_str.contains("navigator"),
                         "chrome" => class_str.contains("chrome") || class_str.contains("chromium"),
@@ -780,8 +794,11 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
             }
         }
 
+        println!("[BrowserFocus:DIAG] Inspecting window {}: class='{}', title='{}'", win, class_str, title_found);
+
         // If tab_title needle is contained or if needle is empty
         if needle.is_empty() || title_found.contains(&needle) {
+            println!("[BrowserFocus:DIAG] Matched target window {} for needle '{}'!", win, needle);
             target_window = Some(win);
             break;
         }
@@ -804,16 +821,18 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
             ]),
         };
 
-        let _ = conn.send_event(
+        let res = conn.send_event(
             false,
             root,
             EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
             event,
         );
+        println!("[BrowserFocus:DIAG] Sent _NET_ACTIVE_WINDOW event: {:?}", res);
 
         let _ = conn.flush();
         return true;
     }
 
+    println!("[BrowserFocus:DIAG] No matching window found for browser='{}', needle='{}'", browser, needle);
     false
 }

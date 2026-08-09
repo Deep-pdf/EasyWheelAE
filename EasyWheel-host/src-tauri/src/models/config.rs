@@ -145,9 +145,14 @@ impl Default for AppConfig {
         use super::action::ActionDefinition;
         use super::profile::Profile;
 
+        #[cfg(target_os = "windows")]
+        let (def_modifier, def_key) = ("Alt", "F1");
+        #[cfg(not(target_os = "windows"))]
+        let (def_modifier, def_key) = ("ControlLeft", "Space");
+
         let global = GlobalSettings {
-            activation_modifier: "Alt".to_string(),
-            activation_key: "F1".to_string(),
+            activation_modifier: def_modifier.to_string(),
+            activation_key: def_key.to_string(),
             wheel_radius: 120.0,
             dead_zone_radius: 40.0,
             sector_count: 8,

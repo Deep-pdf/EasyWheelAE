@@ -181,6 +181,15 @@ impl GeometryManager {
             ((angle_deg + half_span) / sector_span) as u8 % sector_count
         };
 
+        static COMPUTE_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let count = COMPUTE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if count % 30 == 0 {
+            println!(
+                "[GeometryManager:DIAG] compute() dx={:.0}, dy={:.0}, dist={:.1}, angle={:.0}, in_dead_zone={}, sector={}",
+                dx, dy, distance, angle_deg, in_dead_zone, sector
+            );
+        }
+
         // Record the current sector so ActionManager can read it at key-release
         // without needing to re-derive geometry.
         InputManager::set_last_sector(sector);

@@ -45,6 +45,17 @@ pub fn get_geometry_state() -> GeometryState {
     GeometryManager::compute()
 }
 
+/// Reports the current pointer coordinates from the overlay webview surface.
+///
+/// Called by the overlay frontend on pointer/mouse motion events. Updates
+/// `InputManager` with the live coordinates and initialises the session origin
+/// on the first received event.
+#[tauri::command]
+pub fn report_pointer_position(x: f64, y: f64) {
+    InputManager::update_pointer(x, y);
+}
+
+
 // ---------------------------------------------------------------------------
 // Settings commands (Phase 6)
 // ---------------------------------------------------------------------------
