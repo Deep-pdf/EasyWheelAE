@@ -93,6 +93,7 @@ pub fn run() {
             commands::get_pointer_state,
             commands::get_geometry_state,
             commands::report_pointer_position,
+            commands::overlay_log,
             // Phase 6 — Settings commands
             commands::get_config,
             commands::save_config,

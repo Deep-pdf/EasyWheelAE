@@ -107,49 +107,78 @@ function Overlay(): React.JSX.Element {
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
+    invoke("overlay_log", {
+      msg: `Overlay mounted. Viewport=${window.innerWidth}x${window.innerHeight}, DPR=${window.devicePixelRatio}`,
+    }).catch(() => {});
+
     // Fetch the window's physical-pixel position once on mount.
-    // The overlay window is full-screen and does not move, so a single read
-    // is sufficient for the entire application lifetime.
     getCurrentWindow()
       .innerPosition()
       .then((pos) => {
         setWindowOffset({ x: pos.x, y: pos.y });
         windowOffsetRef.current = { x: pos.x, y: pos.y };
+        invoke("overlay_log", {
+          msg: `Overlay innerPosition resolved: (${pos.x}, ${pos.y})`,
+        }).catch(() => {});
       })
-      .catch(() => {
-        // Non-fatal: wheel will appear at slightly wrong position if the
-        // window has a non-zero physical origin. Acceptable fallback.
+      .catch((err) => {
+        invoke("overlay_log", {
+          msg: `Overlay innerPosition failed: ${String(err)}`,
+        }).catch(() => {});
       });
 
-    // Report pointer motion on the overlay surface to the Rust backend
-    const handlePointer = (e: PointerEvent): void => {
+    let eventCount = 0;
+    const handlePointer = (e: MouseEvent | PointerEvent, source: string): void => {
+      eventCount++;
       const dpr = window.devicePixelRatio || 1;
       const physX = e.clientX * dpr + windowOffsetRef.current.x;
       const physY = e.clientY * dpr + windowOffsetRef.current.y;
-      invoke("report_pointer_position", { x: physX, y: physY }).catch(() => {});
+
+      if (eventCount === 1 || eventCount % 30 === 0) {
+        const pe = e as PointerEvent;
+        const msg = `[${source} #${eventCount}] type=${e.type}, client=(${e.clientX}, ${e.clientY}), page=(${e.pageX}, ${e.pageY}), screen=(${e.screenX}, ${e.screenY}), pointerType=${pe.pointerType || "mouse"}, isPrimary=${pe.isPrimary ?? true}, phys=(${physX.toFixed(1)}, ${physY.toFixed(1)})`;
+        invoke("overlay_log", { msg }).catch(() => {});
+      }
+
+      invoke("report_pointer_position", { x: physX, y: physY }).catch((err) => {
+        invoke("overlay_log", {
+          msg: `invoke report_pointer_position error: ${String(err)}`,
+        }).catch(() => {});
+      });
     };
 
-    window.addEventListener("pointermove", handlePointer, { passive: true });
-    window.addEventListener("pointerdown", handlePointer, { passive: true });
-    window.addEventListener("pointerenter", handlePointer, { passive: true });
+    const onPointerMove = (e: PointerEvent) => handlePointer(e, "window.pointermove");
+    const onMouseMove = (e: MouseEvent) => handlePointer(e, "window.mousemove");
+    const onPointerDown = (e: PointerEvent) => handlePointer(e, "window.pointerdown");
+    const onPointerEnter = (e: PointerEvent) => handlePointer(e, "window.pointerenter");
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true, capture: true });
+    window.addEventListener("mousemove", onMouseMove, { passive: true, capture: true });
+    window.addEventListener("pointerdown", onPointerDown, { passive: true, capture: true });
+    window.addEventListener("pointerenter", onPointerEnter, { passive: true, capture: true });
+    document.addEventListener("pointermove", onPointerMove, { passive: true, capture: true });
+
+    invoke("overlay_log", { msg: "Pointer and mouse event listeners installed on window & document (capture=true)" }).catch(() => {});
 
     let alive = true;
+    let pollCount = 0;
 
     /**
      * RAF polling loop.
-     *
-     * Invokes `get_geometry_state` every frame. On success, updates state
-     * which triggers a re-render of WheelRenderer. `finally` ensures the loop
-     * keeps running even when the invoke rejects transiently (e.g., during
-     * app shutdown), preventing the loop from silently stalling.
      */
     const poll = (): void => {
       if (!alive) return;
       invoke<GeometryState>("get_geometry_state")
-        .then((s) => setGeo(s))
-        .catch(() => {
-          // Transient IPC errors are non-fatal; continue polling.
+        .then((s) => {
+          pollCount++;
+          if (s.active && pollCount % 60 === 0) {
+            invoke("overlay_log", {
+              msg: `[RAF Poll #${pollCount}] active=${s.active}, origin=(${s.origin_x.toFixed(0)}, ${s.origin_y.toFixed(0)}), sector=${s.sector}, in_dead_zone=${s.in_dead_zone}`,
+            }).catch(() => {});
+          }
+          setGeo(s);
         })
+        .catch(() => {})
         .finally(() => {
           if (alive) rafRef.current = requestAnimationFrame(poll);
         });
@@ -160,9 +189,11 @@ function Overlay(): React.JSX.Element {
     return () => {
       alive = false;
       cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("pointermove", handlePointer);
-      window.removeEventListener("pointerdown", handlePointer);
-      window.removeEventListener("pointerenter", handlePointer);
+      window.removeEventListener("pointermove", onPointerMove, { capture: true });
+      window.removeEventListener("mousemove", onMouseMove, { capture: true });
+      window.removeEventListener("pointerdown", onPointerDown, { capture: true });
+      window.removeEventListener("pointerenter", onPointerEnter, { capture: true });
+      document.removeEventListener("pointermove", onPointerMove, { capture: true });
     };
   }, []);
 

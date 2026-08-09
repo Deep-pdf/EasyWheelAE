@@ -52,8 +52,16 @@ pub fn get_geometry_state() -> GeometryState {
 /// on the first received event.
 #[tauri::command]
 pub fn report_pointer_position(x: f64, y: f64) {
+    println!("[Commands:DIAG] report_pointer_position(x={:.1}, y={:.1}) received", x, y);
     InputManager::update_pointer(x, y);
 }
+
+/// Receives diagnostic log messages from the overlay frontend.
+#[tauri::command]
+pub fn overlay_log(msg: String) {
+    println!("[Overlay:FRONTEND] {}", msg);
+}
+
 
 
 // ---------------------------------------------------------------------------
