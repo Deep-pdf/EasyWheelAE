@@ -10,7 +10,7 @@ EasyWheelAE consists of two separate applications that communicate over a custom
 
 | Application | Technology | Role |
 |---|---|---|
-| **EasyWheel Host** | Tauri v2 · Rust · React · TypeScript | Windows background service — system tray, global hotkey, radial overlay, and setting dashboard. Runs the WebSocket server. |
+| **EasyWheel Host** | Tauri v2 · Rust · React · TypeScript | Cross-platform (Linux & Windows) desktop background service — system tray, global hotkey, radial overlay, and settings dashboard. Runs the WebSocket server. |
 | **EasyWheel AE** | Adobe CEP Extension | After Effects panel client — runs a WebSocket client, receives commands, and executes them via ExtendScript (`evalScript`). |
 | **Browser Extension** | Web Extension (MV3) · JavaScript | Browser integration client — service worker WebSocket client tracking open tabs and handling window/tab activation. |
 
@@ -42,11 +42,11 @@ This geometry is synchronized identically across:
 
 ## Core Features
 
-- **System Tray & Global Hotkeys**: Runs as a background service with a tray icon. Intercepts custom hotkeys via a global keyboard hook to trigger the overlay instantly.
+- **System Tray & Global Hotkeys**: Runs as a background service with a tray icon. Intercepts custom hotkeys via a global keyboard hook to trigger the overlay instantly on Wayland, X11, and Windows.
 - **Dynamic Radial Overlay**: Shows a transparent, hardware-accelerated radial command wheel centered on the mouse cursor with smooth CSS transitions.
 - **Context-Aware Profiles**: Detects active foreground applications and automatically switches the active radial layout profile.
 - **Extensible Action Providers**:
-  - **Windows Provider**: Launch applications, trigger keyboard shortcuts, run shell scripts, open folders/URLs.
+  - **System & Shell Provider**: Launch applications, trigger keyboard shortcuts, run shell scripts, open folders/URLs across Linux and Windows.
   - **Adobe Providers**: Out-of-the-box hooks for After Effects commands.
 - **Premium Settings Panel**: A comprehensive dashboard featuring:
   - **General Settings**: App startup, tray controls, and hotkey configuration.
@@ -140,18 +140,38 @@ EasyWheelAE/
 
 ## Development & Installation
 
-### End-User Installation (From Release Bundle)
+### End-User Installation (From Releases)
 
-1. Run the **EasyWheel_Setup.exe** installer inside the `Installer` directory to install the desktop host service.
-2. **Browser Extension**:
-   - Open Google Chrome (or any Chromium-based browser) and navigate to `chrome://extensions/`.
-   - Enable **Developer mode** using the toggle switch in the top-right corner.
-   - Click the **Load unpacked** button.
-   - Select the **Browser Extension** folder inside the `Installer` directory.
-3. **After Effects Extension**:
-   - Navigate into the **EasyWheelAE** folder inside the `Installer` directory.
-   - Go into the **installer** folder.
-   - Run the **install.bat** batch file to automatically install the extension.
+#### Linux (Universal AppImage)
+
+1. Download **`EasyWheel_1.0.0_amd64.AppImage`** from the [GitHub Releases](https://github.com/priyanshu-debug26/EasyWheelAE/releases) page.
+2. Grant executable permissions:
+   - **Via GUI**: Right-click the `.AppImage` file → **Properties** → **Permissions** → Check **"Allow executing file as program"**.
+   - **Via Terminal**:
+     ```bash
+     chmod +x EasyWheel_1.0.0_amd64.AppImage
+     ```
+3. Run the AppImage:
+   ```bash
+   ./EasyWheel_1.0.0_amd64.AppImage
+   ```
+   *(Optional)* If using **AppImageLauncher**, simply double-click the file to automatically integrate EasyWheel into your application menu and system search.
+
+#### Windows (Installer)
+
+1. Download and run **`EasyWheel_Setup.exe`** from the [GitHub Releases](https://github.com/priyanshu-debug26/EasyWheelAE/releases) page.
+2. Follow the setup wizard to install the background service.
+
+#### Extensions Setup
+
+- **Browser Extension (Chrome / Edge / Brave / Opera)**:
+  1. Open your browser and navigate to `chrome://extensions/` (or `edge://extensions/`).
+  2. Enable **Developer mode** using the toggle switch.
+  3. Click **Load unpacked** and select the `extensions/easywheel-browser` folder.
+- **After Effects Extension**:
+  1. Navigate to `bridges/after-effects/extension/installer`.
+  2. On Windows, run `install.bat` (or on Linux run `install.sh` if running AE via Wine/Proton) to copy the extension into the Adobe CEP directory.
+  3. Launch After Effects and open **Window** → **Extensions (Legacy)** → **EasyWheelAE**.
 
 ---
 
@@ -162,7 +182,7 @@ EasyWheelAE/
 #### Prerequisites
 - [Rust](https://rustup.rs/) (stable toolchain)
 - [Node.js](https://nodejs.org/) 20+
-- [Tauri v2 system dependencies](https://tauri.app/start/prerequisites/) (WebView2 on Windows)
+- [Tauri v2 system dependencies](https://tauri.app/start/prerequisites/) (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev` on Linux / WebView2 on Windows)
 
 #### Install & Run
 ```bash
@@ -171,10 +191,15 @@ npm install
 npm run tauri dev
 ```
 
-#### Build Production Bundle
-```bash
-npm run tauri build
-```
+#### Build Production Packages
+- **Linux AppImage**:
+  ```bash
+  npm run tauri build -- --bundles appimage
+  ```
+- **Windows Installer**:
+  ```bash
+  npm run tauri build
+  ```
 
 ---
 
