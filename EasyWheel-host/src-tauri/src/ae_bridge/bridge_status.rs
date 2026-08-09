@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use serde::Serialize;
+use std::sync::{Arc, Mutex};
 
 /// Connection status states of the Adobe After Effects Bridge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

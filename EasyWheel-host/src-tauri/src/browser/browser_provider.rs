@@ -1,7 +1,7 @@
-use serde::Deserialize;
+use super::browser_bridge::BrowserBridge;
 use crate::models::command_context::CommandContext;
 use crate::providers::provider::CommandProvider;
-use super::browser_bridge::BrowserBridge;
+use serde::Deserialize;
 
 pub struct BrowserProviderImpl;
 
@@ -26,35 +26,31 @@ impl CommandProvider for BrowserProviderImpl {
     }
 
     fn execute(&self, context: &CommandContext) -> Result<(), String> {
-        println!("[BrowserProvider:DIAG] Executing action '{}' with params: {:?}", context.action_id, context.parameters);
         match context.action_id.as_str() {
             "open_website" => {
                 let params: OpenWebsiteParams = serde_json::from_value(context.parameters.clone())
                     .map_err(|e| format!("Invalid parameters for open_website: {}", e))?;
-                
-                let browser = params.browser.clone().unwrap_or_else(|| "default".to_string());
+
+                let browser = params
+                    .browser
+                    .clone()
+                    .unwrap_or_else(|| "default".to_string());
                 let switch_to = params.switch_to_existing.unwrap_or(true);
                 let mut matched = false;
-
-                println!("[BrowserProvider:DIAG] open_website url='{}', browser='{}', switch_to={}", params.url, browser, switch_to);
 
                 if switch_to {
                     let bridge = BrowserBridge::global();
                     if let Some(tab) = bridge.find_matching_tab(&params.url, &browser) {
-                        println!("[BrowserProvider:DIAG] Found matching tab: title='{}', id={}, calling activate_tab", tab.title, tab.tab_id);
                         matched = true;
                         bridge.activate_tab(&tab)?;
-                    } else {
-                        println!("[BrowserProvider:DIAG] No matching tab found for url '{}'", params.url);
                     }
                 }
 
                 if !matched {
-                    println!("[BrowserProvider:DIAG] Opening launch url fallback: '{}'", params.url);
                     let bridge = BrowserBridge::global();
                     bridge.open_launch_url(&params.url, &browser)?;
                 }
-                
+
                 Ok(())
             }
             _ => Err(format!("Unsupported action: {}", context.action_id)),

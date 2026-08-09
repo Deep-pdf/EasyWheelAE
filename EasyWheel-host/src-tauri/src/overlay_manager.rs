@@ -50,9 +50,7 @@ impl OverlayManager {
         match Self::get_window(app) {
             Some(window) => {
                 if let Err(e) = window.hide() {
-                    eprintln!(
-                        "[EasyWheel Host] Error: Failed to hide overlay during create — {e}"
-                    );
+                    eprintln!("[EasyWheel Host] Error: Failed to hide overlay during create — {e}");
                 }
             }
             None => {
@@ -70,10 +68,7 @@ impl OverlayManager {
     /// No-op if the overlay is already visible. Logs the transition on
     /// success and an error message on failure; never panics.
     pub fn show<R: Runtime>(app: &AppHandle<R>) {
-        let is_vis = VISIBLE.load(Ordering::Relaxed);
-        println!("[OverlayManager:DIAG] show() called, current VISIBLE={}", is_vis);
-
-        if is_vis {
+        if VISIBLE.load(Ordering::Relaxed) {
             return;
         }
 
@@ -86,18 +81,9 @@ impl OverlayManager {
                 match window.show() {
                     Ok(_) => {
                         VISIBLE.store(true, Ordering::Relaxed);
-                        let is_visible = window.is_visible().unwrap_or(false);
-                        let inner_size = window.inner_size().ok();
-                        let outer_size = window.outer_size().ok();
-                        let inner_pos = window.inner_position().ok();
-                        let outer_pos = window.outer_position().ok();
-                        println!(
-                            "[OverlayManager:DIAG] window.show() SUCCEEDED. is_visible={}, inner_size={:?}, outer_size={:?}, inner_pos={:?}, outer_pos={:?}",
-                            is_visible, inner_size, outer_size, inner_pos, outer_pos
-                        );
                     }
                     Err(e) => {
-                        eprintln!("[OverlayManager:DIAG] window.show() FAILED: {e}");
+                        eprintln!("[OverlayManager] Error: window.show() failed — {e}");
                         InputManager::stop();
                     }
                 }
@@ -129,12 +115,8 @@ impl OverlayManager {
         // while the overlay is hidden.
         InputManager::stop();
 
-        // Capture last sector before the window hides. The foreground
-        // application query in ActionManager still returns the correct app
-        // at this point because the overlay itself is not a foreground window
-        // (it is click-through and transparent).
+        // Capture last sector before the window hides.
         let last_sector = InputManager::get_last_sector();
-        println!("[OverlayManager:DIAG] hide() called, last_sector={:?}", last_sector);
 
         match Self::get_window(app) {
             Some(window) => {
@@ -153,15 +135,8 @@ impl OverlayManager {
         }
 
         // Execute the action for the selected sector.
-        // This runs after hide() so the overlay is not visible during
-        // execution. For Phase 5 (terminal output only) the ordering is
-        // cosmetically irrelevant but establishes the correct pattern for
-        // future phases that may interact with the foreground application.
         if let Some(sector) = last_sector {
-            println!("[OverlayManager:DIAG] Calling ActionManager::execute_for_sector({})", sector);
             ActionManager::execute_for_sector(sector);
-        } else {
-            println!("[OverlayManager:DIAG] last_sector is None, no action dispatched");
         }
     }
 

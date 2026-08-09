@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex, OnceLock};
 use crate::providers::provider::CommandProvider;
+use std::sync::{Arc, Mutex, OnceLock};
 
 /// Global provider registry instance.
 static REGISTRY: OnceLock<Mutex<ProviderRegistry>> = OnceLock::new();
@@ -24,7 +24,11 @@ impl ProviderRegistry {
 
     /// Registers a provider with the registry.
     pub fn register(&mut self, provider: Arc<dyn CommandProvider>) {
-        if !self.providers.iter().any(|p| p.provider_name() == provider.provider_name()) {
+        if !self
+            .providers
+            .iter()
+            .any(|p| p.provider_name() == provider.provider_name())
+        {
             self.providers.push(provider);
         }
     }
@@ -36,7 +40,11 @@ impl ProviderRegistry {
     }
 
     /// Finds a provider that is capable of executing the given action ID under the active profile.
-    pub fn find_by_action(&self, action_id: &str, profile: &str) -> Option<Arc<dyn CommandProvider>> {
+    pub fn find_by_action(
+        &self,
+        action_id: &str,
+        profile: &str,
+    ) -> Option<Arc<dyn CommandProvider>> {
         self.providers
             .iter()
             .find(|p| p.can_execute(action_id, profile))

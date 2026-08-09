@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
 
 /// Represents a command configured on a wheel sector, supporting both
 /// legacy string (Action ID) and new parameterized command (JSON object) formats.
@@ -66,7 +66,11 @@ impl<'de> Deserialize<'de> for ConfiguredCommand {
                 label: String::new(),
                 parameters: empty_json_object(),
             }),
-            Helper::New { command_id, label, parameters } => Ok(ConfiguredCommand {
+            Helper::New {
+                command_id,
+                label,
+                parameters,
+            } => Ok(ConfiguredCommand {
                 command_id,
                 label,
                 parameters,

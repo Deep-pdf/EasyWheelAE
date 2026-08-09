@@ -18,8 +18,8 @@ pub fn generate_request_id() -> String {
 /// Formats the current time in ISO8601 format.
 #[cfg(target_os = "windows")]
 pub fn get_iso8601_timestamp() -> String {
-    use winapi::um::sysinfoapi::GetSystemTime;
     use winapi::um::minwinbase::SYSTEMTIME;
+    use winapi::um::sysinfoapi::GetSystemTime;
 
     let mut st = SYSTEMTIME {
         wYear: 0,

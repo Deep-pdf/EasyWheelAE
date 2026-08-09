@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Represents a versioned command request sent from the Host to the Adobe extension.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -75,6 +75,9 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// pointer event received from the overlay surface (used on Linux/Wayland).
 static ORIGIN_UNSET: AtomicBool = AtomicBool::new(false);
 
+/// The target application executable captured when the current tracking session started.
+static SESSION_APP: OnceLock<Mutex<String>> = OnceLock::new();
+
 /// The sector index that was active at the moment tracking was last running.
 ///
 /// Updated by `GeometryManager` via `InputManager::set_last_sector()` on
@@ -113,16 +116,19 @@ impl InputManager {
 
     /// Begins pointer tracking.
     ///
-    /// On Windows, reads the current cursor position via `GetCursorPos` as the
-    /// origin and spawns the tracker polling thread.
-    /// On Linux / Wayland, sets `ORIGIN_UNSET` so the first pointer event from
-    /// the overlay surface captures the origin, and accepts live pointer updates.
-    /// Safe to call multiple times — if tracking is already active this is a no-op.
+    /// Captures the foreground target application at the moment the hotkey is triggered,
+    /// so the active profile is preserved throughout the session.
     pub fn start() {
         // Guard: do not spawn/re-arm if one is already running.
         if TRACKING.load(Ordering::Relaxed) {
-            println!("[InputManager:DIAG] start() called but TRACKING is already true");
             return;
+        }
+
+        // Capture the active foreground application BEFORE the overlay window appears
+        let app_exe = crate::foreground_application::ForegroundApplicationService::get_executable();
+        let session_app_lock = SESSION_APP.get_or_init(|| Mutex::new(String::new()));
+        if let Ok(mut g) = session_app_lock.lock() {
+            *g = app_exe;
         }
 
         // Reset last sector so a stale value from the previous session is
@@ -138,8 +144,6 @@ impl InputManager {
                 );
                 (0.0, 0.0)
             });
-
-            println!("[InputManager:DIAG] start() captured origin: ({}, {})", origin.0, origin.1);
 
             {
                 let mut guard = Self::state().lock().unwrap_or_else(|e| e.into_inner());
@@ -157,20 +161,15 @@ impl InputManager {
 
             TRACKING.store(true, Ordering::Relaxed);
 
-            match std::thread::Builder::new()
+            if let Err(e) = std::thread::Builder::new()
                 .name("input-tracker".into())
                 .spawn(Self::run_tracker)
             {
-                Ok(_) => {
-                    println!("[InputManager:DIAG] input-tracker thread spawned successfully");
-                }
-                Err(e) => {
-                    eprintln!(
-                        "[EasyWheel Host] Error: Failed to spawn input-tracker thread — {e}. \
-                         Pointer tracking will be unavailable."
-                    );
-                    TRACKING.store(false, Ordering::Relaxed);
-                }
+                eprintln!(
+                    "[EasyWheel Host] Error: Failed to spawn input-tracker thread — {e}. \
+                     Pointer tracking will be unavailable."
+                );
+                TRACKING.store(false, Ordering::Relaxed);
             }
         }
 
@@ -193,7 +192,6 @@ impl InputManager {
             }
 
             TRACKING.store(true, Ordering::Relaxed);
-            println!("[InputManager:DIAG] Native Wayland tracking started (awaiting overlay pointer events, X11 query_pointer disabled)");
         }
     }
 
@@ -208,7 +206,6 @@ impl InputManager {
     /// so it must remain valid through the hide sequence. It is reset to 255
     /// at the start of the next `start()` call.
     pub fn stop() {
-        println!("[InputManager:DIAG] stop() called");
         TRACKING.store(false, Ordering::Relaxed);
         ORIGIN_UNSET.store(false, Ordering::Relaxed);
         // Mark inactive immediately so the frontend's next poll returns
@@ -231,10 +228,6 @@ impl InputManager {
         if ORIGIN_UNSET.swap(false, Ordering::Relaxed) {
             guard.origin_x = x;
             guard.origin_y = y;
-            println!(
-                "[InputManager:DIAG] Overlay pointer captured origin: ({:.0}, {:.0})",
-                x, y
-            );
         }
 
         let dx = x - guard.origin_x;
@@ -245,15 +238,6 @@ impl InputManager {
         guard.delta_x = dx;
         guard.delta_y = dy;
         guard.distance = dist;
-
-        static EVENT_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let count = EVENT_COUNT.fetch_add(1, Ordering::Relaxed);
-        if count % 30 == 0 {
-            println!(
-                "[InputManager:DIAG] Overlay pointer update pos=({:.0}, {:.0}), delta=({:.0}, {:.0}), dist={:.1}",
-                x, y, dx, dy, dist
-            );
-        }
     }
 
     /// Records the most recently computed sector index.
@@ -262,7 +246,6 @@ impl InputManager {
     /// is active. `255` signals the dead zone (cursor inside the dead-zone
     /// radius). This matches the sentinel used in `GeometryState::sector`.
     pub fn set_last_sector(sector: u8) {
-        println!("[InputManager:DIAG] set_last_sector({}) called", sector);
         LAST_SECTOR.store(sector, Ordering::Relaxed);
     }
 
@@ -273,8 +256,23 @@ impl InputManager {
     /// uses this to decide whether to dispatch an action.
     pub fn get_last_sector() -> Option<u8> {
         let s = LAST_SECTOR.load(Ordering::Relaxed);
-        println!("[InputManager:DIAG] get_last_sector() read raw LAST_SECTOR={}", s);
-        if s == 255 { None } else { Some(s) }
+        if s == 255 {
+            None
+        } else {
+            Some(s)
+        }
+    }
+
+    /// Returns the target application executable captured at the moment tracking started.
+    /// If tracking is not active, falls back to querying ForegroundApplicationService directly.
+    pub fn get_session_app() -> String {
+        let session_app_lock = SESSION_APP.get_or_init(|| Mutex::new(String::new()));
+        if let Ok(g) = session_app_lock.lock() {
+            if !g.is_empty() && TRACKING.load(Ordering::Relaxed) {
+                return g.clone();
+            }
+        }
+        crate::foreground_application::ForegroundApplicationService::get_executable()
     }
 
     /// Returns a snapshot clone of the current `PointerState`.
@@ -298,35 +296,20 @@ impl InputManager {
     /// 4. Sleeps for 16 ms to maintain the ~60 Hz cadence.
     #[cfg(target_os = "windows")]
     fn run_tracker() {
-        println!("[InputManager:DIAG] run_tracker loop started");
-        let mut frame_count: u64 = 0;
         while TRACKING.load(Ordering::Relaxed) {
-            match Self::read_cursor() {
-                Some((x, y)) => {
-                    let mut guard = Self::state().lock().unwrap_or_else(|e| e.into_inner());
-                    let dx = x - guard.origin_x;
-                    let dy = y - guard.origin_y;
-                    let dist = (dx * dx + dy * dy).sqrt();
-                    guard.current_x = x;
-                    guard.current_y = y;
-                    guard.delta_x = dx;
-                    guard.delta_y = dy;
-                    guard.distance = dist;
-                    if frame_count % 30 == 0 {
-                        println!(
-                            "[InputManager:DIAG] Tracker pos=({:.0}, {:.0}), delta=({:.0}, {:.0}), dist={:.1}",
-                            x, y, dx, dy, dist
-                        );
-                    }
-                }
-                None => {
-                    println!("[InputManager:DIAG] read_cursor() returned None");
-                }
+            if let Some((x, y)) = Self::read_cursor() {
+                let mut guard = Self::state().lock().unwrap_or_else(|e| e.into_inner());
+                let dx = x - guard.origin_x;
+                let dy = y - guard.origin_y;
+                let dist = (dx * dx + dy * dy).sqrt();
+                guard.current_x = x;
+                guard.current_y = y;
+                guard.delta_x = dx;
+                guard.delta_y = dy;
+                guard.distance = dist;
             }
-            frame_count += 1;
             std::thread::sleep(Duration::from_millis(16));
         }
-        println!("[InputManager:DIAG] run_tracker loop exited");
     }
 
     /// Reads the current global cursor position in physical screen pixels.
@@ -376,7 +359,3 @@ mod tests {
         assert!(!InputManager::get_state().active);
     }
 }
-
-
-
-

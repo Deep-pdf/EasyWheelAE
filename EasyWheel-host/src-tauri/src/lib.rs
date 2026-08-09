@@ -1,26 +1,26 @@
 // Module declarations. Each module has a single, well-defined responsibility.
 // No business logic is permitted in this file beyond application orchestration.
-mod command_registry;
 mod action_manager;
 mod action_registry;
+mod ae_bridge;
 mod app_state;
+mod browser;
+mod command_dispatcher;
+mod command_registry;
 mod commands;
 mod config_manager;
 mod foreground_application;
 mod geometry_manager;
 mod hotkey_manager;
 mod input_manager;
+mod ipc;
 mod models;
 mod overlay_manager;
 mod profile_manager;
-mod tray;
-mod window_manager;
-mod command_dispatcher;
 mod provider_registry;
 mod providers;
-mod ae_bridge;
-mod browser;
-mod ipc;
+mod tray;
+mod window_manager;
 
 // `Manager` must be explicitly imported for `app.manage()` to resolve.
 use tauri::Manager;
@@ -83,9 +83,7 @@ pub fn run() {
             // Step 7 — Install the global keyboard hook.
             hotkey_manager::HotkeyManager::register(&handle);
 
-            println!(
-                "[EasyWheel Host] Info: Initialisation complete. Running in system tray."
-            );
+            println!("[EasyWheel Host] Info: Initialisation complete. Running in system tray.");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -93,7 +91,6 @@ pub fn run() {
             commands::get_pointer_state,
             commands::get_geometry_state,
             commands::report_pointer_position,
-            commands::overlay_log,
             // Phase 6 — Settings commands
             commands::get_config,
             commands::save_config,

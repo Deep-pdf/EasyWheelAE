@@ -1,12 +1,12 @@
 use std::collections::HashMap;
+use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Sender, RecvTimeoutError};
 use std::time::Duration;
 
-use crate::ipc::{CommandRequest, CommandResponse};
-use crate::config_manager::ConfigManager;
+use super::bridge_status::{BridgeStatus, BridgeStatusTracker};
 use super::request_queue::RequestQueue;
-use super::bridge_status::{BridgeStatusTracker, BridgeStatus};
+use crate::config_manager::ConfigManager;
+use crate::ipc::{CommandRequest, CommandResponse};
 
 /// Handles WebSocket messaging: queuing commands, forwarding them to the
 /// server-loop thread that exclusively owns the socket, and routing responses
@@ -57,7 +57,8 @@ impl AEBridgeClient {
 
     /// Allocates a new unique connection ID.
     pub fn next_conn_id(&self) -> u64 {
-        self.conn_id_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        self.conn_id_counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Registers the write channel when a client connects.
@@ -110,7 +111,7 @@ impl AEBridgeClient {
     /// If the bridge is not yet connected the request is enqueued; it will be
     /// flushed the next time a client connects via `drain_queue`.
     pub fn send_request(&self, req: CommandRequest) -> Result<CommandResponse, String> {
-        let req_id  = req.request_id.clone();
+        let req_id = req.request_id.clone();
         let command = req.command.clone();
 
         let config = ConfigManager::get();
@@ -122,7 +123,10 @@ impl AEBridgeClient {
         // that a very fast response cannot be lost in a race.
         let (tx, rx) = channel();
         {
-            let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+            let mut pending = self
+                .pending_requests
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             pending.insert(req_id.clone(), tx);
         }
 
@@ -131,32 +135,39 @@ impl AEBridgeClient {
             // Offline path: enqueue and wait
             // -----------------------------------------------------------------
             if let Err(e) = self.queue.push(req) {
-                let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                let mut pending = self
+                    .pending_requests
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 pending.remove(&req_id);
                 return Err(format!("Queue failed: {}", e));
             }
 
             let timeout = Duration::from_millis(config.global.adobe_timeout_ms);
             match rx.recv_timeout(timeout) {
-                Ok(res)                          => Ok(res),
-                Err(RecvTimeoutError::Timeout)   => {
-                    let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                Ok(res) => Ok(res),
+                Err(RecvTimeoutError::Timeout) => {
+                    let mut pending = self
+                        .pending_requests
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner());
                     pending.remove(&req_id);
                     eprintln!("[AEBridge] Error: Queued request timed out: {}", req_id);
                     Err("Timeout".to_string())
                 }
-                Err(RecvTimeoutError::Disconnected) => {
-                    Err("Lost connection".to_string())
-                }
+                Err(RecvTimeoutError::Disconnected) => Err("Lost connection".to_string()),
             }
         } else {
             // -----------------------------------------------------------------
             // Online path: forward to server loop via channel
             // -----------------------------------------------------------------
             let payload = match serde_json::to_string(&req) {
-                Ok(p)  => p,
+                Ok(p) => p,
                 Err(e) => {
-                    let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                    let mut pending = self
+                        .pending_requests
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner());
                     pending.remove(&req_id);
                     return Err(format!("Serialization error: {}", e));
                 }
@@ -165,7 +176,10 @@ impl AEBridgeClient {
             println!("[AEBridge] Info: Command Sent: {}", command);
 
             if !self.send_raw(payload) {
-                let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                let mut pending = self
+                    .pending_requests
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 pending.remove(&req_id);
                 self.status.set(BridgeStatus::Disconnected);
                 return Err("Lost connection".to_string());
@@ -178,14 +192,18 @@ impl AEBridgeClient {
                     Ok(res)
                 }
                 Err(RecvTimeoutError::Timeout) => {
-                    let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                    let mut pending = self
+                        .pending_requests
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner());
                     pending.remove(&req_id);
-                    eprintln!("[AEBridge] Error: Timeout occurred waiting for response: {}", req_id);
+                    eprintln!(
+                        "[AEBridge] Error: Timeout occurred waiting for response: {}",
+                        req_id
+                    );
                     Err("Timeout".to_string())
                 }
-                Err(RecvTimeoutError::Disconnected) => {
-                    Err("Lost connection".to_string())
-                }
+                Err(RecvTimeoutError::Disconnected) => Err("Lost connection".to_string()),
             }
         }
     }
@@ -205,7 +223,10 @@ impl AEBridgeClient {
 
             // Skip requests that have already timed out on the caller side.
             let has_receiver = {
-                let pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                let pending = self
+                    .pending_requests
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 pending.contains_key(&req_id)
             };
             if !has_receiver {
@@ -213,7 +234,7 @@ impl AEBridgeClient {
             }
 
             let payload = match serde_json::to_string(&req) {
-                Ok(p)  => p,
+                Ok(p) => p,
                 Err(e) => {
                     eprintln!("[AEBridge] Error serializing queued request: {}", e);
                     continue;
@@ -244,8 +265,8 @@ impl AEBridgeClient {
                         println!("[AEBridge] GET_PROFILE received");
                         let config = ConfigManager::get();
                         if let Some(profile) = config.profiles.iter().find(|p| {
-                            p.name.to_ascii_lowercase().contains("after effects") ||
-                            p.executable.to_ascii_lowercase() == "afterfx.exe"
+                            p.name.to_ascii_lowercase().contains("after effects")
+                                || p.executable.to_ascii_lowercase() == "afterfx.exe"
                         }) {
                             let cep_profile = self.convert_profile_to_cep(profile);
                             let available_commands = self.get_available_commands();
@@ -258,7 +279,8 @@ impl AEBridgeClient {
                                 "categories": categories,
                                 "registryVersion": "1.2.0",
                                 "profileVersion": profile.version
-                            }).to_string();
+                            })
+                            .to_string();
 
                             self.send_raw(response);
                             println!("[AEBridge] PROFILE_DATA sent");
@@ -271,29 +293,35 @@ impl AEBridgeClient {
                         println!("[AEBridge] UPDATE_SECTOR received");
                         if let (Some(sector_idx_val), Some(cmd_id_val)) = (
                             json.get("sectorIndex").and_then(|v| v.as_u64()),
-                            json.get("commandId")
+                            json.get("commandId"),
                         ) {
                             let sector_idx = sector_idx_val as u8;
                             let mut config = ConfigManager::get();
                             if let Some(idx) = config.profiles.iter().position(|p| {
-                                p.name.to_ascii_lowercase().contains("after effects") ||
-                                p.executable.to_ascii_lowercase() == "afterfx.exe"
+                                p.name.to_ascii_lowercase().contains("after effects")
+                                    || p.executable.to_ascii_lowercase() == "afterfx.exe"
                             }) {
                                 let mut updated_profile = config.profiles[idx].clone();
                                 let next_version = updated_profile.version + 1;
                                 updated_profile.version = next_version;
-                                updated_profile.last_modified = crate::ipc::protocol::get_iso8601_timestamp();
-                                updated_profile.last_modified_by = "After Effects Panel".to_string();
+                                updated_profile.last_modified =
+                                    crate::ipc::protocol::get_iso8601_timestamp();
+                                updated_profile.last_modified_by =
+                                    "After Effects Panel".to_string();
 
                                 if cmd_id_val.is_null() {
                                     updated_profile.sector_assignments.remove(&sector_idx);
                                 } else if let Some(cmd_id_str) = cmd_id_val.as_str() {
-                                    let display_name = crate::command_registry::get_command(cmd_id_str)
-                                        .map(|c| c.name)
-                                        .unwrap_or_else(|| cmd_id_str.to_string());
+                                    let display_name =
+                                        crate::command_registry::get_command(cmd_id_str)
+                                            .map(|c| c.name)
+                                            .unwrap_or_else(|| cmd_id_str.to_string());
                                     updated_profile.sector_assignments.insert(
                                         sector_idx,
-                                        crate::models::profile::ConfiguredCommand::legacy(cmd_id_str, &display_name)
+                                        crate::models::profile::ConfiguredCommand::legacy(
+                                            cmd_id_str,
+                                            &display_name,
+                                        ),
                                     );
                                 }
 
@@ -301,11 +329,15 @@ impl AEBridgeClient {
                                 println!("[AEBridge] Profile updated");
 
                                 if let Err(e) = ConfigManager::update_and_save(config) {
-                                    eprintln!("[AEBridge] Error: Failed to save updated profile: {}", e);
+                                    eprintln!(
+                                        "[AEBridge] Error: Failed to save updated profile: {}",
+                                        e
+                                    );
                                     let error_response = serde_json::json!({
                                         "type": "ERROR",
                                         "message": format!("Failed to save profile: {}", e)
-                                    }).to_string();
+                                    })
+                                    .to_string();
                                     self.send_raw(error_response);
                                     return;
                                 }
@@ -315,7 +347,8 @@ impl AEBridgeClient {
                                 let ack_response = serde_json::json!({
                                     "type": "ACK",
                                     "message": "Sector updated successfully"
-                                }).to_string();
+                                })
+                                .to_string();
                                 self.send_raw(ack_response);
                             }
                         }
@@ -327,22 +360,34 @@ impl AEBridgeClient {
 
             if let Ok(res) = serde_json::from_value::<CommandResponse>(json) {
                 let req_id = res.request_id.clone();
-                let mut pending = self.pending_requests.lock().unwrap_or_else(|e| e.into_inner());
+                let mut pending = self
+                    .pending_requests
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 if let Some(tx) = pending.remove(&req_id) {
                     let _ = tx.send(res);
                 }
                 return;
             }
         }
-        eprintln!("[AEBridge] Error: Failed to parse incoming message: {}", text);
+        eprintln!(
+            "[AEBridge] Error: Failed to parse incoming message: {}",
+            text
+        );
     }
 
     /// Helper: Converts a Host Profile into a CEP-compatible Profile JSON.
-    fn convert_profile_to_cep(&self, profile: &crate::models::profile::Profile) -> serde_json::Value {
+    fn convert_profile_to_cep(
+        &self,
+        profile: &crate::models::profile::Profile,
+    ) -> serde_json::Value {
         let mut sectors = Vec::new();
         for i in 0..8 {
             let number = i + 1;
-            let assigned_command_id = profile.sector_assignments.get(&i).map(|c| c.command_id.clone());
+            let assigned_command_id = profile
+                .sector_assignments
+                .get(&i)
+                .map(|c| c.command_id.clone());
             sectors.push(serde_json::json!({
                 "number": number,
                 "assignedCommandId": assigned_command_id
@@ -362,15 +407,18 @@ impl AEBridgeClient {
 
     /// Helper: Retrieves available AE commands for the CEP picker.
     fn get_available_commands(&self) -> Vec<serde_json::Value> {
-        crate::command_registry::get_commands().iter().map(|c| {
-            serde_json::json!({
-                "id": c.id,
-                "name": c.name,
-                "category": c.category,
-                "description": c.description,
-                "executionType": "Native"
+        crate::command_registry::get_commands()
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "id": c.id,
+                    "name": c.name,
+                    "category": c.category,
+                    "description": c.description,
+                    "executionType": "Native"
+                })
             })
-        }).collect()
+            .collect()
     }
 
     /// Helper: Retrieves unique categories from command registry.

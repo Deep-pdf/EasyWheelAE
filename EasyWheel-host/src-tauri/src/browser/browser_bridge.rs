@@ -1,19 +1,14 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
-use std::sync::mpsc::{channel, Sender};
-use std::thread;
-use std::net::TcpListener;
-use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::net::TcpListener;
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::thread;
+use std::time::Duration;
 use tungstenite::{accept, Message};
 
 #[cfg(target_os = "windows")]
 use winapi::shared::windef::HWND;
-#[cfg(target_os = "windows")]
-use winapi::um::winuser::{
-    EnumWindows, GetClassNameW, GetWindowTextW, GetWindowThreadProcessId,
-    IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW, IsIconic,
-};
 #[cfg(target_os = "windows")]
 use winapi::um::handleapi::CloseHandle;
 #[cfg(target_os = "windows")]
@@ -22,6 +17,11 @@ use winapi::um::processthreadsapi::OpenProcess;
 use winapi::um::winbase::QueryFullProcessImageNameW;
 #[cfg(target_os = "windows")]
 use winapi::um::winnt::PROCESS_QUERY_LIMITED_INFORMATION;
+#[cfg(target_os = "windows")]
+use winapi::um::winuser::{
+    EnumWindows, GetClassNameW, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
+    IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
+};
 
 // ---------------------------------------------------------------------------
 // Public data types
@@ -171,7 +171,10 @@ impl BrowserBridge {
                     // Step 2 — Set a read timeout NOW (after handshake succeeds)
                     // so the reader loop can yield without blocking the mutex.
                     // ----------------------------------------------------------
-                    if let Err(e) = ws.get_ref().set_read_timeout(Some(Duration::from_millis(50))) {
+                    if let Err(e) = ws
+                        .get_ref()
+                        .set_read_timeout(Some(Duration::from_millis(50)))
+                    {
                         eprintln!("[BrowserBridge] set_read_timeout failed: {}", e);
                     }
 
@@ -216,12 +219,7 @@ impl BrowserBridge {
 
                         match msg {
                             Ok(Message::Text(text)) => {
-                                handle_incoming(
-                                    &text,
-                                    &tx,
-                                    &state_clone,
-                                    &mut registered_browser,
-                                );
+                                handle_incoming(&text, &tx, &state_clone, &mut registered_browser);
                             }
                             Ok(Message::Ping(data)) => {
                                 // tungstenite auto-replies to Ping, but we must
@@ -268,7 +266,10 @@ impl BrowserBridge {
     // -------------------------------------------------------------------------
 
     pub fn find_matching_tab(&self, url: &str, browser_filter: &str) -> Option<BrowserTab> {
-        println!("[BrowserBridge] Received Browser Shortcut request for: {}", url);
+        println!(
+            "[BrowserBridge] Received Browser Shortcut request for: {}",
+            url
+        );
 
         let guard = self.state.lock().unwrap();
         let filter_lower = browser_filter.to_ascii_lowercase();
@@ -282,12 +283,12 @@ impl BrowserBridge {
 
         for (browser_name, session) in &guard.sessions {
             let matches_browser = match filter_lower.as_str() {
-                "chrome"  => browser_name == "chrome",
-                "edge"    => browser_name == "edge",
-                "brave"   => browser_name == "brave",
-                "opera"   => browser_name == "opera",
+                "chrome" => browser_name == "chrome",
+                "edge" => browser_name == "edge",
+                "brave" => browser_name == "brave",
+                "opera" => browser_name == "opera",
                 "firefox" => browser_name == "firefox",
-                _         => true,
+                _ => true,
             };
 
             if matches_browser {
@@ -339,7 +340,10 @@ impl BrowserBridge {
             let outbox = match outbox {
                 Some(o) => o,
                 None => {
-                    println!("[BrowserBridge] No extension session for tab {}", tab.tab_id);
+                    println!(
+                        "[BrowserBridge] No extension session for tab {}",
+                        tab.tab_id
+                    );
                     return Err("No extension session for this tab".to_string());
                 }
             };
@@ -357,11 +361,10 @@ impl BrowserBridge {
 
         // Send the activate command to the extension.
         let cmd = HostCommand::ActivateTab {
-            tab_id:    tab.tab_id,
+            tab_id: tab.tab_id,
             window_id: tab.window_id,
         };
-        let cmd_str = serde_json::to_string(&cmd)
-            .map_err(|e| format!("Serialise error: {}", e))?;
+        let cmd_str = serde_json::to_string(&cmd).map_err(|e| format!("Serialise error: {}", e))?;
 
         println!(
             "[BrowserBridge] Sending ACTIVATE_TAB tabId={} windowId={}",
@@ -450,7 +453,10 @@ fn handle_incoming(
     let msg = match serde_json::from_str::<ExtensionMessage>(text) {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("[BrowserBridge] Unrecognised message: {} — raw: {}", e, text);
+            eprintln!(
+                "[BrowserBridge] Unrecognised message: {} — raw: {}",
+                e, text
+            );
             return;
         }
     };
@@ -475,12 +481,20 @@ fn handle_incoming(
             );
         }
 
-        ExtensionMessage::ActivateTabResult { tab_id, success, error } => {
+        ExtensionMessage::ActivateTabResult {
+            tab_id,
+            success,
+            error,
+        } => {
             println!(
                 "[BrowserBridge] ACTIVATE_TAB_RESULT tabId={} success={}{}",
                 tab_id,
                 success,
-                if let Some(ref e) = error { format!(" error={}", e) } else { String::new() }
+                if let Some(ref e) = error {
+                    format!(" error={}", e)
+                } else {
+                    String::new()
+                }
             );
 
             let mut guard = state.lock().unwrap();
@@ -511,8 +525,12 @@ pub fn extract_host(url: &str) -> &str {
     } else if s.starts_with("http://") {
         s = &s[7..];
     }
-    if let Some(p) = s.find('/') { s = &s[..p]; }
-    if let Some(p) = s.find(':') { s = &s[..p]; }
+    if let Some(p) = s.find('/') {
+        s = &s[..p];
+    }
+    if let Some(p) = s.find(':') {
+        s = &s[..p];
+    }
     s
 }
 
@@ -520,7 +538,7 @@ pub fn get_base_domain(host: &str) -> &str {
     let parts: Vec<&str> = host.split('.').collect();
     if parts.len() > 2 {
         let last = parts[parts.len() - 1];
-        let snd  = parts[parts.len() - 2];
+        let snd = parts[parts.len() - 2];
         // Two-part ccTLD secondaries
         if matches!(
             (snd, last),
@@ -540,7 +558,9 @@ pub fn get_base_domain(host: &str) -> &str {
 pub fn match_domain(configured_url: &str, tab_url: &str) -> bool {
     let ch = extract_host(configured_url).to_lowercase();
     let th = extract_host(tab_url).to_lowercase();
-    if ch.is_empty() || th.is_empty() { return false; }
+    if ch.is_empty() || th.is_empty() {
+        return false;
+    }
     get_base_domain(&ch) == get_base_domain(&th)
 }
 
@@ -552,8 +572,10 @@ pub fn match_domain(configured_url: &str, tab_url: &str) -> bool {
 fn get_process_name(pid: u32) -> Option<String> {
     unsafe {
         let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
-        if h.is_null() { return None; }
-        let mut buf  = vec![0u16; 260];
+        if h.is_null() {
+            return None;
+        }
+        let mut buf = vec![0u16; 260];
         let mut size = buf.len() as u32;
         let ok = QueryFullProcessImageNameW(h, 0, buf.as_mut_ptr(), &mut size);
         CloseHandle(h);
@@ -569,10 +591,10 @@ fn get_process_name(pid: u32) -> Option<String> {
 
 #[cfg(target_os = "windows")]
 struct FocusState {
-    process_names:   Vec<String>,
-    class_name:      String,
+    process_names: Vec<String>,
+    class_name: String,
     title_substring: String,
-    focused:         bool,
+    focused: bool,
 }
 
 #[cfg(target_os = "windows")]
@@ -581,7 +603,9 @@ unsafe extern "system" fn focus_callback(
     lparam: winapi::shared::minwindef::LPARAM,
 ) -> winapi::shared::minwindef::BOOL {
     let state = &mut *(lparam as *mut FocusState);
-    if state.focused { return 0; }
+    if state.focused {
+        return 0;
+    }
 
     if IsWindowVisible(hwnd) != 0 {
         let mut cls = vec![0u16; 256];
@@ -596,7 +620,8 @@ unsafe extern "system" fn focus_callback(
                     if state.process_names.iter().any(|p| p == &proc_l) {
                         let mut title = vec![0u16; 512];
                         let tl = GetWindowTextW(hwnd, title.as_mut_ptr(), title.len() as i32);
-                        let title_s = String::from_utf16_lossy(&title[..tl as usize]).to_lowercase();
+                        let title_s =
+                            String::from_utf16_lossy(&title[..tl as usize]).to_lowercase();
                         if title_s.contains(&state.title_substring) {
                             if IsIconic(hwnd) != 0 {
                                 ShowWindow(hwnd, SW_RESTORE);
@@ -618,11 +643,26 @@ unsafe extern "system" fn focus_callback(
 #[cfg(target_os = "windows")]
 pub fn focus_window(browser: &str, tab_title: &str) -> bool {
     let (process_names, class_name) = match browser.to_ascii_lowercase().as_str() {
-        "chrome"  => (vec!["chrome.exe".to_string()],  "Chrome_WidgetWin_1".to_string()),
-        "edge"    => (vec!["msedge.exe".to_string()],  "Chrome_WidgetWin_1".to_string()),
-        "brave"   => (vec!["brave.exe".to_string()],   "Chrome_WidgetWin_1".to_string()),
-        "opera"   => (vec!["opera.exe".to_string()],   "Chrome_WidgetWin_1".to_string()),
-        "firefox" => (vec!["firefox.exe".to_string()], "MozillaWindowClass".to_string()),
+        "chrome" => (
+            vec!["chrome.exe".to_string()],
+            "Chrome_WidgetWin_1".to_string(),
+        ),
+        "edge" => (
+            vec!["msedge.exe".to_string()],
+            "Chrome_WidgetWin_1".to_string(),
+        ),
+        "brave" => (
+            vec!["brave.exe".to_string()],
+            "Chrome_WidgetWin_1".to_string(),
+        ),
+        "opera" => (
+            vec!["opera.exe".to_string()],
+            "Chrome_WidgetWin_1".to_string(),
+        ),
+        "firefox" => (
+            vec!["firefox.exe".to_string()],
+            "MozillaWindowClass".to_string(),
+        ),
         _ => return false,
     };
 
@@ -630,15 +670,17 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
 
     for _ in 0..5 {
         let mut state = FocusState {
-            process_names:   process_names.clone(),
-            class_name:      class_name.clone(),
+            process_names: process_names.clone(),
+            class_name: class_name.clone(),
             title_substring: needle.clone(),
-            focused:         false,
+            focused: false,
         };
         unsafe {
             EnumWindows(Some(focus_callback), &mut state as *mut FocusState as _);
         }
-        if state.focused { return true; }
+        if state.focused {
+            return true;
+        }
         thread::sleep(Duration::from_millis(30));
     }
     false
@@ -655,14 +697,9 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
         AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, GetPropertyReply, Window,
     };
 
-    println!("[BrowserFocus:DIAG] focus_window() called: browser='{}', tab_title='{}'", browser, tab_title);
-
     let (conn, screen_num) = match x11rb::connect(None) {
         Ok(res) => res,
-        Err(e) => {
-            println!("[BrowserFocus:DIAG] x11rb::connect failed: {:?}", e);
-            return false;
-        }
+        Err(_) => return false,
     };
 
     let root = match conn.setup().roots.get(screen_num) {
@@ -706,48 +743,35 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
     let needle = tab_title.to_lowercase();
 
     // Query _NET_CLIENT_LIST on root window
-    let client_list_reply: GetPropertyReply = match conn
-        .get_property(false, root, net_client_list, AtomEnum::WINDOW, 0, 1024)
-    {
-        Ok(c) => match c.reply() {
-            Ok(r) => r,
-            Err(e) => {
-                println!("[BrowserFocus:DIAG] Failed to get _NET_CLIENT_LIST reply: {:?}", e);
-                return false;
-            }
-        },
-        Err(e) => {
-            println!("[BrowserFocus:DIAG] Failed to query _NET_CLIENT_LIST: {:?}", e);
-            return false;
-        }
-    };
+    let client_list_reply: GetPropertyReply =
+        match conn.get_property(false, root, net_client_list, AtomEnum::WINDOW, 0, 1024) {
+            Ok(c) => match c.reply() {
+                Ok(r) => r,
+                Err(_) => return false,
+            },
+            Err(_) => return false,
+        };
 
     let windows: Vec<Window> = match client_list_reply.value32() {
         Some(iter) => iter.collect(),
         None => return false,
     };
 
-    println!("[BrowserFocus:DIAG] Found {} client windows to inspect", windows.len());
-
     let mut target_window: Option<Window> = None;
 
     for win in windows {
         // 1. Check WM_CLASS to match the browser
         let mut matches_browser = browser_filter.is_empty();
-        let mut class_str = String::new();
-        if let Ok(class_cookie) = conn.get_property(
-            false,
-            win,
-            AtomEnum::WM_CLASS,
-            AtomEnum::STRING,
-            0,
-            1024,
-        ) {
+        if let Ok(class_cookie) =
+            conn.get_property(false, win, AtomEnum::WM_CLASS, AtomEnum::STRING, 0, 1024)
+        {
             if let Ok(class_reply) = class_cookie.reply() {
-                class_str = String::from_utf8_lossy(&class_reply.value).to_lowercase();
+                let class_str = String::from_utf8_lossy(&class_reply.value).to_lowercase();
                 if !browser_filter.is_empty() {
                     matches_browser = match browser_filter.as_str() {
-                        "firefox" => class_str.contains("firefox") || class_str.contains("navigator"),
+                        "firefox" => {
+                            class_str.contains("firefox") || class_str.contains("navigator")
+                        }
                         "chrome" => class_str.contains("chrome") || class_str.contains("chromium"),
                         "brave" => class_str.contains("brave"),
                         "edge" => class_str.contains("edge"),
@@ -764,14 +788,7 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
 
         // 2. Check window title via _NET_WM_NAME (UTF8_STRING) or fallback to WM_NAME (STRING)
         let mut title_found = String::new();
-        if let Ok(name_cookie) = conn.get_property(
-            false,
-            win,
-            net_wm_name,
-            utf8_string,
-            0,
-            1024,
-        ) {
+        if let Ok(name_cookie) = conn.get_property(false, win, net_wm_name, utf8_string, 0, 1024) {
             if let Ok(name_reply) = name_cookie.reply() {
                 if !name_reply.value.is_empty() {
                     title_found = String::from_utf8_lossy(&name_reply.value).to_lowercase();
@@ -780,25 +797,17 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
         }
 
         if title_found.is_empty() {
-            if let Ok(name_cookie) = conn.get_property(
-                false,
-                win,
-                AtomEnum::WM_NAME,
-                AtomEnum::STRING,
-                0,
-                1024,
-            ) {
+            if let Ok(name_cookie) =
+                conn.get_property(false, win, AtomEnum::WM_NAME, AtomEnum::STRING, 0, 1024)
+            {
                 if let Ok(name_reply) = name_cookie.reply() {
                     title_found = String::from_utf8_lossy(&name_reply.value).to_lowercase();
                 }
             }
         }
 
-        println!("[BrowserFocus:DIAG] Inspecting window {}: class='{}', title='{}'", win, class_str, title_found);
-
         // If tab_title needle is contained or if needle is empty
         if needle.is_empty() || title_found.contains(&needle) {
-            println!("[BrowserFocus:DIAG] Matched target window {} for needle '{}'!", win, needle);
             target_window = Some(win);
             break;
         }
@@ -816,23 +825,20 @@ pub fn focus_window(browser: &str, tab_title: &str) -> bool {
                 2u32, // 2 = from pager / user application
                 0u32, // timestamp (0 = current)
                 0u32, // requestor's currently active window
-                0u32,
-                0u32,
+                0u32, 0u32,
             ]),
         };
 
-        let res = conn.send_event(
+        let _ = conn.send_event(
             false,
             root,
             EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
             event,
         );
-        println!("[BrowserFocus:DIAG] Sent _NET_ACTIVE_WINDOW event: {:?}", res);
 
         let _ = conn.flush();
         return true;
     }
 
-    println!("[BrowserFocus:DIAG] No matching window found for browser='{}', needle='{}'", browser, needle);
     false
 }

@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 /// Global application state for EasyWheel Host.
 ///
 /// Registered with the Tauri runtime via `app.manage(AppState::new())` during
@@ -13,7 +14,6 @@
 /// `OnceLock<Mutex<AppConfig>>`. It is not stored here because it must be
 /// accessible from threads that do not have access to the Tauri `AppHandle`.
 use tauri::AppHandle;
-use std::sync::OnceLock;
 
 /// Global Tauri application handle reference.
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();

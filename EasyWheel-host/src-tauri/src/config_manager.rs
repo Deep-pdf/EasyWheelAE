@@ -82,7 +82,10 @@ impl ConfigManager {
             use tauri::Emitter;
             let config = Self::get();
             if let Err(e) = handle.emit("config-changed", config) {
-                eprintln!("[ConfigManager] Error: Failed to emit config-changed event: {}", e);
+                eprintln!(
+                    "[ConfigManager] Error: Failed to emit config-changed event: {}",
+                    e
+                );
             }
         }
     }
@@ -121,7 +124,9 @@ impl ConfigManager {
                     if legacy_path.exists() {
                         println!("[ConfigManager] Info: Migrating legacy config.json to easywheel.json...");
                         if let Err(e) = std::fs::rename(&legacy_path, &path) {
-                            eprintln!("[ConfigManager] Warning: Failed to rename legacy config: {e}");
+                            eprintln!(
+                                "[ConfigManager] Warning: Failed to rename legacy config: {e}"
+                            );
                         }
                     }
 
@@ -165,8 +170,10 @@ impl ConfigManager {
     pub fn get() -> AppConfig {
         CONFIG
             .get()
-            .expect("[ConfigManager] Fatal: get() called before load(). \
-                     Call ConfigManager::load() during application setup.")
+            .expect(
+                "[ConfigManager] Fatal: get() called before load(). \
+                     Call ConfigManager::load() during application setup.",
+            )
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
@@ -225,9 +232,7 @@ impl ConfigManager {
                 Self::notify_subscribers();
                 Ok(())
             }
-            None => Err(
-                "Cannot save — %APPDATA% directory is unavailable.".to_string()
-            ),
+            None => Err("Cannot save — %APPDATA% directory is unavailable.".to_string()),
         }
     }
 
@@ -280,63 +285,81 @@ impl ConfigManager {
     pub fn parse_rdev_key(name: &str) -> Option<Key> {
         match name {
             // Modifiers
-            "Alt"          => Some(Key::Alt),
-            "AltGr"        => Some(Key::AltGr),
-            "ShiftLeft"    => Some(Key::ShiftLeft),
-            "ShiftRight"   => Some(Key::ShiftRight),
-            "ControlLeft"  => Some(Key::ControlLeft),
+            "Alt" => Some(Key::Alt),
+            "AltGr" => Some(Key::AltGr),
+            "ShiftLeft" => Some(Key::ShiftLeft),
+            "ShiftRight" => Some(Key::ShiftRight),
+            "ControlLeft" => Some(Key::ControlLeft),
             "ControlRight" => Some(Key::ControlRight),
-            "MetaLeft"     => Some(Key::MetaLeft),
-            "MetaRight"    => Some(Key::MetaRight),
+            "MetaLeft" => Some(Key::MetaLeft),
+            "MetaRight" => Some(Key::MetaRight),
             // Function keys
-            "F1"  => Some(Key::F1),
-            "F2"  => Some(Key::F2),
-            "F3"  => Some(Key::F3),
-            "F4"  => Some(Key::F4),
-            "F5"  => Some(Key::F5),
-            "F6"  => Some(Key::F6),
-            "F7"  => Some(Key::F7),
-            "F8"  => Some(Key::F8),
-            "F9"  => Some(Key::F9),
+            "F1" => Some(Key::F1),
+            "F2" => Some(Key::F2),
+            "F3" => Some(Key::F3),
+            "F4" => Some(Key::F4),
+            "F5" => Some(Key::F5),
+            "F6" => Some(Key::F6),
+            "F7" => Some(Key::F7),
+            "F8" => Some(Key::F8),
+            "F9" => Some(Key::F9),
             "F10" => Some(Key::F10),
             "F11" => Some(Key::F11),
             "F12" => Some(Key::F12),
             // Common keys
-            "Space"        => Some(Key::Space),
-            "Tab"          => Some(Key::Tab),
-            "Escape"       => Some(Key::Escape),
-            "CapsLock"     => Some(Key::CapsLock),
-            "Backspace"    => Some(Key::Backspace),
-            "Return"       => Some(Key::Return),
-            "Delete"       => Some(Key::Delete),
-            "Home"         => Some(Key::Home),
-            "End"          => Some(Key::End),
-            "PageUp"       => Some(Key::PageUp),
-            "PageDown"     => Some(Key::PageDown),
-            "UpArrow"      => Some(Key::UpArrow),
-            "DownArrow"    => Some(Key::DownArrow),
-            "LeftArrow"    => Some(Key::LeftArrow),
-            "RightArrow"   => Some(Key::RightArrow),
+            "Space" => Some(Key::Space),
+            "Tab" => Some(Key::Tab),
+            "Escape" => Some(Key::Escape),
+            "CapsLock" => Some(Key::CapsLock),
+            "Backspace" => Some(Key::Backspace),
+            "Return" => Some(Key::Return),
+            "Delete" => Some(Key::Delete),
+            "Home" => Some(Key::Home),
+            "End" => Some(Key::End),
+            "PageUp" => Some(Key::PageUp),
+            "PageDown" => Some(Key::PageDown),
+            "UpArrow" => Some(Key::UpArrow),
+            "DownArrow" => Some(Key::DownArrow),
+            "LeftArrow" => Some(Key::LeftArrow),
+            "RightArrow" => Some(Key::RightArrow),
             // Letters (uppercase config strings map to lowercase rdev variants)
-            "KeyA" => Some(Key::KeyA), "KeyB" => Some(Key::KeyB),
-            "KeyC" => Some(Key::KeyC), "KeyD" => Some(Key::KeyD),
-            "KeyE" => Some(Key::KeyE), "KeyF" => Some(Key::KeyF),
-            "KeyG" => Some(Key::KeyG), "KeyH" => Some(Key::KeyH),
-            "KeyI" => Some(Key::KeyI), "KeyJ" => Some(Key::KeyJ),
-            "KeyK" => Some(Key::KeyK), "KeyL" => Some(Key::KeyL),
-            "KeyM" => Some(Key::KeyM), "KeyN" => Some(Key::KeyN),
-            "KeyO" => Some(Key::KeyO), "KeyP" => Some(Key::KeyP),
-            "KeyQ" => Some(Key::KeyQ), "KeyR" => Some(Key::KeyR),
-            "KeyS" => Some(Key::KeyS), "KeyT" => Some(Key::KeyT),
-            "KeyU" => Some(Key::KeyU), "KeyV" => Some(Key::KeyV),
-            "KeyW" => Some(Key::KeyW), "KeyX" => Some(Key::KeyX),
-            "KeyY" => Some(Key::KeyY), "KeyZ" => Some(Key::KeyZ),
+            "KeyA" => Some(Key::KeyA),
+            "KeyB" => Some(Key::KeyB),
+            "KeyC" => Some(Key::KeyC),
+            "KeyD" => Some(Key::KeyD),
+            "KeyE" => Some(Key::KeyE),
+            "KeyF" => Some(Key::KeyF),
+            "KeyG" => Some(Key::KeyG),
+            "KeyH" => Some(Key::KeyH),
+            "KeyI" => Some(Key::KeyI),
+            "KeyJ" => Some(Key::KeyJ),
+            "KeyK" => Some(Key::KeyK),
+            "KeyL" => Some(Key::KeyL),
+            "KeyM" => Some(Key::KeyM),
+            "KeyN" => Some(Key::KeyN),
+            "KeyO" => Some(Key::KeyO),
+            "KeyP" => Some(Key::KeyP),
+            "KeyQ" => Some(Key::KeyQ),
+            "KeyR" => Some(Key::KeyR),
+            "KeyS" => Some(Key::KeyS),
+            "KeyT" => Some(Key::KeyT),
+            "KeyU" => Some(Key::KeyU),
+            "KeyV" => Some(Key::KeyV),
+            "KeyW" => Some(Key::KeyW),
+            "KeyX" => Some(Key::KeyX),
+            "KeyY" => Some(Key::KeyY),
+            "KeyZ" => Some(Key::KeyZ),
             // Digits
-            "Num0" => Some(Key::Num0), "Num1" => Some(Key::Num1),
-            "Num2" => Some(Key::Num2), "Num3" => Some(Key::Num3),
-            "Num4" => Some(Key::Num4), "Num5" => Some(Key::Num5),
-            "Num6" => Some(Key::Num6), "Num7" => Some(Key::Num7),
-            "Num8" => Some(Key::Num8), "Num9" => Some(Key::Num9),
+            "Num0" => Some(Key::Num0),
+            "Num1" => Some(Key::Num1),
+            "Num2" => Some(Key::Num2),
+            "Num3" => Some(Key::Num3),
+            "Num4" => Some(Key::Num4),
+            "Num5" => Some(Key::Num5),
+            "Num6" => Some(Key::Num6),
+            "Num7" => Some(Key::Num7),
+            "Num8" => Some(Key::Num8),
+            "Num9" => Some(Key::Num9),
             // Unrecognised
             _ => None,
         }
@@ -357,7 +380,6 @@ impl ConfigManager {
             p
         })
     }
-
 
     /// Reads and parses `AppConfig` from `path`.
     ///
@@ -423,16 +445,16 @@ impl ConfigManager {
                         path
                     );
                 } else {
-                    println!(
-                        "[ConfigManager] Info: Configuration saved to {:?}.",
-                        path
-                    );
+                    println!("[ConfigManager] Info: Configuration saved to {:?}.", path);
 
                     // Write profiles.json
                     let profiles_path = path.with_file_name("profiles.json");
                     if let Ok(profiles_json) = serde_json::to_string_pretty(&config.profiles) {
                         if let Err(e) = std::fs::write(&profiles_path, profiles_json) {
-                            eprintln!("[ConfigManager] Warning: Failed to write profiles.json — {}", e);
+                            eprintln!(
+                                "[ConfigManager] Warning: Failed to write profiles.json — {}",
+                                e
+                            );
                         }
                     }
 
@@ -440,7 +462,10 @@ impl ConfigManager {
                     let settings_path = path.with_file_name("settings.json");
                     if let Ok(settings_json) = serde_json::to_string_pretty(&config.global) {
                         if let Err(e) = std::fs::write(&settings_path, settings_json) {
-                            eprintln!("[ConfigManager] Warning: Failed to write settings.json — {}", e);
+                            eprintln!(
+                                "[ConfigManager] Warning: Failed to write settings.json — {}",
+                                e
+                            );
                         }
                     }
 
@@ -455,9 +480,7 @@ impl ConfigManager {
                 }
             }
             Err(e) => {
-                eprintln!(
-                    "[ConfigManager] Warning: Failed to serialise configuration — {e}."
-                );
+                eprintln!("[ConfigManager] Warning: Failed to serialise configuration — {e}.");
             }
         }
     }

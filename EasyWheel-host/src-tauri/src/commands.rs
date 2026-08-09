@@ -52,17 +52,8 @@ pub fn get_geometry_state() -> GeometryState {
 /// on the first received event.
 #[tauri::command]
 pub fn report_pointer_position(x: f64, y: f64) {
-    println!("[Commands:DIAG] report_pointer_position(x={:.1}, y={:.1}) received", x, y);
     InputManager::update_pointer(x, y);
 }
-
-/// Receives diagnostic log messages from the overlay frontend.
-#[tauri::command]
-pub fn overlay_log(msg: String) {
-    println!("[Overlay:FRONTEND] {}", msg);
-}
-
-
 
 // ---------------------------------------------------------------------------
 // Settings commands (Phase 6)
@@ -412,9 +403,7 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
         return Err("Dead zone radius must be greater than 0.".to_string());
     }
     if g.wheel_radius <= g.dead_zone_radius {
-        return Err(
-            "Wheel radius must be greater than dead zone radius.".to_string()
-        );
+        return Err("Wheel radius must be greater than dead zone radius.".to_string());
     }
 
     // Wheel opacity check.
@@ -435,26 +424,50 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
 
     // Validate hotkeys
     if ConfigManager::parse_rdev_key(&g.activation_modifier).is_none() {
-        return Err(format!("Invalid activation modifier key '{}'.", g.activation_modifier));
+        return Err(format!(
+            "Invalid activation modifier key '{}'.",
+            g.activation_modifier
+        ));
     }
     if ConfigManager::parse_rdev_key(&g.activation_key).is_none() {
-        return Err(format!("Invalid activation trigger key '{}'.", g.activation_key));
+        return Err(format!(
+            "Invalid activation trigger key '{}'.",
+            g.activation_key
+        ));
     }
 
-    // Validate colors (must be hex format e.g. #RGB, #RGBA, #RRGGBB, #RRGGBBAA)
+    // Validate colors (must be hex format e.g. #RGB, #RGBA, #RRGGBB, #RRGGBBAA or valid CSS rgb/rgba/hsl)
     let validate_color = |color: &str, field_name: &str| -> Result<(), String> {
         let trimmed = color.trim();
-        if !trimmed.starts_with('#') {
-            return Err(format!("{} '{}' must start with '#'.", field_name, color));
+        if trimmed.starts_with('#') {
+            let len = trimmed.len();
+            if len != 4 && len != 5 && len != 7 && len != 9 {
+                return Err(format!(
+                    "{} '{}' must be in hex format: #RGB, #RGBA, #RRGGBB, or #RRGGBBAA.",
+                    field_name, color
+                ));
+            }
+            if !trimmed[1..].chars().all(|c| c.is_ascii_hexdigit()) {
+                return Err(format!(
+                    "{} '{}' contains invalid hex characters.",
+                    field_name, color
+                ));
+            }
+            return Ok(());
         }
-        let len = trimmed.len();
-        if len != 4 && len != 5 && len != 7 && len != 9 {
-            return Err(format!("{} '{}' must be in hex format: #RGB, #RGBA, #RRGGBB, or #RRGGBBAA.", field_name, color));
+        if trimmed.starts_with("rgb(")
+            || trimmed.starts_with("rgba(")
+            || trimmed.starts_with("hsl(")
+            || trimmed.starts_with("hsla(")
+        {
+            if trimmed.ends_with(')') {
+                return Ok(());
+            }
         }
-        if !trimmed[1..].chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err(format!("{} '{}' contains invalid hex characters.", field_name, color));
-        }
-        Ok(())
+        Err(format!(
+            "{} '{}' must be a valid CSS color (hex, rgb, rgba, or hsl).",
+            field_name, color
+        ))
     };
     validate_color(&g.highlight_color, "Highlight color")?;
     validate_color(&g.default_color, "Default color")?;
@@ -510,11 +523,20 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
             match cmd_id.as_str() {
                 "launch_app" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { path: String }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: launch_app parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        path: String,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: launch_app parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.path.trim().is_empty() {
-                        return Err(format!("Profile '{}', sector {}: Executable path cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: Executable path cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                     let has_separator = p.path.contains('\\') || p.path.contains('/');
                     if has_separator {
@@ -526,11 +548,20 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "open_website" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { url: String }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: open_website parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        url: String,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: open_website parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.url.trim().is_empty() {
-                        return Err(format!("Profile '{}', sector {}: Website URL cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: Website URL cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                     if !p.url.starts_with("http://") && !p.url.starts_with("https://") {
                         return Err(format!("Profile '{}', sector {}: Invalid URL format '{}'. URL must start with http:// or https://.", profile.name, sector, p.url));
@@ -538,11 +569,20 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "open_folder" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { path: String }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: open_folder parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        path: String,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: open_folder parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.path.trim().is_empty() {
-                        return Err(format!("Profile '{}', sector {}: Folder path cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: Folder path cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                     let path = std::path::Path::new(&p.path);
                     if !path.exists() || !path.is_dir() {
@@ -551,11 +591,20 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "open_file" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { path: String }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: open_file parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        path: String,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: open_file parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.path.trim().is_empty() {
-                        return Err(format!("Profile '{}', sector {}: File path cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: File path cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                     let path = std::path::Path::new(&p.path);
                     if !path.exists() || !path.is_file() {
@@ -564,11 +613,20 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "run_script" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { path: String }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: run_script parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        path: String,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: run_script parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.path.trim().is_empty() {
-                        return Err(format!("Profile '{}', sector {}: Script path cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: Script path cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                     let path = std::path::Path::new(&p.path);
                     if !path.exists() || !path.is_file() {
@@ -577,11 +635,20 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "send_shortcut" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { keys: Vec<String> }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: send_shortcut parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        keys: Vec<String>,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: send_shortcut parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.keys.is_empty() {
-                        return Err(format!("Profile '{}', sector {}: Keyboard shortcut keys cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: Keyboard shortcut keys cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                     for key in &p.keys {
                         if crate::config_manager::ConfigManager::parse_rdev_key(key).is_none() {
@@ -591,7 +658,9 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "after_effects_command" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { command: String }
+                    struct Temp {
+                        command: String,
+                    }
                     let p: Temp = serde_json::from_value(params.clone())
                         .map_err(|e| format!("Profile '{}', sector {}: after_effects_command parameters are invalid: {}", profile.name, sector, e))?;
                     if p.command.trim().is_empty() {
@@ -600,15 +669,25 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
                 }
                 "photoshop_command" => {
                     #[derive(serde::Deserialize)]
-                    struct Temp { command: String }
-                    let p: Temp = serde_json::from_value(params.clone())
-                        .map_err(|e| format!("Profile '{}', sector {}: photoshop_command parameters are invalid: {}", profile.name, sector, e))?;
+                    struct Temp {
+                        command: String,
+                    }
+                    let p: Temp = serde_json::from_value(params.clone()).map_err(|e| {
+                        format!(
+                            "Profile '{}', sector {}: photoshop_command parameters are invalid: {}",
+                            profile.name, sector, e
+                        )
+                    })?;
                     if p.command.trim().is_empty() {
-                        return Err(format!("Profile '{}', sector {}: Photoshop command selection cannot be empty.", profile.name, sector));
+                        return Err(format!(
+                            "Profile '{}', sector {}: Photoshop command selection cannot be empty.",
+                            profile.name, sector
+                        ));
                     }
                 }
                 _ => {
-                    let is_ae_command = profile.name == "Adobe After Effects" && crate::command_registry::has_command(cmd_id);
+                    let is_ae_command = profile.name == "Adobe After Effects"
+                        && crate::command_registry::has_command(cmd_id);
                     if !is_ae_command && !valid_ids.contains(cmd_id.as_str()) {
                         return Err(format!(
                             "Profile '{}', sector {}: References unknown action/command ID '{}'.",
@@ -628,4 +707,3 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
 pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>, String> {
     Ok(crate::command_registry::get_commands().clone())
 }
-

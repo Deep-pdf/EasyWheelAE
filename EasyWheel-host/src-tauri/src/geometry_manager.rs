@@ -181,38 +181,19 @@ impl GeometryManager {
             ((angle_deg + half_span) / sector_span) as u8 % sector_count
         };
 
-        static COMPUTE_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let count = COMPUTE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        if count % 30 == 0 {
-            println!(
-                "[GeometryManager:DIAG] compute() dx={:.0}, dy={:.0}, dist={:.1}, angle={:.0}, in_dead_zone={}, sector={}",
-                dx, dy, distance, angle_deg, in_dead_zone, sector
-            );
-        }
-
         // Record the current sector so ActionManager can read it at key-release
         // without needing to re-derive geometry.
         InputManager::set_last_sector(sector);
 
-        let exe = crate::foreground_application::ForegroundApplicationService::get_executable();
-        let exe_lower = exe.to_ascii_lowercase();
+        // Use the session target application captured at tracking start
+        let exe = InputManager::get_session_app();
+        let pm = crate::profile_manager::ProfileManager::new(config.profiles.clone());
+        let matched_profile = pm.resolve(&exe);
 
-        let matched_profile = config.profiles
-            .iter()
-            .find(|p| {
-                p.executable
-                    .split(',')
-                    .any(|part| part.trim().eq_ignore_ascii_case(&exe_lower))
-            })
-            .or_else(|| {
-                config.profiles.iter().find(|p| {
-                    p.executable.eq_ignore_ascii_case("explorer.exe")
-                })
-            })
-            .unwrap_or(&config.profiles[0]);
-
-        static LAST_SEEN_MODIFIED: std::sync::OnceLock<std::sync::Mutex<String>> = std::sync::OnceLock::new();
-        let last_mod_tracker = LAST_SEEN_MODIFIED.get_or_init(|| std::sync::Mutex::new(String::new()));
+        static LAST_SEEN_MODIFIED: std::sync::OnceLock<std::sync::Mutex<String>> =
+            std::sync::OnceLock::new();
+        let last_mod_tracker =
+            LAST_SEEN_MODIFIED.get_or_init(|| std::sync::Mutex::new(String::new()));
         if let Ok(mut guard) = last_mod_tracker.lock() {
             let last_mod = format!("{}_{}", matched_profile.name, matched_profile.last_modified);
             if *guard != last_mod {
@@ -225,7 +206,11 @@ impl GeometryManager {
         for i in 0..sector_count {
             if let Some(cmd) = matched_profile.sector_assignments.get(&i) {
                 if cmd.label.is_empty() {
-                    if let Some(action) = config.action_library.iter().find(|a| a.id == cmd.command_id) {
+                    if let Some(action) = config
+                        .action_library
+                        .iter()
+                        .find(|a| a.id == cmd.command_id)
+                    {
                         sector_labels[i as usize] = action.display_name.clone();
                     } else {
                         sector_labels[i as usize] = cmd.command_id.clone();

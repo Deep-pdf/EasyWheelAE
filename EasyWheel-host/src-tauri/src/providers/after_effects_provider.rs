@@ -1,19 +1,18 @@
-use crate::models::command_context::CommandContext;
-use crate::providers::provider::CommandProvider;
 use crate::ae_bridge::AEBridge;
 use crate::ipc::{
+    protocol::{generate_request_id, get_iso8601_timestamp, PROTOCOL_VERSION},
     CommandRequest,
-    protocol::{PROTOCOL_VERSION, generate_request_id, get_iso8601_timestamp},
 };
+use crate::models::command_context::CommandContext;
+use crate::providers::provider::CommandProvider;
 
 /// Command provider for Adobe After Effects actions.
 pub struct AfterEffectsProvider;
 impl CommandProvider for AfterEffectsProvider {
     fn can_execute(&self, action_id: &str, profile: &str) -> bool {
-        profile == "Adobe After Effects" && (
-            self.supported_actions().contains(&action_id) ||
-            crate::command_registry::has_command(action_id)
-        )
+        profile == "Adobe After Effects"
+            && (self.supported_actions().contains(&action_id)
+                || crate::command_registry::has_command(action_id))
     }
 
     fn provider_name(&self) -> &'static str {
@@ -37,7 +36,8 @@ impl CommandProvider for AfterEffectsProvider {
 
     fn execute(&self, context: &CommandContext) -> Result<(), String> {
         // Resolve the numeric command ID
-        let command_id = if let Some(cmd) = crate::command_registry::get_command(&context.action_id) {
+        let command_id = if let Some(cmd) = crate::command_registry::get_command(&context.action_id)
+        {
             cmd.command_id
         } else {
             // Fallback for legacy actions/names if they are not in the registry
@@ -52,7 +52,10 @@ impl CommandProvider for AfterEffectsProvider {
                 "null_object" => 2507,  // Null Object command ID fallback
                 "horizontal_type_tool" | "new_text" => 2525, // Type tool command ID fallback
                 _ => {
-                    eprintln!("[AfterEffectsProvider] Error: Command '{}' not found in registry.", context.action_id);
+                    eprintln!(
+                        "[AfterEffectsProvider] Error: Command '{}' not found in registry.",
+                        context.action_id
+                    );
                     return Err("Command not found.".to_string());
                 }
             }
@@ -74,7 +77,9 @@ impl CommandProvider for AfterEffectsProvider {
                 if response.success {
                     Ok(())
                 } else {
-                    let err_code = response.error_code.unwrap_or_else(|| "UNKNOWN_ERROR".to_string());
+                    let err_code = response
+                        .error_code
+                        .unwrap_or_else(|| "UNKNOWN_ERROR".to_string());
                     let err_msg = format!(
                         "Extension returned error: {} - {}",
                         err_code, response.message
@@ -91,5 +96,3 @@ impl CommandProvider for AfterEffectsProvider {
         }
     }
 }
-
-

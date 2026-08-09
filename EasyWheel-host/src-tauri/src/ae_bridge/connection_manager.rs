@@ -1,13 +1,13 @@
 use std::io;
-use std::sync::Arc;
 use std::sync::mpsc::{channel, TryRecvError};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use tungstenite::{Message, accept};
+use tungstenite::{accept, Message};
 
-use crate::config_manager::ConfigManager;
 use super::ae_bridge_client::AEBridgeClient;
-use super::bridge_status::{BridgeStatusTracker, BridgeStatus};
+use super::bridge_status::{BridgeStatus, BridgeStatusTracker};
+use crate::config_manager::ConfigManager;
 
 /// Orchestrates the WebSocket connection lifecycle: running the server,
 /// accepting connections, performing handshakes, managing heartbeat pings,
@@ -33,8 +33,8 @@ impl ConnectionManager {
 
     /// Spawns the background server-socket listener and heartbeat threads.
     pub fn start(&self) {
-        let client_clone  = self.client.clone();
-        let status_clone  = self.status.clone();
+        let client_clone = self.client.clone();
+        let status_clone = self.status.clone();
         thread::spawn(move || {
             Self::server_loop(client_clone, status_clone);
         });
@@ -52,16 +52,19 @@ impl ConnectionManager {
 
     fn server_loop(client: Arc<AEBridgeClient>, status: BridgeStatusTracker) {
         let config = ConfigManager::get();
-        let port   = config.global.adobe_port;
-        let addr   = format!("127.0.0.1:{}", port);
+        let port = config.global.adobe_port;
+        let addr = format!("127.0.0.1:{}", port);
 
         let listener = match std::net::TcpListener::bind(&addr) {
-            Ok(l)  => {
+            Ok(l) => {
                 println!("[AEBridge] Listening on port {}", port);
                 l
             }
             Err(e) => {
-                eprintln!("[AEBridge] Error: Failed to bind WebSocket server to {} — {}", addr, e);
+                eprintln!(
+                    "[AEBridge] Error: Failed to bind WebSocket server to {} — {}",
+                    addr, e
+                );
                 status.set(BridgeStatus::Disconnected);
                 return;
             }
@@ -69,7 +72,7 @@ impl ConnectionManager {
 
         for stream in listener.incoming() {
             let stream = match stream {
-                Ok(s)  => s,
+                Ok(s) => s,
                 Err(e) => {
                     eprintln!("[AEBridge] Error: Failed to accept incoming stream — {}", e);
                     continue;
@@ -84,9 +87,12 @@ impl ConnectionManager {
                 // 1. Upgrade TCP stream → WebSocket (blocking; local = fast)
                 // ----------------------------------------------------------
                 let mut ws = match accept(stream) {
-                    Ok(w)  => w,
+                    Ok(w) => w,
                     Err(e) => {
-                        eprintln!("[AEBridge] Error: Failed WebSocket handshake upgrade — {}", e);
+                        eprintln!(
+                            "[AEBridge] Error: Failed WebSocket handshake upgrade — {}",
+                            e
+                        );
                         return;
                     }
                 };
@@ -100,7 +106,10 @@ impl ConnectionManager {
                 let first_msg = match ws.read() {
                     Ok(Message::Text(text)) => text,
                     Ok(other) => {
-                        eprintln!("[AEBridge] Error: Invalid first message format: {:?}", other);
+                        eprintln!(
+                            "[AEBridge] Error: Invalid first message format: {:?}",
+                            other
+                        );
                         let _ = ws.close(None);
                         return;
                     }
@@ -113,15 +122,18 @@ impl ConnectionManager {
                 // ----------------------------------------------------------
                 // 3. Verify hello payload
                 // ----------------------------------------------------------
-                let is_valid = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&first_msg) {
-                    json.get("type").and_then(|v| v.as_str())   == Some("hello") &&
-                    json.get("client").and_then(|v| v.as_str()) == Some("after-effects")
-                } else {
-                    false
-                };
+                let is_valid =
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&first_msg) {
+                        json.get("type").and_then(|v| v.as_str()) == Some("hello")
+                            && json.get("client").and_then(|v| v.as_str()) == Some("after-effects")
+                    } else {
+                        false
+                    };
 
                 if !is_valid {
-                    eprintln!("[AEBridge] Error: Handshake verification failed. Closing connection.");
+                    eprintln!(
+                        "[AEBridge] Error: Handshake verification failed. Closing connection."
+                    );
                     let _ = ws.close(None);
                     return;
                 }
@@ -133,15 +145,19 @@ impl ConnectionManager {
                     "type":    "welcome",
                     "server":  "EasyWheelHost",
                     "version": "1.0.0"
-                }).to_string();
+                })
+                .to_string();
 
                 let write_res = ws.write(Message::Text(welcome));
                 let flush_res = match write_res {
-                    Ok(_)  => ws.flush(),
+                    Ok(_) => ws.flush(),
                     Err(e) => Err(e),
                 };
                 if let Err(e) = flush_res {
-                    eprintln!("[AEBridge] Error: Failed to write welcome handshake response — {}", e);
+                    eprintln!(
+                        "[AEBridge] Error: Failed to write welcome handshake response — {}",
+                        e
+                    );
                     return;
                 }
 
@@ -150,7 +166,9 @@ impl ConnectionManager {
                 //    50 ms means the loop wakes up ~20×/second to check for
                 //    pending outbound messages even when the socket is quiet.
                 // ----------------------------------------------------------
-                let _ = ws.get_ref().set_read_timeout(Some(Duration::from_millis(50)));
+                let _ = ws
+                    .get_ref()
+                    .set_read_timeout(Some(Duration::from_millis(50)));
 
                 // ----------------------------------------------------------
                 // 6. Register write channel, mark Connected, drain queue.
@@ -174,7 +192,7 @@ impl ConnectionManager {
                             Ok(payload) => {
                                 let write_res = ws.write(Message::Text(payload));
                                 let flush_res = match write_res {
-                                    Ok(_)  => ws.flush(),
+                                    Ok(_) => ws.flush(),
                                     Err(e) => Err(e),
                                 };
                                 if let Err(e) = flush_res {
@@ -182,7 +200,7 @@ impl ConnectionManager {
                                     break 'conn;
                                 }
                             }
-                            Err(TryRecvError::Empty)        => break,
+                            Err(TryRecvError::Empty) => break,
                             Err(TryRecvError::Disconnected) => break 'conn,
                         }
                     }
@@ -208,7 +226,8 @@ impl ConnectionManager {
                         Ok(_) => {}
                         Err(tungstenite::Error::Io(ref e))
                             if e.kind() == io::ErrorKind::WouldBlock
-                            || e.kind() == io::ErrorKind::TimedOut => {
+                                || e.kind() == io::ErrorKind::TimedOut =>
+                        {
                             // Normal: no data in the last 50 ms — continue polling.
                             continue;
                         }

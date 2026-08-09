@@ -37,10 +37,7 @@
 use std::sync::Mutex;
 
 use crate::{
-    action_registry::ActionRegistry,
-    foreground_application::ForegroundApplicationService,
-    config_manager::ConfigManager,
-    profile_manager::ProfileManager,
+    action_registry::ActionRegistry, config_manager::ConfigManager, profile_manager::ProfileManager,
 };
 
 // ---------------------------------------------------------------------------
@@ -88,9 +85,9 @@ impl ActionManager {
             return;
         }
 
-        // Step 1 — Detect foreground application.
-        let exe = ForegroundApplicationService::get_executable();
-        println!("[ActionManager] Info: Foreground executable: '{}'.", exe);
+        // Step 1 — Use the session target application captured when the wheel was opened
+        let exe = crate::input_manager::InputManager::get_session_app();
+        println!("[ActionManager] Info: Target executable: '{}'.", exe);
 
         // Step 2 — Resolve the active profile.
         let profile_name;

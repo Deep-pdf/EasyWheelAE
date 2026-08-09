@@ -235,7 +235,14 @@ impl ForegroundApplicationService {
         let detected = if let Some(ref state) = *x11_guard {
             let active_window = state
                 .conn
-                .get_property(false, state.root, state.net_active_window, AtomEnum::WINDOW, 0, 1)
+                .get_property(
+                    false,
+                    state.root,
+                    state.net_active_window,
+                    AtomEnum::WINDOW,
+                    0,
+                    1,
+                )
                 .ok()
                 .and_then(|c| c.reply().ok())
                 .and_then(|r| r.value32().and_then(|mut iter| iter.next()))
@@ -283,6 +290,9 @@ impl ForegroundApplicationService {
             None
         };
 
+        // Fallback: Under KDE Plasma Wayland, query KWin for active window class
+        let detected = detected.or_else(Self::get_kwin_active_window);
+
         let result = detected.unwrap_or_else(|| FALLBACK_EXECUTABLE.to_string());
 
         // 3. Update cache
@@ -294,5 +304,67 @@ impl ForegroundApplicationService {
         }
 
         result
+    }
+
+    #[cfg(target_os = "linux")]
+    fn get_kwin_active_window() -> Option<String> {
+        use std::process::Command;
+
+        let python_cmd = r#"
+import dbus, dbus.service, tempfile, os
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
+
+try:
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    result = []
+    class R(dbus.service.Object):
+        def __init__(self):
+            super().__init__(dbus.service.BusName('org.kde.EasyWheelApp', bus=bus), '/App')
+        @dbus.service.method('org.kde.EasyWheelApp', in_signature='s', out_signature='')
+        def Report(self, val):
+            result.append(str(val))
+            loop.quit()
+
+    rec = R()
+    loop = GLib.MainLoop()
+    js = "var win = workspace.activeWindow; var name = win ? (win.resourceClass || win.desktopFileName || win.resourceName || '') : ''; callDBus('org.kde.EasyWheelApp', '/App', 'org.kde.EasyWheelApp', 'Report', name);"
+    scripting = dbus.Interface(bus.get_object('org.kde.KWin', '/Scripting'), 'org.kde.kwin.Scripting')
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+        f.write(js)
+        f_path = f.name
+    try:
+        script_id = scripting.loadScript(f_path)
+        scripting.start()
+        GLib.timeout_add(150, loop.quit)
+        loop.run()
+        if result and result[0]:
+            print(result[0])
+        scripting.unloadScript(f_path)
+    finally:
+        if os.path.exists(f_path): os.remove(f_path)
+except Exception:
+    pass
+"#;
+
+        let output = Command::new("python3")
+            .arg("-c")
+            .arg(python_cmd)
+            .output()
+            .ok()?;
+
+        if output.status.success() {
+            let res = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let res_lower = res.to_ascii_lowercase();
+            if !res.is_empty()
+                && !res_lower.contains("easywheel")
+                && !res_lower.contains("easywheel-host")
+            {
+                return Some(res);
+            }
+        }
+
+        None
     }
 }

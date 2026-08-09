@@ -16,34 +16,34 @@ impl CommandDispatcher {
         };
 
         match provider {
-            Some(provider) => {
-
-                match provider.execute(&context) {
-                    Ok(_) => {
-                        println!(
+            Some(provider) => match provider.execute(&context) {
+                Ok(_) => {
+                    println!(
                             "[CommandDispatcher] Info: Provider Executed: '{}' successfully for action '{}'",
                             provider.provider_name(),
                             context.action_id
                         );
-                        Ok(())
-                    }
-                    Err(err) => {
-                        eprintln!(
+                    Ok(())
+                }
+                Err(err) => {
+                    eprintln!(
                             "[CommandDispatcher] Error: Execution Failed: provider '{}' failed executing action '{}': {}",
                             provider.provider_name(),
                             context.action_id,
                             err
                         );
-                        Err(err)
-                    }
+                    Err(err)
                 }
-            }
+            },
             None => {
                 eprintln!(
                     "[CommandDispatcher] Warning: Unknown Provider/Action: No provider found for action '{}'",
                     context.action_id
                 );
-                Err(format!("Unknown action ID: '{}' (no provider registered)", context.action_id))
+                Err(format!(
+                    "Unknown action ID: '{}' (no provider registered)",
+                    context.action_id
+                ))
             }
         }
     }
@@ -57,6 +57,7 @@ mod tests {
 
     #[test]
     fn test_provider_lookup_and_dispatch() {
+        crate::config_manager::ConfigManager::load();
         // Ensure defaults are registered
         register_defaults();
 
@@ -145,4 +146,3 @@ mod tests {
         assert!(res.is_err());
     }
 }
-

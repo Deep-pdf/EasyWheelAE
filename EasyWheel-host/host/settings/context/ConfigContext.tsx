@@ -16,7 +16,7 @@ interface ConfigContextProps {
   addProfile: (profile: Profile) => boolean;
   updateProfile: (name: string, updated: Partial<Profile>) => boolean;
   deleteProfile: (name: string) => void;
-  saveChanges: () => Promise<boolean>;
+  saveChanges: (explicitConfig?: AppConfig | React.MouseEvent | unknown) => Promise<boolean>;
   reload: () => Promise<void>;
   clearError: () => void;
 }
@@ -220,13 +220,17 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
   }, []);
 
   // Explicit save action
-  const saveChanges = useCallback(async (): Promise<boolean> => {
-    if (!config) return false;
+  const saveChanges = useCallback(async (explicitConfig?: AppConfig | unknown): Promise<boolean> => {
+    const toSave = (explicitConfig && typeof explicitConfig === 'object' && 'global' in (explicitConfig as Record<string, unknown>))
+      ? (explicitConfig as AppConfig)
+      : config;
+    if (!toSave) return false;
     setSaving(true);
     setError(null);
     try {
-      await saveConfig(config);
-      setOriginalConfig(JSON.parse(JSON.stringify(config)));
+      await saveConfig(toSave);
+      setConfig(toSave);
+      setOriginalConfig(JSON.parse(JSON.stringify(toSave)));
       setDirty(false);
       setSaving(false);
       return true;

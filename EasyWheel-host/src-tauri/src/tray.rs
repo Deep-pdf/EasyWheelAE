@@ -78,16 +78,28 @@ impl TrayManager {
         let sep1 = PredefinedMenuItem::separator(app)?;
         let open_settings =
             MenuItem::with_id(app, "open_settings", "⚙  Open Settings", true, None::<&str>)?;
-        let reload_config =
-            MenuItem::with_id(app, "reload_config", "↺  Reload Configuration", true, None::<&str>)?;
-        let restart =
-            MenuItem::with_id(app, "restart", "🔄  Restart Host", true, None::<&str>)?;
+        let reload_config = MenuItem::with_id(
+            app,
+            "reload_config",
+            "↺  Reload Configuration",
+            true,
+            None::<&str>,
+        )?;
+        let restart = MenuItem::with_id(app, "restart", "🔄  Restart Host", true, None::<&str>)?;
         let sep2 = PredefinedMenuItem::separator(app)?;
         let exit = MenuItem::with_id(app, "exit", "❌  Exit", true, None::<&str>)?;
 
         Menu::with_items(
             app,
-            &[&title, &sep1, &open_settings, &reload_config, &restart, &sep2, &exit],
+            &[
+                &title,
+                &sep1,
+                &open_settings,
+                &reload_config,
+                &restart,
+                &sep2,
+                &exit,
+            ],
         )
     }
 

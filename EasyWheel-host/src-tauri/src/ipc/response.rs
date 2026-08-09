@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Represents a response from the Adobe extension to a specific command.
 #[derive(Debug, Clone, Serialize, Deserialize)]

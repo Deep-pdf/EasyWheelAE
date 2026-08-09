@@ -90,9 +90,7 @@ impl HotkeyManager {
             .spawn(move || Self::run_listener(handle))
         {
             Ok(_) => {
-                println!(
-                    "[HotkeyManager] Info: Hotkey registered."
-                );
+                println!("[HotkeyManager] Info: Hotkey registered.");
             }
             Err(e) => {
                 eprintln!(
@@ -125,8 +123,8 @@ impl HotkeyManager {
                 default_mod
             });
 
-        let trigger = ConfigManager::parse_rdev_key(&config.global.activation_key)
-            .unwrap_or_else(|| {
+        let trigger =
+            ConfigManager::parse_rdev_key(&config.global.activation_key).unwrap_or_else(|| {
                 eprintln!(
                     "[HotkeyManager] Warning: Unrecognised activation_key '{}'. \
                      Falling back to default.",
@@ -152,12 +150,11 @@ impl HotkeyManager {
     /// messages via an internal `GetMessage`/`DispatchMessage` loop on
     /// Windows. It only returns on a fatal hook error.
     fn run_listener<R: Runtime + 'static>(handle: AppHandle<R>) {
-        println!("[HotkeyManager:DIAG] Starting rdev::listen() on thread {:?}...", std::thread::current().id());
         if let Err(e) = listen(move |event: Event| {
             Self::handle_event(&handle, &event);
         }) {
             eprintln!(
-                "[HotkeyManager:DIAG] Fatal: Global keyboard listener terminated with error: {e:?}"
+                "[HotkeyManager] Fatal: Global keyboard listener terminated with error: {e:?}"
             );
         }
     }
@@ -169,7 +166,9 @@ impl HotkeyManager {
             return true;
         }
         match target {
-            Key::ControlLeft | Key::ControlRight => matches!(key, Key::ControlLeft | Key::ControlRight),
+            Key::ControlLeft | Key::ControlRight => {
+                matches!(key, Key::ControlLeft | Key::ControlRight)
+            }
             Key::Alt | Key::AltGr => matches!(key, Key::Alt | Key::AltGr),
             Key::ShiftLeft | Key::ShiftRight => matches!(key, Key::ShiftLeft | Key::ShiftRight),
             Key::MetaLeft | Key::MetaRight => matches!(key, Key::MetaLeft | Key::MetaRight),
@@ -202,42 +201,23 @@ impl HotkeyManager {
                 let is_mod = Self::matches_modifier(*key, modifier);
                 let is_trig = *key == trigger;
                 let mod_down = MODIFIER_DOWN.load(Ordering::Relaxed);
-                println!(
-                    "[HotkeyManager:DIAG] KeyPress: {:?} (name: {:?}) | Target: ({:?}, {:?}) | is_mod: {} | is_trig: {} | mod_down: {}",
-                    key, event.name, modifier, trigger, is_mod, is_trig, mod_down
-                );
                 if is_mod {
                     MODIFIER_DOWN.store(true, Ordering::Relaxed);
-                    println!("[HotkeyManager:DIAG] MODIFIER_DOWN set to true");
                 }
-                if is_trig {
-                    if mod_down {
-                        if !KEY_DOWN.swap(true, Ordering::Relaxed) {
-                            println!("[HotkeyManager:DIAG] Trigger matched and modifier held! Calling OverlayManager::show()");
-                            OverlayManager::show(app);
-                        }
-                    } else {
-                        println!("[HotkeyManager:DIAG] Trigger pressed but MODIFIER_DOWN is false");
-                    }
+                if is_trig && mod_down && !KEY_DOWN.swap(true, Ordering::Relaxed) {
+                    OverlayManager::show(app);
                 }
             }
             EventType::KeyRelease(key) => {
                 let is_mod = Self::matches_modifier(*key, modifier);
                 let is_trig = *key == trigger;
-                println!(
-                    "[HotkeyManager:DIAG] KeyRelease: {:?} | is_mod: {} | is_trig: {}",
-                    key, is_mod, is_trig
-                );
                 if is_mod {
                     MODIFIER_DOWN.store(false, Ordering::Relaxed);
-                    println!("[HotkeyManager:DIAG] MODIFIER_DOWN cleared to false");
                     if KEY_DOWN.swap(false, Ordering::Relaxed) {
-                        println!("[HotkeyManager:DIAG] Modifier released while active, hiding overlay");
                         OverlayManager::hide(app);
                     }
                 }
                 if is_trig && KEY_DOWN.swap(false, Ordering::Relaxed) {
-                    println!("[HotkeyManager:DIAG] Trigger released while active, hiding overlay");
                     OverlayManager::hide(app);
                 }
             }

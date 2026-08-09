@@ -7,7 +7,7 @@ import { WheelPreview } from '../components/wheel/WheelPreview';
 import { Button } from '../components/ui/Button';
 
 export function AppearancePage(): React.JSX.Element {
-  const { config, updateGlobal, saveChanges, saving } = useConfig();
+  const { config, saveChanges, saving } = useConfig();
 
   // Temporary local state for independent preview customization
   const [wheelRadius, setWheelRadius] = useState(120);
@@ -37,18 +37,19 @@ export function AppearancePage(): React.JSX.Element {
   }
 
   const handleSave = async () => {
-    // Write preview settings back to global config context
-    updateGlobal({
-      wheel_radius: wheelRadius,
-      dead_zone_radius: deadZoneRadius,
-      highlight_color: highlightColor,
-      default_color: defaultColor,
-      wheel_opacity: bgOpacity / 100,
-    });
-    // Triggers actual saveChanges sequence
-    setTimeout(() => {
-      saveChanges();
-    }, 50);
+    if (!config) return;
+    const updated = {
+      ...config,
+      global: {
+        ...config.global,
+        wheel_radius: wheelRadius,
+        dead_zone_radius: deadZoneRadius,
+        highlight_color: highlightColor,
+        default_color: defaultColor,
+        wheel_opacity: bgOpacity / 100,
+      },
+    };
+    await saveChanges(updated);
   };
 
   return (

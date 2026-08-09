@@ -21,7 +21,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{action::ActionDefinition, profile::{Profile, ConfiguredCommand}};
+use super::{
+    action::ActionDefinition,
+    profile::{ConfiguredCommand, Profile},
+};
 
 /// Current config schema version.
 ///
@@ -51,13 +54,27 @@ pub struct AppConfig {
     pub action_library: Vec<ActionDefinition>,
 }
 
-fn default_adobe_port() -> u16 { 23435 }
-fn default_adobe_timeout() -> u64 { 2000 }
-fn default_adobe_retry_interval() -> u64 { 5000 }
-fn default_adobe_max_retries() -> u32 { 5 }
-fn default_adobe_enabled() -> bool { true }
-fn default_adobe_heartbeat_interval() -> u64 { 5000 }
-fn default_adobe_max_queue_size() -> usize { 100 }
+fn default_adobe_port() -> u16 {
+    23435
+}
+fn default_adobe_timeout() -> u64 {
+    2000
+}
+fn default_adobe_retry_interval() -> u64 {
+    5000
+}
+fn default_adobe_max_retries() -> u32 {
+    5
+}
+fn default_adobe_enabled() -> bool {
+    true
+}
+fn default_adobe_heartbeat_interval() -> u64 {
+    5000
+}
+fn default_adobe_max_queue_size() -> usize {
+    100
+}
 
 /// Global, application-wide settings.
 ///
@@ -141,9 +158,9 @@ impl Default for AppConfig {
     /// sector assignments. Written to disk automatically when no config file
     /// exists or when the file is corrupt.
     fn default() -> Self {
-        use std::collections::HashMap;
         use super::action::ActionDefinition;
         use super::profile::Profile;
+        use std::collections::HashMap;
 
         #[cfg(target_os = "windows")]
         let (def_modifier, def_key) = ("Alt", "F1");
@@ -178,95 +195,123 @@ impl Default for AppConfig {
                 display_name: "Easy Ease".to_string(),
                 description: "Apply Easy Ease keyframe interpolation.".to_string(),
                 category: "After Effects".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "pre_compose".to_string(),
                 display_name: "Pre-Compose".to_string(),
                 description: "Pre-compose selected layers.".to_string(),
                 category: "After Effects".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "trim_paths".to_string(),
                 display_name: "Trim Paths".to_string(),
                 description: "Add Trim Paths shape effect.".to_string(),
                 category: "After Effects".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "duplicate".to_string(),
                 display_name: "Duplicate".to_string(),
                 description: "Duplicate selected layers or items.".to_string(),
                 category: "After Effects".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "parent".to_string(),
                 display_name: "Parent".to_string(),
                 description: "Open parent/child layer picker.".to_string(),
                 category: "After Effects".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "graph_editor".to_string(),
                 display_name: "Graph Editor".to_string(),
                 description: "Toggle the Graph Editor panel.".to_string(),
                 category: "After Effects".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "settings".to_string(),
                 display_name: "EasyWheel Settings".to_string(),
                 description: "Open the EasyWheel Settings window.".to_string(),
                 category: "System".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "open_explorer".to_string(),
                 display_name: "Open Explorer".to_string(),
                 description: "Open a new Windows Explorer window.".to_string(),
                 category: "System".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "calculator".to_string(),
                 display_name: "Calculator".to_string(),
                 description: "Launch the Windows Calculator.".to_string(),
                 category: "System".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "browser".to_string(),
                 display_name: "Browser".to_string(),
                 description: "Open the default web browser.".to_string(),
                 category: "Application".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
             ActionDefinition {
                 id: "clipboard".to_string(),
                 display_name: "Clipboard".to_string(),
                 description: "Open the Windows Clipboard history (Win+V).".to_string(),
                 category: "System".to_string(),
-                icon: None, shortcut: None, parameters: None,
+                icon: None,
+                shortcut: None,
+                parameters: None,
             },
         ];
 
         // -----------------------------------------------------------------------
-        // Profiles — one per supported application plus the mandatory Desktop.
-        // Sector assignments: index 0 = Right, advancing clockwise.
+        // Profiles — platform-appropriate default profiles.
         // -----------------------------------------------------------------------
+        #[cfg(target_os = "windows")]
         let mut profiles = vec![
-            // Desktop — always present, used as the fallback.
+            // Desktop — Windows fallback.
             Profile {
                 name: "Desktop".to_string(),
                 executable: "explorer.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
+                    (
+                        0,
+                        ConfiguredCommand::legacy("open_explorer", "Open Explorer"),
+                    ),
                     (1, ConfiguredCommand::legacy("browser", "Browser")),
                     (2, ConfiguredCommand::legacy("calculator", "Calculator")),
                     (3, ConfiguredCommand::legacy("clipboard", "Clipboard")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },
@@ -281,7 +326,10 @@ impl Default for AppConfig {
                     (3, ConfiguredCommand::legacy("duplicate", "Duplicate")),
                     (4, ConfiguredCommand::legacy("parent", "Parent")),
                     (5, ConfiguredCommand::legacy("graph_editor", "Graph Editor")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },
@@ -291,8 +339,14 @@ impl Default for AppConfig {
                 executable: "Photoshop.exe".to_string(),
                 sector_assignments: HashMap::from([
                     (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
-                    (1, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        1,
+                        ConfiguredCommand::legacy("open_explorer", "Open Explorer"),
+                    ),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },
@@ -303,40 +357,137 @@ impl Default for AppConfig {
                 sector_assignments: HashMap::from([
                     (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
                     (1, ConfiguredCommand::legacy("easy_ease", "Easy Ease")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },
             // Visual Studio Code
             Profile {
                 name: "VS Code".to_string(),
-                executable: "Code.exe".to_string(),
+                executable: "Code.exe, code".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("open_explorer", "Open Explorer")),
+                    (
+                        0,
+                        ConfiguredCommand::legacy("open_explorer", "Open Explorer"),
+                    ),
                     (1, ConfiguredCommand::legacy("browser", "Browser")),
                     (2, ConfiguredCommand::legacy("calculator", "Calculator")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },
             // Google Chrome
             Profile {
                 name: "Chrome".to_string(),
-                executable: "chrome.exe".to_string(),
+                executable: "chrome.exe, chrome".to_string(),
                 sector_assignments: HashMap::from([
                     (0, ConfiguredCommand::legacy("browser", "Browser")),
                     (1, ConfiguredCommand::legacy("clipboard", "Clipboard")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },
             // Blender
             Profile {
                 name: "Blender".to_string(),
-                executable: "blender.exe".to_string(),
+                executable: "blender.exe, blender".to_string(),
                 sector_assignments: HashMap::from([
                     (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
+                ]),
+                ..Default::default()
+            },
+        ];
+
+        #[cfg(not(target_os = "windows"))]
+        let mut profiles = vec![
+            // Linux Desktop — Linux fallback.
+            Profile {
+                name: "Linux Desktop".to_string(),
+                executable: "desktop, plasmashell, gnome-shell, xfce4-panel".to_string(),
+                sector_assignments: HashMap::from([
+                    (
+                        0,
+                        ConfiguredCommand::legacy("open_explorer", "File Manager"),
+                    ),
+                    (1, ConfiguredCommand::legacy("browser", "Browser")),
+                    (2, ConfiguredCommand::legacy("calculator", "Calculator")),
+                    (3, ConfiguredCommand::legacy("clipboard", "Clipboard")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
+                ]),
+                ..Default::default()
+            },
+            // Firefox
+            Profile {
+                name: "Firefox".to_string(),
+                executable: "firefox, /usr/bin/firefox".to_string(),
+                sector_assignments: HashMap::from([
+                    (0, ConfiguredCommand::legacy("browser", "New Tab")),
+                    (1, ConfiguredCommand::legacy("clipboard", "Clipboard")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
+                ]),
+                ..Default::default()
+            },
+            // Google Chrome
+            Profile {
+                name: "Chrome".to_string(),
+                executable: "google-chrome, chrome, chromium".to_string(),
+                sector_assignments: HashMap::from([
+                    (0, ConfiguredCommand::legacy("browser", "New Tab")),
+                    (1, ConfiguredCommand::legacy("clipboard", "Clipboard")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
+                ]),
+                ..Default::default()
+            },
+            // Visual Studio Code
+            Profile {
+                name: "VS Code".to_string(),
+                executable: "code, code-oss, Code.exe".to_string(),
+                sector_assignments: HashMap::from([
+                    (
+                        0,
+                        ConfiguredCommand::legacy("open_explorer", "File Manager"),
+                    ),
+                    (1, ConfiguredCommand::legacy("browser", "Browser")),
+                    (2, ConfiguredCommand::legacy("calculator", "Calculator")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
+                ]),
+                ..Default::default()
+            },
+            // Blender
+            Profile {
+                name: "Blender".to_string(),
+                executable: "blender, blender.exe".to_string(),
+                sector_assignments: HashMap::from([
+                    (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
+                    (
+                        7,
+                        ConfiguredCommand::legacy("settings", "EasyWheel Settings"),
+                    ),
                 ]),
                 ..Default::default()
             },

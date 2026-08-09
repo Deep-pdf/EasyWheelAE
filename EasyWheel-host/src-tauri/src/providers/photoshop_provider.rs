@@ -1,6 +1,6 @@
-use serde::Deserialize;
 use crate::models::command_context::CommandContext;
 use crate::providers::provider::CommandProvider;
+use serde::Deserialize;
 
 /// Command provider for Adobe Photoshop actions.
 pub struct PhotoshopProvider;

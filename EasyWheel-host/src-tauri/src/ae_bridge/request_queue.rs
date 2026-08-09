@@ -1,6 +1,6 @@
+use crate::ipc::CommandRequest;
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use crate::ipc::CommandRequest;
 
 /// Bounded, thread-safe FIFO queue for pending requests.
 pub struct RequestQueue {

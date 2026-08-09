@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AECommand {
@@ -19,7 +19,10 @@ pub fn get_commands() -> &'static Vec<AECommand> {
     REGISTRY.get_or_init(|| {
         let json_str = include_str!("command_registry.json");
         serde_json::from_str(json_str).unwrap_or_else(|e| {
-            eprintln!("[CommandRegistry] Error: Failed to parse embedded command_registry.json: {}", e);
+            eprintln!(
+                "[CommandRegistry] Error: Failed to parse embedded command_registry.json: {}",
+                e
+            );
             Vec::new()
         })
     })

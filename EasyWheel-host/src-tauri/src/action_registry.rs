@@ -42,10 +42,7 @@ impl ActionRegistry {
             .map(|a| (a.id.clone(), a))
             .collect::<HashMap<_, _>>();
 
-        println!(
-            "[ActionRegistry] Info: Registered {} action(s).",
-            map.len()
-        );
+        println!("[ActionRegistry] Info: Registered {} action(s).", map.len());
 
         Self { actions: map }
     }

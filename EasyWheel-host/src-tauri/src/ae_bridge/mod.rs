@@ -1,16 +1,16 @@
-pub mod bridge_status;
-pub mod request_queue;
-pub mod connection_manager;
 pub mod ae_bridge_client;
+pub mod bridge_status;
+pub mod connection_manager;
+pub mod request_queue;
 
-use std::sync::{Arc, OnceLock};
-use crate::ipc::{CommandRequest, CommandResponse};
 use crate::config_manager::ConfigManager;
+use crate::ipc::{CommandRequest, CommandResponse};
+use std::sync::{Arc, OnceLock};
 
-pub use bridge_status::BridgeStatusTracker;
-pub use request_queue::RequestQueue;
 pub use ae_bridge_client::AEBridgeClient;
+pub use bridge_status::BridgeStatusTracker;
 pub use connection_manager::ConnectionManager;
+pub use request_queue::RequestQueue;
 
 static AE_BRIDGE: OnceLock<Arc<AEBridge>> = OnceLock::new();
 
@@ -23,22 +23,22 @@ pub struct AEBridge {
 impl AEBridge {
     /// Returns the global, thread-safe instance of the `AEBridge`.
     pub fn global() -> Arc<Self> {
-        AE_BRIDGE.get_or_init(|| {
-            let status = BridgeStatusTracker::new();
-            let config = ConfigManager::get();
-            let queue = Arc::new(RequestQueue::new(config.global.adobe_max_queue_size));
-            let client = Arc::new(AEBridgeClient::new(status.clone(), queue.clone()));
-            Arc::new(Self {
-                client,
-                status,
+        AE_BRIDGE
+            .get_or_init(|| {
+                let status = BridgeStatusTracker::new();
+                let config = ConfigManager::get();
+                let queue = Arc::new(RequestQueue::new(config.global.adobe_max_queue_size));
+                let client = Arc::new(AEBridgeClient::new(status.clone(), queue.clone()));
+                Arc::new(Self { client, status })
             })
-        }).clone()
+            .clone()
     }
 
     /// Starts the background connection manager and heartbeat threads.
     pub fn start() {
         let bridge = Self::global();
-        let connection_manager = ConnectionManager::new(bridge.client.clone(), bridge.status.clone());
+        let connection_manager =
+            ConnectionManager::new(bridge.client.clone(), bridge.status.clone());
         connection_manager.start();
 
         // Subscribe to configuration changes to broadcast PROFILE_UPDATED
@@ -47,13 +47,16 @@ impl AEBridge {
             if bridge.client.is_connected() {
                 let config = ConfigManager::get();
                 if let Some(profile) = config.profiles.iter().find(|p| {
-                    p.name.to_ascii_lowercase().contains("after effects") ||
-                    p.executable.to_ascii_lowercase() == "afterfx.exe"
+                    p.name.to_ascii_lowercase().contains("after effects")
+                        || p.executable.to_ascii_lowercase() == "afterfx.exe"
                 }) {
                     let mut sectors = Vec::new();
                     for i in 0..8 {
                         let number = i + 1;
-                        let assigned_command_id = profile.sector_assignments.get(&i).map(|c| c.command_id.clone());
+                        let assigned_command_id = profile
+                            .sector_assignments
+                            .get(&i)
+                            .map(|c| c.command_id.clone());
                         sectors.push(serde_json::json!({
                             "number": number,
                             "assignedCommandId": assigned_command_id
@@ -73,15 +76,14 @@ impl AEBridge {
                         "type": "PROFILE_UPDATED",
                         "application": "After Effects",
                         "profile": cep_profile
-                    }).to_string();
+                    })
+                    .to_string();
                     bridge.client.send_raw(msg);
                     println!("[AEBridge] PROFILE_UPDATED broadcast");
                 }
             }
         });
     }
-
-
 
     /// Sends a command request over the client, returning the response or error.
     pub fn send_request(&self, req: CommandRequest) -> Result<CommandResponse, String> {

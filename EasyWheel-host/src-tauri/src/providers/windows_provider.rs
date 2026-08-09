@@ -1,7 +1,7 @@
-use std::process::Command;
-use serde::Deserialize;
 use crate::models::command_context::CommandContext;
 use crate::providers::provider::CommandProvider;
+use serde::Deserialize;
+use std::process::Command;
 
 /// Command provider for built-in Windows shell actions and utilities.
 pub struct WindowsProvider;
@@ -13,7 +13,6 @@ struct LaunchAppParams {
     working_directory: Option<String>,
     run_as_admin: Option<bool>,
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 struct OpenPathParams {
@@ -67,6 +66,14 @@ impl CommandProvider for WindowsProvider {
                         .spawn()
                         .map_err(|e| format!("Failed to launch explorer: {}", e))?;
                 }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+                    Command::new("xdg-open")
+                        .arg(home)
+                        .spawn()
+                        .map_err(|e| format!("Failed to open file manager: {}", e))?;
+                }
                 Ok(())
             }
             "calculator" => {
@@ -76,12 +83,30 @@ impl CommandProvider for WindowsProvider {
                         .spawn()
                         .map_err(|e| format!("Failed to launch calculator: {}", e))?;
                 }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let res = Command::new("kcalc")
+                        .spawn()
+                        .or_else(|_| Command::new("gnome-calculator").spawn())
+                        .or_else(|_| Command::new("galculator").spawn())
+                        .or_else(|_| Command::new("xcalc").spawn());
+                    if let Err(e) = res {
+                        eprintln!("[WindowsProvider] Warning: Could not launch calculator: {e}");
+                    }
+                }
                 Ok(())
             }
             "browser" => {
                 #[cfg(target_os = "windows")]
                 {
                     Command::new("explorer.exe")
+                        .arg("https://www.google.com")
+                        .spawn()
+                        .map_err(|e| format!("Failed to open browser: {}", e))?;
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    Command::new("xdg-open")
                         .arg("https://www.google.com")
                         .spawn()
                         .map_err(|e| format!("Failed to open browser: {}", e))?;
@@ -95,6 +120,16 @@ impl CommandProvider for WindowsProvider {
                         .arg("ms-settings:clipboard")
                         .spawn()
                         .map_err(|e| format!("Failed to open clipboard settings: {}", e))?;
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let _ = Command::new("qdbus")
+                        .args([
+                            "org.kde.klipper",
+                            "/klipper",
+                            "org.kde.klipper.klipper.showContextMenu",
+                        ])
+                        .spawn();
                 }
                 Ok(())
             }
@@ -177,20 +212,37 @@ impl CommandProvider for WindowsProvider {
 }
 
 #[cfg(target_os = "windows")]
-fn launch_app_windows(path: &str, args: &str, working_dir: &str, run_as_admin: bool) -> Result<(), String> {
-    use std::os::windows::ffi::OsStrExt;
+fn launch_app_windows(
+    path: &str,
+    args: &str,
+    working_dir: &str,
+    run_as_admin: bool,
+) -> Result<(), String> {
     use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
     use winapi::um::shellapi::ShellExecuteW;
     use winapi::um::winuser::SW_SHOWNORMAL;
 
     if run_as_admin {
-        let verb: Vec<u16> = OsStr::new("runas").encode_wide().chain(std::iter::once(0)).collect();
-        let file: Vec<u16> = OsStr::new(path).encode_wide().chain(std::iter::once(0)).collect();
-        let params: Vec<u16> = OsStr::new(args).encode_wide().chain(std::iter::once(0)).collect();
+        let verb: Vec<u16> = OsStr::new("runas")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let file: Vec<u16> = OsStr::new(path)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let params: Vec<u16> = OsStr::new(args)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
         let dir: Vec<u16> = if working_dir.is_empty() {
             vec![0]
         } else {
-            OsStr::new(working_dir).encode_wide().chain(std::iter::once(0)).collect()
+            OsStr::new(working_dir)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect()
         };
 
         let res = unsafe {
@@ -198,15 +250,26 @@ fn launch_app_windows(path: &str, args: &str, working_dir: &str, run_as_admin: b
                 std::ptr::null_mut(),
                 verb.as_ptr(),
                 file.as_ptr(),
-                if args.is_empty() { std::ptr::null() } else { params.as_ptr() },
-                if working_dir.is_empty() { std::ptr::null() } else { dir.as_ptr() },
+                if args.is_empty() {
+                    std::ptr::null()
+                } else {
+                    params.as_ptr()
+                },
+                if working_dir.is_empty() {
+                    std::ptr::null()
+                } else {
+                    dir.as_ptr()
+                },
                 SW_SHOWNORMAL,
             )
         };
         if (res as usize) > 32 {
             Ok(())
         } else {
-            Err(format!("ShellExecuteW 'runas' failed with error code: {}", res as usize))
+            Err(format!(
+                "ShellExecuteW 'runas' failed with error code: {}",
+                res as usize
+            ))
         }
     } else {
         let mut cmd = Command::new(path);
@@ -218,15 +281,16 @@ fn launch_app_windows(path: &str, args: &str, working_dir: &str, run_as_admin: b
         if !working_dir.is_empty() {
             cmd.current_dir(working_dir);
         }
-        cmd.spawn().map_err(|e| format!("Failed to spawn process: {}", e))?;
+        cmd.spawn()
+            .map_err(|e| format!("Failed to spawn process: {}", e))?;
         Ok(())
     }
 }
 
 #[cfg(target_os = "windows")]
 pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), String> {
-    use std::os::windows::ffi::OsStrExt;
     use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
     use winapi::um::shellapi::ShellExecuteW;
     use winapi::um::winuser::SW_SHOWNORMAL;
 
@@ -246,9 +310,15 @@ pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), Strin
             .spawn()
             .map_err(|e| format!("Failed to launch browser '{}': {}", browser_exe, e))?;
     } else {
-        let verb: Vec<u16> = OsStr::new("open").encode_wide().chain(std::iter::once(0)).collect();
-        let file: Vec<u16> = OsStr::new(url).encode_wide().chain(std::iter::once(0)).collect();
-        
+        let verb: Vec<u16> = OsStr::new("open")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let file: Vec<u16> = OsStr::new(url)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
         let res = unsafe {
             ShellExecuteW(
                 std::ptr::null_mut(),
@@ -260,7 +330,10 @@ pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), Strin
             )
         };
         if (res as usize) <= 32 {
-            return Err(format!("ShellExecuteW failed to open website: error code {}", res as usize));
+            return Err(format!(
+                "ShellExecuteW failed to open website: error code {}",
+                res as usize
+            ));
         }
     }
     Ok(())
@@ -268,14 +341,20 @@ pub(crate) fn open_website_windows(url: &str, browser: &str) -> Result<(), Strin
 
 #[cfg(target_os = "windows")]
 fn open_path_windows(path: &str) -> Result<(), String> {
-    use std::os::windows::ffi::OsStrExt;
     use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
     use winapi::um::shellapi::ShellExecuteW;
     use winapi::um::winuser::SW_SHOWNORMAL;
 
-    let verb: Vec<u16> = OsStr::new("open").encode_wide().chain(std::iter::once(0)).collect();
-    let file: Vec<u16> = OsStr::new(path).encode_wide().chain(std::iter::once(0)).collect();
-    
+    let verb: Vec<u16> = OsStr::new("open")
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let file: Vec<u16> = OsStr::new(path)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
     let res = unsafe {
         ShellExecuteW(
             std::ptr::null_mut(),
@@ -287,34 +366,53 @@ fn open_path_windows(path: &str) -> Result<(), String> {
         )
     };
     if (res as usize) <= 32 {
-        return Err(format!("ShellExecuteW failed to open path: error code {}", res as usize));
+        return Err(format!(
+            "ShellExecuteW failed to open path: error code {}",
+            res as usize
+        ));
     }
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
 fn run_script_windows(path: &str, args: &str) -> Result<(), String> {
-    use std::os::windows::ffi::OsStrExt;
     use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
     use winapi::um::shellapi::ShellExecuteW;
     use winapi::um::winuser::SW_SHOWNORMAL;
 
-    let verb: Vec<u16> = OsStr::new("open").encode_wide().chain(std::iter::once(0)).collect();
-    let file: Vec<u16> = OsStr::new(path).encode_wide().chain(std::iter::once(0)).collect();
-    let params: Vec<u16> = OsStr::new(args).encode_wide().chain(std::iter::once(0)).collect();
-    
+    let verb: Vec<u16> = OsStr::new("open")
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let file: Vec<u16> = OsStr::new(path)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let params: Vec<u16> = OsStr::new(args)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
     let res = unsafe {
         ShellExecuteW(
             std::ptr::null_mut(),
             verb.as_ptr(),
             file.as_ptr(),
-            if args.is_empty() { std::ptr::null() } else { params.as_ptr() },
+            if args.is_empty() {
+                std::ptr::null()
+            } else {
+                params.as_ptr()
+            },
             std::ptr::null(),
             SW_SHOWNORMAL,
         )
     };
     if (res as usize) <= 32 {
-        return Err(format!("ShellExecuteW failed to run script: error code {}", res as usize));
+        return Err(format!(
+            "ShellExecuteW failed to run script: error code {}",
+            res as usize
+        ));
     }
     Ok(())
 }

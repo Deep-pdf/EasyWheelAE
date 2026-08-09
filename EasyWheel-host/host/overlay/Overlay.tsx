@@ -107,50 +107,27 @@ function Overlay(): React.JSX.Element {
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    invoke("overlay_log", {
-      msg: `Overlay mounted. Viewport=${window.innerWidth}x${window.innerHeight}, DPR=${window.devicePixelRatio}`,
-    }).catch(() => {});
-
     // Fetch the window's physical-pixel position once on mount.
     getCurrentWindow()
       .innerPosition()
       .then((pos) => {
         setWindowOffset({ x: pos.x, y: pos.y });
         windowOffsetRef.current = { x: pos.x, y: pos.y };
-        invoke("overlay_log", {
-          msg: `Overlay innerPosition resolved: (${pos.x}, ${pos.y})`,
-        }).catch(() => {});
       })
-      .catch((err) => {
-        invoke("overlay_log", {
-          msg: `Overlay innerPosition failed: ${String(err)}`,
-        }).catch(() => {});
-      });
+      .catch(() => {});
 
-    let eventCount = 0;
-    const handlePointer = (e: MouseEvent | PointerEvent, source: string): void => {
-      eventCount++;
+    const handlePointer = (e: MouseEvent | PointerEvent): void => {
       const dpr = window.devicePixelRatio || 1;
       const physX = e.clientX * dpr + windowOffsetRef.current.x;
       const physY = e.clientY * dpr + windowOffsetRef.current.y;
 
-      if (eventCount === 1 || eventCount % 30 === 0) {
-        const pe = e as PointerEvent;
-        const msg = `[${source} #${eventCount}] type=${e.type}, client=(${e.clientX}, ${e.clientY}), page=(${e.pageX}, ${e.pageY}), screen=(${e.screenX}, ${e.screenY}), pointerType=${pe.pointerType || "mouse"}, isPrimary=${pe.isPrimary ?? true}, phys=(${physX.toFixed(1)}, ${physY.toFixed(1)})`;
-        invoke("overlay_log", { msg }).catch(() => {});
-      }
-
-      invoke("report_pointer_position", { x: physX, y: physY }).catch((err) => {
-        invoke("overlay_log", {
-          msg: `invoke report_pointer_position error: ${String(err)}`,
-        }).catch(() => {});
-      });
+      invoke("report_pointer_position", { x: physX, y: physY }).catch(() => {});
     };
 
-    const onPointerMove = (e: PointerEvent) => handlePointer(e, "window.pointermove");
-    const onMouseMove = (e: MouseEvent) => handlePointer(e, "window.mousemove");
-    const onPointerDown = (e: PointerEvent) => handlePointer(e, "window.pointerdown");
-    const onPointerEnter = (e: PointerEvent) => handlePointer(e, "window.pointerenter");
+    const onPointerMove = (e: PointerEvent) => handlePointer(e);
+    const onMouseMove = (e: MouseEvent) => handlePointer(e);
+    const onPointerDown = (e: PointerEvent) => handlePointer(e);
+    const onPointerEnter = (e: PointerEvent) => handlePointer(e);
 
     window.addEventListener("pointermove", onPointerMove, { passive: true, capture: true });
     window.addEventListener("mousemove", onMouseMove, { passive: true, capture: true });
@@ -158,10 +135,7 @@ function Overlay(): React.JSX.Element {
     window.addEventListener("pointerenter", onPointerEnter, { passive: true, capture: true });
     document.addEventListener("pointermove", onPointerMove, { passive: true, capture: true });
 
-    invoke("overlay_log", { msg: "Pointer and mouse event listeners installed on window & document (capture=true)" }).catch(() => {});
-
     let alive = true;
-    let pollCount = 0;
 
     /**
      * RAF polling loop.
@@ -170,12 +144,6 @@ function Overlay(): React.JSX.Element {
       if (!alive) return;
       invoke<GeometryState>("get_geometry_state")
         .then((s) => {
-          pollCount++;
-          if (s.active && pollCount % 60 === 0) {
-            invoke("overlay_log", {
-              msg: `[RAF Poll #${pollCount}] active=${s.active}, origin=(${s.origin_x.toFixed(0)}, ${s.origin_y.toFixed(0)}), sector=${s.sector}, in_dead_zone=${s.in_dead_zone}`,
-            }).catch(() => {});
-          }
           setGeo(s);
         })
         .catch(() => {})
@@ -186,17 +154,9 @@ function Overlay(): React.JSX.Element {
 
     rafRef.current = requestAnimationFrame(poll);
 
-    const onResize = () => {
-      invoke("overlay_log", {
-        msg: `Overlay window resize event. Viewport=${window.innerWidth}x${window.innerHeight}, DPR=${window.devicePixelRatio}`,
-      }).catch(() => {});
-    };
-    window.addEventListener("resize", onResize);
-
     return () => {
       alive = false;
       cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", onResize);
       window.removeEventListener("pointermove", onPointerMove, { capture: true });
       window.removeEventListener("mousemove", onMouseMove, { capture: true });
       window.removeEventListener("pointerdown", onPointerDown, { capture: true });
