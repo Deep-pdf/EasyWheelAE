@@ -70,8 +70,10 @@ impl OverlayManager {
     /// No-op if the overlay is already visible. Logs the transition on
     /// success and an error message on failure; never panics.
     pub fn show<R: Runtime>(app: &AppHandle<R>) {
+        let is_vis = VISIBLE.load(Ordering::Relaxed);
+        println!("[OverlayManager:DIAG] show() called, current VISIBLE={}", is_vis);
 
-        if VISIBLE.load(Ordering::Relaxed) {
+        if is_vis {
             return;
         }
 
@@ -81,12 +83,23 @@ impl OverlayManager {
                 // as close to the key-press moment as possible.
                 InputManager::start();
 
-                if let Err(e) = window.show() {
-                    eprintln!("[EasyWheel Host] Error: Failed to show overlay — {e}");
-                    // Roll back tracking if the window failed to appear.
-                    InputManager::stop();
-                } else {
-                    VISIBLE.store(true, Ordering::Relaxed);
+                match window.show() {
+                    Ok(_) => {
+                        VISIBLE.store(true, Ordering::Relaxed);
+                        let is_visible = window.is_visible().unwrap_or(false);
+                        let inner_size = window.inner_size().ok();
+                        let outer_size = window.outer_size().ok();
+                        let inner_pos = window.inner_position().ok();
+                        let outer_pos = window.outer_position().ok();
+                        println!(
+                            "[OverlayManager:DIAG] window.show() SUCCEEDED. is_visible={}, inner_size={:?}, outer_size={:?}, inner_pos={:?}, outer_pos={:?}",
+                            is_visible, inner_size, outer_size, inner_pos, outer_pos
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("[OverlayManager:DIAG] window.show() FAILED: {e}");
+                        InputManager::stop();
+                    }
                 }
             }
             None => {

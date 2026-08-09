@@ -22,7 +22,7 @@
         "visible": false
       },
       {
-        "label": "overlay",
+        "label": "overlay",  
         "url": "overlay.html",
         "title": "EasyWheel Overlay",      
         "width": 1920,

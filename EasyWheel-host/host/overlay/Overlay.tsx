@@ -186,9 +186,17 @@ function Overlay(): React.JSX.Element {
 
     rafRef.current = requestAnimationFrame(poll);
 
+    const onResize = () => {
+      invoke("overlay_log", {
+        msg: `Overlay window resize event. Viewport=${window.innerWidth}x${window.innerHeight}, DPR=${window.devicePixelRatio}`,
+      }).catch(() => {});
+    };
+    window.addEventListener("resize", onResize);
+
     return () => {
       alive = false;
       cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("pointermove", onPointerMove, { capture: true });
       window.removeEventListener("mousemove", onMouseMove, { capture: true });
       window.removeEventListener("pointerdown", onPointerDown, { capture: true });
@@ -203,10 +211,9 @@ function Overlay(): React.JSX.Element {
   return (
     <div className="overlay-root">
       {/*
-       * Suppress rendering entirely until tracking is active and an origin
-       * has been captured.
+       * Render wheel whenever tracking is active.
        */}
-      {geo.active && (geo.origin_x !== 0 || geo.origin_y !== 0) && (
+      {geo.active && (
         <WheelRenderer
           cx={center.x}
           cy={center.y}
