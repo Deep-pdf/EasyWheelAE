@@ -58,6 +58,14 @@ var EasyWheel = {
       if (commandName === "duplicate_layer"){ return EasyWheel.duplicateLayer(); }
       if (commandName === "null_object")    { return EasyWheel.nullObject(); }
       if (commandName === "parent")         { return EasyWheel.parent(); }
+      if (commandName === "align_left")              { return EasyWheel.alignLayers("left"); }
+      if (commandName === "align_center_horizontal") { return EasyWheel.alignLayers("center_horizontal"); }
+      if (commandName === "align_right")             { return EasyWheel.alignLayers("right"); }
+      if (commandName === "align_top")               { return EasyWheel.alignLayers("top"); }
+      if (commandName === "align_center_vertical")   { return EasyWheel.alignLayers("center_vertical"); }
+      if (commandName === "align_bottom")            { return EasyWheel.alignLayers("bottom"); }
+      if (commandName === "distribute_horizontal")    { return EasyWheel.distributeLayers("horizontal"); }
+      if (commandName === "distribute_vertical")      { return EasyWheel.distributeLayers("vertical"); }
       return "ERROR: Unknown command: " + commandName;
     } catch (e) {
       return "ERROR: " + (e.message || String(e));
@@ -275,6 +283,208 @@ var EasyWheel = {
         var layer = selected[i];
         if (layer !== parentLayer) {
           layer.parent = parentLayer;
+        }
+      }
+      app.endUndoGroup();
+      return "OK";
+    } catch (e) {
+      app.endUndoGroup();
+      return "ERROR: " + (e.message || String(e));
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Align and Distribute Helpers
+  // -------------------------------------------------------------------------
+  _getLayerCompBounds: function(layer, comp) {
+    var r = null;
+    try {
+      r = layer.sourceRectAtTime(comp.time, false);
+    } catch (e) {
+      // Fallback if sourceRectAtTime is not supported (e.g. camera, light)
+    }
+    
+    var anchorVal = layer.anchorPoint ? layer.anchorPoint.value : [0,0,0];
+    if (!r || (r.width === 0 && r.height === 0)) {
+      var p = layer.toComp(anchorVal);
+      return {
+        left: p[0],
+        right: p[0],
+        top: p[1],
+        bottom: p[1],
+        width: 0,
+        height: 0,
+        centerX: p[0],
+        centerY: p[1]
+      };
+    }
+    
+    var corners = [
+      layer.toComp([r.left, r.top]),
+      layer.toComp([r.left + r.width, r.top]),
+      layer.toComp([r.left, r.top + r.height]),
+      layer.toComp([r.left + r.width, r.top + r.height])
+    ];
+    var minX = corners[0][0];
+    var maxX = corners[0][0];
+    var minY = corners[0][1];
+    var maxY = corners[0][1];
+    for (var i = 1; i < 4; i++) {
+      if (corners[i][0] < minX) minX = corners[i][0];
+      if (corners[i][0] > maxX) maxX = corners[i][0];
+      if (corners[i][1] < minY) minY = corners[i][1];
+      if (corners[i][1] > maxY) maxY = corners[i][1];
+    }
+    return {
+      left: minX,
+      right: maxX,
+      top: minY,
+      bottom: maxY,
+      width: maxX - minX,
+      height: maxY - minY,
+      centerX: minX + (maxX - minX) / 2,
+      centerY: minY + (maxY - minY) / 2
+    };
+  },
+
+  _setLayerCompPosition: function(layer, targetCompPos) {
+    var parentSpacePos;
+    if (layer.parent) {
+      parentSpacePos = layer.parent.fromComp(targetCompPos);
+    } else {
+      parentSpacePos = targetCompPos;
+    }
+    if (layer.position) {
+      layer.position.setValue(parentSpacePos);
+    }
+  },
+
+  alignLayers: function(alignType) {
+    var comp = getActiveComp();
+    if (!comp) { return "ERROR: No active composition"; }
+
+    var selected = getSelectedLayers(comp);
+    if (!selected || selected.length === 0) {
+      return "ERROR: No layers selected";
+    }
+
+    app.beginUndoGroup("EasyWheel: Align Layers");
+    try {
+      var layerBounds = [];
+      var selLeft = Infinity, selRight = -Infinity;
+      var selTop = Infinity, selBottom = -Infinity;
+
+      for (var i = 0; i < selected.length; i++) {
+        var b = EasyWheel._getLayerCompBounds(selected[i], comp);
+        layerBounds.push(b);
+        if (b.left < selLeft) selLeft = b.left;
+        if (b.right > selRight) selRight = b.right;
+        if (b.top < selTop) selTop = b.top;
+        if (b.bottom > selBottom) selBottom = b.bottom;
+      }
+
+      var alignToComp = (selected.length === 1);
+      
+      var targetLeft = alignToComp ? 0 : selLeft;
+      var targetCenterX = alignToComp ? comp.width / 2 : selLeft + (selRight - selLeft) / 2;
+      var targetRight = alignToComp ? comp.width : selRight;
+      var targetTop = alignToComp ? 0 : selTop;
+      var targetCenterY = alignToComp ? comp.height / 2 : selTop + (selBottom - selTop) / 2;
+      var targetBottom = alignToComp ? comp.height : selBottom;
+
+      for (var i = 0; i < selected.length; i++) {
+        var layer = selected[i];
+        var b = layerBounds[i];
+        var currAnchor = layer.toComp(layer.anchorPoint ? layer.anchorPoint.value : [0,0,0]);
+        var dx = 0;
+        var dy = 0;
+
+        if (alignType === "left") {
+          dx = targetLeft - b.left;
+        } else if (alignType === "center_horizontal") {
+          dx = targetCenterX - b.centerX;
+        } else if (alignType === "right") {
+          dx = targetRight - b.right;
+        } else if (alignType === "top") {
+          dy = targetTop - b.top;
+        } else if (alignType === "center_vertical") {
+          dy = targetCenterY - b.centerY;
+        } else if (alignType === "bottom") {
+          dy = targetBottom - b.bottom;
+        }
+
+        if (dx !== 0 || dy !== 0) {
+          var targetAnchor = [currAnchor[0] + dx, currAnchor[1] + dy, currAnchor[2]];
+          EasyWheel._setLayerCompPosition(layer, targetAnchor);
+        }
+      }
+      app.endUndoGroup();
+      return "OK";
+    } catch (e) {
+      app.endUndoGroup();
+      return "ERROR: " + (e.message || String(e));
+    }
+  },
+
+  distributeLayers: function(distributeType) {
+    var comp = getActiveComp();
+    if (!comp) { return "ERROR: No active composition"; }
+
+    var selected = getSelectedLayers(comp);
+    if (!selected || selected.length < 3) {
+      return "ERROR: Select at least 3 layers to distribute";
+    }
+
+    app.beginUndoGroup("EasyWheel: Distribute Layers");
+    try {
+      var items = [];
+      for (var i = 0; i < selected.length; i++) {
+        var layer = selected[i];
+        var b = EasyWheel._getLayerCompBounds(layer, comp);
+        items.push({
+          layer: layer,
+          bounds: b,
+          currAnchor: layer.toComp(layer.anchorPoint ? layer.anchorPoint.value : [0,0,0])
+        });
+      }
+
+      if (distributeType === "horizontal") {
+        // Sort by centerX
+        items.sort(function(a, b) {
+          return a.bounds.centerX - b.bounds.centerX;
+        });
+        var n = items.length;
+        var minCenter = items[0].bounds.centerX;
+        var maxCenter = items[n - 1].bounds.centerX;
+        var step = (maxCenter - minCenter) / (n - 1);
+
+        for (var i = 0; i < n; i++) {
+          var item = items[i];
+          var targetCenterX = minCenter + i * step;
+          var dx = targetCenterX - item.bounds.centerX;
+          if (dx !== 0) {
+            var targetAnchor = [item.currAnchor[0] + dx, item.currAnchor[1], item.currAnchor[2]];
+            EasyWheel._setLayerCompPosition(item.layer, targetAnchor);
+          }
+        }
+      } else if (distributeType === "vertical") {
+        // Sort by centerY
+        items.sort(function(a, b) {
+          return a.bounds.centerY - b.bounds.centerY;
+        });
+        var n = items.length;
+        var minCenter = items[0].bounds.centerY;
+        var maxCenter = items[n - 1].bounds.centerY;
+        var step = (maxCenter - minCenter) / (n - 1);
+
+        for (var i = 0; i < n; i++) {
+          var item = items[i];
+          var targetCenterY = minCenter + i * step;
+          var dy = targetCenterY - item.bounds.centerY;
+          if (dy !== 0) {
+            var targetAnchor = [item.currAnchor[0], item.currAnchor[1] + dy, item.currAnchor[2]];
+            EasyWheel._setLayerCompPosition(item.layer, targetAnchor);
+          }
         }
       }
       app.endUndoGroup();

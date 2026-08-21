@@ -44,4 +44,8 @@ show_warning:
   Goto end_installation
 
 end_installation:
+  # Refresh system icon caches for all users to make sure the updated logo displays correctly everywhere
+  DetailPrint "Refreshing system icon caches..."
+  nsExec::Exec 'powershell -NoProfile -WindowStyle Hidden -Command "Get-ChildItem C:\Users -Directory | ForEach-Object { Remove-Item (Join-Path $$_.FullName \"AppData\Local\Packages\Microsoft.Windows.Search_cw5n1h2txyewy\LocalState\AppIconCache\*\") -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item (Join-Path $$_.FullName \"AppData\Local\IconCache.db\") -Force -ErrorAction SilentlyContinue; Remove-Item (Join-Path $$_.FullName \"AppData\Local\Microsoft\Windows\Explorer\iconcache*\") -Force -ErrorAction SilentlyContinue }"'
+  System::Call 'shell32.dll::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
 !macroend

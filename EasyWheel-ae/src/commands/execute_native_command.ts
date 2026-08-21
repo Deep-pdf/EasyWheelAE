@@ -96,6 +96,30 @@ export const executeNativeCommand: Command = {
       case 2007: // Duplicate
         script = 'EasyWheel.execute("duplicate_layer")';
         break;
+      case 2500: // Align Left
+        script = 'EasyWheel.execute("align_left")';
+        break;
+      case 2501: // Align Center Horizontally
+        script = 'EasyWheel.execute("align_center_horizontal")';
+        break;
+      case 2502: // Align Right
+        script = 'EasyWheel.execute("align_right")';
+        break;
+      case 2503: // Align Top
+        script = 'EasyWheel.execute("align_top")';
+        break;
+      case 2504: // Align Center Vertically
+        script = 'EasyWheel.execute("align_center_vertical")';
+        break;
+      case 2505: // Align Bottom
+        script = 'EasyWheel.execute("align_bottom")';
+        break;
+      case 2508: // Distribute Horizontally
+        script = 'EasyWheel.execute("distribute_horizontal")';
+        break;
+      case 2509: // Distribute Vertically
+        script = 'EasyWheel.execute("distribute_vertical")';
+        break;
       case 2525: // Horizontal Type Tool (Focus tool only)
         script = `try {
           app.activate();
@@ -109,13 +133,18 @@ export const executeNativeCommand: Command = {
           "ERROR: " + (e.message || String(e));
         }`;
         break;
-      case 2511: // New Shape Layer (Robust API execution)
+      case 2511: // New Shape Layer (Robust API execution + select Rect tool)
         script = `try {
           app.activate();
           var comp = app.project.activeItem;
           if (comp && comp instanceof CompItem) {
             app.beginUndoGroup("EasyWheel: New Shape Layer");
             comp.layers.addShape();
+            try {
+              app.project.toolType = ToolType.Tool_Rect;
+            } catch(toolErr) {
+              // Ignore if ToolType is not supported in this AE version
+            }
             app.endUndoGroup();
             "OK";
           } else {
