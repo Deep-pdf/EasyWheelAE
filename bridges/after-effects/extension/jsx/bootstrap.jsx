@@ -304,9 +304,27 @@ var EasyWheel = {
       // Fallback if sourceRectAtTime is not supported (e.g. camera, light)
     }
     
-    var anchorVal = layer.anchorPoint ? layer.anchorPoint.value : [0,0,0];
+    var anchorVal = [0,0,0];
+    try {
+      if (layer.anchorPoint) {
+        anchorVal = layer.anchorPoint.value;
+      } else if (layer.transform && layer.transform.anchorPoint) {
+        anchorVal = layer.transform.anchorPoint.value;
+      }
+    } catch (e) {
+      // Fallback
+    }
+
     if (!r || (r.width === 0 && r.height === 0)) {
-      var p = layer.toComp(anchorVal);
+      var p = [0,0,0];
+      try {
+        p = layer.toComp(anchorVal);
+      } catch (e) {
+        // Fallback to position if toComp fails
+        try {
+          p = layer.position.value;
+        } catch (err) {}
+      }
       return {
         left: p[0],
         right: p[0],
@@ -319,12 +337,21 @@ var EasyWheel = {
       };
     }
     
-    var corners = [
-      layer.toComp([r.left, r.top]),
-      layer.toComp([r.left + r.width, r.top]),
-      layer.toComp([r.left, r.top + r.height]),
-      layer.toComp([r.left + r.width, r.top + r.height])
-    ];
+    var corners = [];
+    try {
+      corners = [
+        layer.toComp([r.left, r.top]),
+        layer.toComp([r.left + r.width, r.top]),
+        layer.toComp([r.left, r.top + r.height]),
+        layer.toComp([r.left + r.width, r.top + r.height])
+      ];
+    } catch (e) {
+      // Fallback if toComp fails
+      var p = [0,0,0];
+      try { p = layer.position.value; } catch (err) {}
+      corners = [p, p, p, p];
+    }
+
     var minX = corners[0][0];
     var maxX = corners[0][0];
     var minY = corners[0][1];
@@ -347,15 +374,60 @@ var EasyWheel = {
     };
   },
 
-  _setLayerCompPosition: function(layer, targetCompPos) {
-    var parentSpacePos;
-    if (layer.parent) {
-      parentSpacePos = layer.parent.fromComp(targetCompPos);
-    } else {
-      parentSpacePos = targetCompPos;
+  _setLayerCompPosition: function(layer, targetCompPos, axis) {
+    if (layer.locked) return; // Skip if locked
+    
+    var parentSpacePos = targetCompPos;
+    try {
+      if (layer.parent) {
+        parentSpacePos = layer.parent.fromComp(targetCompPos);
+      }
+    } catch (e) {
+      // Fallback to targetCompPos if fromComp fails
     }
-    if (layer.position) {
-      layer.position.setValue(parentSpacePos);
+
+    // Resolve transform position property
+    var posProp = layer.position;
+    if (!posProp && layer.transform) {
+      posProp = layer.transform.position;
+    }
+    if (!posProp) return;
+
+    try {
+      if (posProp.dimensionsSeparated) {
+        if (axis === "x" || axis === "both") {
+          var xProp = layer.xPosition || (layer.transform && layer.transform.xPosition) || layer.property("ADBE Transform Group").property("ADBE Position X");
+          if (xProp) xProp.setValue(parentSpacePos[0]);
+        }
+        if (axis === "y" || axis === "both") {
+          var yProp = layer.yPosition || (layer.transform && layer.transform.yPosition) || layer.property("ADBE Transform Group").property("ADBE Position Y");
+          if (yProp) yProp.setValue(parentSpacePos[1]);
+        }
+        if (layer.threeDLayer && (axis === "z" || axis === "both")) {
+          var zProp = layer.zPosition || (layer.transform && layer.transform.zPosition) || layer.property("ADBE Transform Group").property("ADBE Position Z");
+          if (zProp && parentSpacePos.length > 2) zProp.setValue(parentSpacePos[2]);
+        }
+      } else {
+        var currentParentPos = posProp.value;
+        var newPos = [currentParentPos[0], currentParentPos[1]];
+        if (layer.threeDLayer) {
+          newPos.push(currentParentPos.length > 2 ? currentParentPos[2] : 0);
+        }
+
+        if (axis === "x" || axis === "both") {
+          newPos[0] = parentSpacePos[0];
+        }
+        if (axis === "y" || axis === "both") {
+          newPos[1] = parentSpacePos[1];
+        }
+        if (layer.threeDLayer && (axis === "z" || axis === "both") && parentSpacePos.length > 2) {
+          newPos[2] = parentSpacePos[2];
+        }
+
+        posProp.setValue(newPos);
+      }
+    } catch (e) {
+      // Ignore setValue errors (e.g. expression-driven or read-only properties)
     }
   },
 
@@ -395,27 +467,47 @@ var EasyWheel = {
       for (var i = 0; i < selected.length; i++) {
         var layer = selected[i];
         var b = layerBounds[i];
-        var currAnchor = layer.toComp(layer.anchorPoint ? layer.anchorPoint.value : [0,0,0]);
+        
+        var currAnchor = [0,0,0];
+        try {
+          var anchorVal = [0,0,0];
+          if (layer.anchorPoint) {
+            anchorVal = layer.anchorPoint.value;
+          } else if (layer.transform && layer.transform.anchorPoint) {
+            anchorVal = layer.transform.anchorPoint.value;
+          }
+          currAnchor = layer.toComp(anchorVal);
+        } catch (e) {
+          try { currAnchor = layer.position.value; } catch (err) {}
+        }
+
         var dx = 0;
         var dy = 0;
+        var axis = "both";
 
         if (alignType === "left") {
           dx = targetLeft - b.left;
+          axis = "x";
         } else if (alignType === "center_horizontal") {
           dx = targetCenterX - b.centerX;
+          axis = "x";
         } else if (alignType === "right") {
           dx = targetRight - b.right;
+          axis = "x";
         } else if (alignType === "top") {
           dy = targetTop - b.top;
+          axis = "y";
         } else if (alignType === "center_vertical") {
           dy = targetCenterY - b.centerY;
+          axis = "y";
         } else if (alignType === "bottom") {
           dy = targetBottom - b.bottom;
+          axis = "y";
         }
 
         if (dx !== 0 || dy !== 0) {
           var targetAnchor = [currAnchor[0] + dx, currAnchor[1] + dy, currAnchor[2]];
-          EasyWheel._setLayerCompPosition(layer, targetAnchor);
+          EasyWheel._setLayerCompPosition(layer, targetAnchor, axis);
         }
       }
       app.endUndoGroup();
@@ -441,10 +533,24 @@ var EasyWheel = {
       for (var i = 0; i < selected.length; i++) {
         var layer = selected[i];
         var b = EasyWheel._getLayerCompBounds(layer, comp);
+        
+        var currAnchor = [0,0,0];
+        try {
+          var anchorVal = [0,0,0];
+          if (layer.anchorPoint) {
+            anchorVal = layer.anchorPoint.value;
+          } else if (layer.transform && layer.transform.anchorPoint) {
+            anchorVal = layer.transform.anchorPoint.value;
+          }
+          currAnchor = layer.toComp(anchorVal);
+        } catch (e) {
+          try { currAnchor = layer.position.value; } catch (err) {}
+        }
+
         items.push({
           layer: layer,
           bounds: b,
-          currAnchor: layer.toComp(layer.anchorPoint ? layer.anchorPoint.value : [0,0,0])
+          currAnchor: currAnchor
         });
       }
 
@@ -464,7 +570,7 @@ var EasyWheel = {
           var dx = targetCenterX - item.bounds.centerX;
           if (dx !== 0) {
             var targetAnchor = [item.currAnchor[0] + dx, item.currAnchor[1], item.currAnchor[2]];
-            EasyWheel._setLayerCompPosition(item.layer, targetAnchor);
+            EasyWheel._setLayerCompPosition(item.layer, targetAnchor, "x");
           }
         }
       } else if (distributeType === "vertical") {
@@ -483,7 +589,7 @@ var EasyWheel = {
           var dy = targetCenterY - item.bounds.centerY;
           if (dy !== 0) {
             var targetAnchor = [item.currAnchor[0], item.currAnchor[1] + dy, item.currAnchor[2]];
-            EasyWheel._setLayerCompPosition(item.layer, targetAnchor);
+            EasyWheel._setLayerCompPosition(item.layer, targetAnchor, "y");
           }
         }
       }

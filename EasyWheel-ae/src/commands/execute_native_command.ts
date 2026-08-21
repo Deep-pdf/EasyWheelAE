@@ -199,9 +199,10 @@ export const executeNativeCommand: Command = {
     
     // In our bootstrap.jsx, custom commands return "OK" on success or "ERROR: <reason>" on failure.
     // Standard app.executeCommand returns undefined, so we appended "OK" at the end of the statement.
-    const success = res.success && (res.result === 'OK' || res.result === undefined || res.result === 'undefined' || res.result === '');
+    const isEvalError = res.result === 'EvalScript error.';
+    const success = res.success && !isEvalError && (res.result === 'OK' || res.result === undefined || res.result === 'undefined' || res.result === '');
     const isError = res.result && typeof res.result === 'string' && res.result.indexOf('ERROR:') === 0;
-    const errorMsg = isError ? res.result.substring(6).trim() : (res.message || 'Execution failed.');
+    const errorMsg = isError ? res.result.substring(6).trim() : (isEvalError ? 'ExtendScript engine error. Please restart After Effects.' : (res.message || 'Execution failed.'));
 
     return {
       success: success && !isError,
