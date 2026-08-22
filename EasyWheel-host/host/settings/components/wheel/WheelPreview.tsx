@@ -82,16 +82,31 @@ export function WheelPreview({
           const endAngle = centre + sectorSpan / 2 - sectorGap;
           const isHighlighted = i === 0; // Highlight the first one for live visual demonstration
 
+          const rad = (centre * Math.PI) / 180;
+          // Apply same radial translation to the highlighted preview sector
+          const tx = isHighlighted ? Math.cos(rad) * 10 : 0;
+          const ty = isHighlighted ? Math.sin(rad) * 10 : 0;
+
+          const transformStyle: React.CSSProperties = {
+            transform: isHighlighted
+              ? `translate(${tx}px, ${ty}px) scale(1.08)`
+              : `translate(0px, 0px) scale(1)`,
+            transformOrigin: `${cx}px ${cy}px`,
+            transition: 'transform 150ms cubic-bezier(0.22, 1, 0.36, 1)',
+          };
+
           return (
-            <path
-              key={i}
-              d={annularSectorPath(cx, cy, innerR + 1, outerR, startAngle, endAngle)}
-              style={{
-                fill: isHighlighted ? highlightColor || '#FF4365' : defaultColor || 'rgba(45, 38, 40, 0.70)',
-                stroke: isHighlighted ? '#FC909A' : 'rgba(255, 67, 101, 0.12)',
-                strokeWidth: 1,
-              }}
-            />
+            <g key={i} style={transformStyle}>
+              <path
+                d={annularSectorPath(cx, cy, innerR + 6, outerR - 2, startAngle, endAngle)}
+                style={{
+                  fill: isHighlighted ? highlightColor || '#FF4365' : defaultColor || 'rgba(18, 18, 24, 0.82)',
+                  stroke: isHighlighted ? '#FC909A' : 'rgba(131, 175, 155, 0.22)',
+                  strokeWidth: isHighlighted ? 2 : 1,
+                  filter: isHighlighted ? 'drop-shadow(0 0 8px rgba(255, 67, 101, 0.4))' : 'none',
+                }}
+              />
+            </g>
           );
         })}
 
@@ -101,29 +116,37 @@ export function WheelPreview({
           cy={cy}
           r={outerR}
           className="fill-none"
-          style={{ stroke: '#83AF9B', opacity: 0.45 }}
+          style={{ stroke: 'rgba(131, 175, 155, 0.22)' }}
           strokeWidth={1}
         />
 
-        {/* Inner boundary */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={innerR}
-          className="fill-none"
-          style={{ fill: 'rgba(26, 23, 24, 0.85)', stroke: 'rgba(255, 67, 101, 0.1)' }}
-          strokeWidth={1}
-        />
-
-        {/* Origin dot */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={3}
-          style={{ fill: '#FF4365' }}
-        />
+        {/* Center Hub & Logo */}
+        <g>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={Math.max(0, innerR - 4)}
+            style={{
+              fill: 'rgba(22, 22, 28, 0.95)',
+              stroke: 'rgba(131, 175, 155, 0.45)',
+              strokeWidth: 1.5,
+              filter: 'drop-shadow(0 0 12px rgba(255, 67, 101, 0.15))',
+            }}
+          />
+          {innerR > 16 && (
+            <g
+              transform={`translate(${cx - (innerR * 0.75) / 2}, ${cy - (innerR * 0.75) / 2})`}
+              style={{ color: '#FF4365' }}
+            >
+              <svg width={innerR * 0.75} height={innerR * 0.75} viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" strokeWidth="10" />
+                <circle cx="50" cy="50" r="18" fill="currentColor" />
+              </svg>
+            </g>
+          )}
+        </g>
       </svg>
-      <span className="text-[10px] mt-4" style={{ color: 'var(--color-text-faint)' }}>Sector index 0 highlighted</span>
+      <span className="text-[10px] mt-4" style={{ color: 'var(--color-text-faint)' }}>Sector index 0 highlighted (simulated hover)</span>
     </div>
   );
 }

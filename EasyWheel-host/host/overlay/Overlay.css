@@ -1,118 +1,74 @@
 /*
  * Overlay.css
  *
- * Styles for the EasyWheel transparent overlay window.
+ * Shell stylesheet for the EasyWheel transparent overlay window.
  *
- * Phase 4: Full-screen transparent canvas hosting the SVG radial wheel.
- * Debug panel styles from Phase 3 are removed entirely.
- *
- * Design principles:
- * - Every element is pointer-events: none — the overlay never captures input.
- * - The transparent chain must be unbroken from html → body → #root →
- *   .overlay-root. A single opaque ancestor blocks the window transparency.
- * - Wheel elements use CSS classes rather than inline styles so that future
- *   theme changes are a CSS-only operation.
+ * Critical invariants:
+ * - html / body / #root / .overlay-root must have NO background whatsoever.
+ * - pointer-events: none at every level — overlay never intercepts input.
+ * - All visual rendering is inside WheelRenderer.tsx SVG (inline styles).
+ * - This file only handles the transparency shell + minimal group animation.
  */
 
 /* ---------------------------------------------------------------------------
-   Shell reset — transparent window canvas
+   Theme tokens (consumed only by the SVG via JS — kept here for reference)
+   --------------------------------------------------------------------------- */
+
+:root {
+  --ew-primary:   #FF4365;
+  --ew-warm:      #F9CDAD;
+  --ew-success:   #83AF9B;
+  --ew-neutral:   #C8C8A9;
+}
+
+/* ---------------------------------------------------------------------------
+   Full transparency chain — must never have a background
    --------------------------------------------------------------------------- */
 
 html,
 body,
 #root {
-  margin: 0;
+  margin:  0;
   padding: 0;
-  width: 100%;
-  height: 100%;
+  width:   100%;
+  height:  100%;
   overflow: hidden;
   background: transparent !important;
 }
 
-/* Full-viewport positioning context for absolutely placed children. */
 .overlay-root {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: transparent !important;
+  position:   relative;
+  width:       100%;
+  height:      100%;
+  background:  transparent !important;
   pointer-events: none;
 }
-
-/* ---------------------------------------------------------------------------
-   SVG canvas — full-viewport, pointer-passthrough
-   --------------------------------------------------------------------------- */
 
 .overlay-svg {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top:      0;
+  left:     0;
+  width:    100%;
+  height:   100%;
   pointer-events: none;
-  overflow: visible;
+  overflow:  visible;
 }
 
 /* ---------------------------------------------------------------------------
-   Wheel — sector slices
+   Sector group transitions
+   (transform and opacity are the only CSS-animatable SVG group properties)
    --------------------------------------------------------------------------- */
 
-/*
- * Default sector — dark, translucent.
- * The fill uses a navy-black base with high translucency so the content
- * beneath the overlay remains visible.
- */
-.wheel-sector {
-  fill: rgba(12, 12, 22, 0.80);
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 1;
-  transition: fill 80ms ease-out;
-}
-
-/*
- * Active sector — primary accent from EasyWheel palette.
- * #FF4365 at high opacity for a crisp, modern highlight.
- * The short transition keeps the highlight feeling responsive without lag.
- */
-.wheel-sector--active {
-  fill: rgba(255, 67, 101, 0.82);
-  stroke: rgba(252, 144, 154, 0.85);
-  stroke-width: 1.5;
+.wheel-sector-group {
+  will-change: transform, opacity;
 }
 
 /* ---------------------------------------------------------------------------
-   Wheel — structural circles
+   Reduced-motion accessibility
    --------------------------------------------------------------------------- */
 
-/* Outer bounding ring — thin, barely visible frame. */
-.wheel-outer-ring {
-  fill: none;
-  stroke: rgba(131, 175, 155, 0.45);
-  stroke-width: 1;
-}
-
-/*
- * Dead zone circle — slightly lighter than the sector fill to distinguish
- * the center well from the interactive ring.
- */
-.wheel-dead-zone {
-  fill: rgba(26, 23, 24, 0.85);
-  stroke: rgba(255, 67, 101, 0.1);
-  stroke-width: 1;
-}
-
-/* Center anchor dot — small, bright reference point at the origin. */
-.wheel-center-dot {
-  fill: rgba(255, 67, 101, 0.90);
-}
-
-/* Sector labels — clean typography, centered. */
-.wheel-sector-label {
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  fill: #F7F1EE;
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-  user-select: none;
+@media (prefers-reduced-motion: reduce) {
+  .wheel-sector-group {
+    transition: none !important;
+  }
 }

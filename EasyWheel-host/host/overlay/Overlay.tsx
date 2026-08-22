@@ -17,8 +17,49 @@
 import React, { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { AppConfig, ConfiguredCommand } from "../settings/types";
 import WheelRenderer from "./WheelRenderer";
 import "./Overlay.css";
+
+// ---------------------------------------------------------------------------
+// launch_app sector metadata
+// ---------------------------------------------------------------------------
+
+interface SectorCommandInfo {
+  commandType: string;
+  /** Basename of the exe without extension, e.g. "chrome" for chrome.exe */
+  exeName?: string;
+}
+
+/** Extract exe basename (without path or .exe) from a Windows file path. */
+function exeBasename(filePath: string): string {
+  const parts = filePath.replace(/\\/g, "/").split("/");
+  const file  = parts[parts.length - 1] ?? "";
+  return file.replace(/\.exe$/i, "").toLowerCase();
+}
+
+/** Build a label → SectorCommandInfo map from all profiles in the config. */
+function buildLabelMap(config: AppConfig): Record<string, SectorCommandInfo> {
+  const map: Record<string, SectorCommandInfo> = {};
+  for (const profile of config.profiles) {
+    for (const raw of Object.values(profile.sector_assignments)) {
+      if (typeof raw === "object" && raw !== null) {
+        const cmd = raw as ConfiguredCommand;
+        const label = (cmd.label ?? "").trim();
+        if (!label) continue;
+        if (cmd.command === "launch_app" && cmd.parameters?.path) {
+          map[label] = {
+            commandType: "launch_app",
+            exeName: exeBasename(cmd.parameters.path as string),
+          };
+        } else {
+          map[label] = { commandType: cmd.command };
+        }
+      }
+    }
+  }
+  return map;
+}
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors geometry_manager::GeometryState on the Rust side
@@ -101,9 +142,56 @@ function toCssPx(screenX: number, screenY: number, offset: WindowOffset): { x: n
 function Overlay(): React.JSX.Element {
   const [geo, setGeo] = useState<GeometryState>(DEFAULT_STATE);
   const [windowOffset, setWindowOffset] = useState<WindowOffset>({ x: 0, y: 0 });
+  const [labelToCommand, setLabelToCommand] = useState<Record<string, SectorCommandInfo>>({});
 
   // Stores the RAF cancellation ID for cleanup on unmount.
   const rafRef = useRef<number>(0);
+
+  // Load config once on mount to resolve launch_app labels → exe names.
+  useEffect(() => {
+    invoke<AppConfig>("get_config")
+      .then((cfg) => setLabelToCommand(buildLabelMap(cfg)))
+      .catch(() => {
+        // Non-fatal: icons fall back to keyword-matched defaults.
+      });
+  }, []);
+
+  // Sync theme on mount and when changed
+  useEffect(() => {
+    const resolveTheme = () => {
+      const storedTheme = localStorage.getItem("ew-theme") || "dark";
+      if (storedTheme === "system") {
+        const isLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+        document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
+      } else {
+        document.documentElement.setAttribute("data-theme", storedTheme);
+      }
+    };
+
+    resolveTheme();
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "ew-theme") {
+        resolveTheme();
+      }
+    };
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+    const handleThemeChange = () => {
+      const storedTheme = localStorage.getItem("ew-theme") || "dark";
+      if (storedTheme === "system") {
+        resolveTheme();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    mediaQuery.addEventListener("change", handleThemeChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      mediaQuery.removeEventListener("change", handleThemeChange);
+    };
+  }, []);
 
   useEffect(() => {
     // Fetch the window's physical-pixel position once on mount.
@@ -177,6 +265,7 @@ function Overlay(): React.JSX.Element {
           defaultColor={geo.default_color}
           wheelOpacity={geo.wheel_opacity}
           sectorLabels={geo.sector_labels}
+          labelToCommand={labelToCommand}
         />
       )}
     </div>
