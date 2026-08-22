@@ -1,60 +1,57 @@
 /**
  * WheelRenderer.tsx
  *
- * Premium glassmorphism radial wheel with dynamic sector sizing:
- * - Hovered sector expands in both angular width and radial height.
- * - Immediate neighbors shrink proportionally to maintain circle boundary.
- * - Far sectors dim and shrink slightly.
- * - Full glassmorphism: layered fills, bright refractive borders, bloom glows.
- * - Completely clean — no overlaps, smooth 160ms easing on transforms.
+ * Premium glassmorphism radial wheel renderer.
+ *
+ * Sizing & Animation Rules:
+ * - Fully controllable via wheelRadius and deadZoneRadius props.
+ * - Subtly refined hover expansion (6px push, 3px inner depth).
+ * - Very subtle neighbor shrink (4px outer, 2px inner).
+ * - Minimal gaps between sectors (0.8° base, 0.2° active).
+ * - Sleek, thin glass borders (0.8px base, 1.2px active).
+ * - Hub geometry stays strictly within deadZoneRadius bounds to avoid overlap.
  */
 
 import React from "react";
 
 // ---------------------------------------------------------------------------
-// Constants
+// Fallback Default Constants (used only if props are unspecified)
 // ---------------------------------------------------------------------------
 
-const WHEEL_RADIUS     = 220;
-const DEAD_ZONE_RADIUS = 100;
-const SECTOR_COUNT     = 8;
+const DEFAULT_WHEEL_RADIUS     = 180;
+const DEFAULT_DEAD_ZONE_RADIUS = 70;
+const DEFAULT_SECTOR_COUNT     = 8;
 
-/** Base gap (half-degrees trimmed from each edge of every sector). */
-const BASE_GAP = 1.5;
-/** Gap override for the active sector — minimal gap = appears wider. */
-const ACTIVE_GAP = 0.3;
-/** Gap override for immediate neighbor sectors — larger gap = appears narrower. */
-const NEIGHBOR_GAP = 3.2;
-/** Gap override for far dimmed sectors. */
-const DIM_GAP = 2.0;
+/** Angular half-gaps (trimmed from each edge of a sector, in degrees). */
+const BASE_GAP     = 0.8;
+const ACTIVE_GAP   = 0.2;
+const NEIGHBOR_GAP = 1.4;
+const DIM_GAP      = 1.0;
 
-/** Radial push for active sector in px (translate outward). */
-const EXPAND_PX = 16;
+/** Active sector hover translation (radial push outward in px). */
+const EXPAND_PX = 6;
 
-/** How much innerR shrinks for active sector (grows deeper toward hub). */
-const ACTIVE_INNER_SHRINK = 10;
-/** How much outerR shrinks for neighbor sectors (they pull back). */
-const NEIGHBOR_OUTER_SHRINK = 14;
-/** How much innerR grows for neighbor sectors (they get shallower). */
-const NEIGHBOR_INNER_GROW = 8;
-/** Shrink amounts for all other inactive sectors. */
-const DIM_OUTER_SHRINK = 7;
-const DIM_INNER_GROW   = 5;
+/** Active sector inner expansion toward hub (px). */
+const ACTIVE_INNER_SHRINK = 3;
+
+/** Neighbor sector subtle shrink amounts (px). */
+const NEIGHBOR_OUTER_SHRINK = 4;
+const NEIGHBOR_INNER_GROW   = 2;
+
+/** Far sector subtle shrink amounts (px). */
+const DIM_OUTER_SHRINK = 2;
+const DIM_INNER_GROW   = 1;
 
 const EASE = "160ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 // ---------------------------------------------------------------------------
-// Helpers: detect neighbor
+// Helpers
 // ---------------------------------------------------------------------------
 
 function isNeighbor(i: number, active: number, count: number): boolean {
   const d = Math.abs(i - active);
   return d === 1 || d === count - 1;
 }
-
-// ---------------------------------------------------------------------------
-// SVG math
-// ---------------------------------------------------------------------------
 
 interface Point { x: number; y: number; }
 
@@ -96,7 +93,6 @@ function nameToHue(s: string): number {
   return Math.abs(h) % 360;
 }
 
-// Popular app icon themes
 function getAppTheme(exeName: string): ActionTheme {
   const n = exeName.toLowerCase().replace(/\.exe$/i, "").replace(/[_-]/g, " ").trim();
 
@@ -116,7 +112,6 @@ function getAppTheme(exeName: string): ActionTheme {
   if (/terminal|powershell|cmd|wt\.?exe|alacritty|wezterm/.test(n)) return { color: "#00D2FF", icon: (<><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></>) };
   if (/notepad/.test(n)) return { color: "#90E66E", icon: (<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>) };
 
-  // Stylised initial fallback
   const initial = (n[0] ?? "?").toUpperCase();
   const hue = nameToHue(n);
   return {
@@ -129,7 +124,6 @@ function getAppTheme(exeName: string): ActionTheme {
   };
 }
 
-// Command keyword icon themes
 function getActionTheme(label: string): ActionTheme {
   const n = label.toLowerCase();
 
@@ -178,71 +172,69 @@ function WheelRenderer({
   cy,
   sector,
   inDeadZone,
-  wheelRadius    = WHEEL_RADIUS,
-  deadZoneRadius = DEAD_ZONE_RADIUS,
-  sectorCount    = SECTOR_COUNT,
+  wheelRadius    = DEFAULT_WHEEL_RADIUS,
+  deadZoneRadius = DEFAULT_DEAD_ZONE_RADIUS,
+  sectorCount    = DEFAULT_SECTOR_COUNT,
   wheelOpacity   = 1.0,
   sectorLabels   = [],
   labelToCommand = {},
 }: WheelRendererProps): React.JSX.Element {
   const sectorSpan       = 360 / sectorCount;
   const isAnySectorActive = !inDeadZone && sector !== 255;
-  const hubR             = deadZoneRadius - 4;
-  // Midpoint radius for icon+label content
-  const baseContentR = deadZoneRadius + (wheelRadius - deadZoneRadius) * 0.52;
+  
+  // Hub radius strictly stays within deadZoneRadius
+  const hubR = Math.max(16, deadZoneRadius - 3);
+
+  // Content midpoint radius dynamically placed between deadZoneRadius and wheelRadius
+  const ringThickness = wheelRadius - deadZoneRadius;
+  const baseContentR  = deadZoneRadius + ringThickness * 0.52;
+
+  // Calculate icon scaling factor if the wheel ring is small
+  const iconScale = Math.min(1.0, Math.max(0.65, ringThickness / 80));
 
   return (
     <svg
       className="overlay-svg"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      style={{ opacity: Math.max(wheelOpacity, 0.94) /* ensure high opacity */ }}
+      style={{ opacity: Math.max(wheelOpacity, 0.92) }}
     >
       <defs>
-        {/* ── Glassmorphism: sector base gradient (dark, warm) ── */}
+        {/* Glassmorphism: dark warm base */}
         <linearGradient id="glass-dark" x1="0%" y1="0%" x2="60%" y2="100%">
-          <stop offset="0%"   stopColor="rgba(50, 38, 44, 0.96)" />
-          <stop offset="100%" stopColor="rgba(22, 17, 20, 0.94)" />
+          <stop offset="0%"   stopColor="rgba(42, 32, 37, 0.95)" />
+          <stop offset="100%" stopColor="rgba(18, 14, 16, 0.93)" />
         </linearGradient>
 
-        {/* ── Glassmorphism: sector light sheen overlay ── */}
+        {/* Glassmorphism: light sheen */}
         <linearGradient id="glass-sheen" x1="0%" y1="0%" x2="80%" y2="100%">
-          <stop offset="0%"   stopColor="rgba(255,255,255,0.11)" />
-          <stop offset="45%"  stopColor="rgba(255,255,255,0.03)" />
+          <stop offset="0%"   stopColor="rgba(255,255,255,0.09)" />
+          <stop offset="50%"  stopColor="rgba(255,255,255,0.02)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.00)" />
         </linearGradient>
 
-        {/* ── Active sector fill ── */}
+        {/* Active sector fill */}
         <radialGradient id="active-fill" cx="42%" cy="38%" r="62%">
-          <stop offset="0%"   stopColor="#FF4365" stopOpacity="0.92" />
+          <stop offset="0%"   stopColor="#FF4365" stopOpacity="0.94" />
           <stop offset="100%" stopColor="#C0183A" stopOpacity="0.98" />
         </radialGradient>
 
-        {/* ── Active sector sheen ── */}
+        {/* Active sector sheen */}
         <linearGradient id="active-sheen" x1="0%" y1="0%" x2="70%" y2="100%">
-          <stop offset="0%"   stopColor="rgba(255,255,255,0.22)" />
-          <stop offset="50%"  stopColor="rgba(255,255,255,0.06)" />
+          <stop offset="0%"   stopColor="rgba(255,255,255,0.20)" />
+          <stop offset="50%"  stopColor="rgba(255,255,255,0.05)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.00)" />
         </linearGradient>
 
-        {/* ── Hub gradient ── */}
+        {/* Hub gradient */}
         <radialGradient id="hub-fill" cx="38%" cy="32%" r="70%">
-          <stop offset="0%"   stopColor="#342830" />
-          <stop offset="100%" stopColor="#140E11" />
+          <stop offset="0%"   stopColor="#2E222A" />
+          <stop offset="100%" stopColor="#120D10" />
         </radialGradient>
 
-        {/* ── Bloom / glow filter for active sector ── */}
-        <filter id="bloom" x="-25%" y="-25%" width="150%" height="150%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-
-        {/* ── Soft glow filter for hub ── */}
+        {/* Hub glow filter */}
         <filter id="hub-glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -254,12 +246,12 @@ function WheelRenderer({
       {/* Sectors                                                              */}
       {/* ------------------------------------------------------------------ */}
       {Array.from({ length: sectorCount }, (_, i) => {
-        const centre = i * sectorSpan;
+        const centre     = i * sectorSpan;
         const isActive   = isAnySectorActive && sector === i;
         const isNeighbor_ = isAnySectorActive && !isActive && isNeighbor(i, sector, sectorCount);
         const isDimmed   = isAnySectorActive && !isActive;
 
-        // ── Angular gaps (control perceived width) ──────────────────────────
+        // ── Angular gaps ────────────────────────────────────────────────────
         const gap = isActive
           ? ACTIVE_GAP
           : isNeighbor_
@@ -271,26 +263,26 @@ function WheelRenderer({
         const startAngle = centre - sectorSpan / 2 + gap;
         const endAngle   = centre + sectorSpan / 2 - gap;
 
-        // ── Radial bounds (control perceived height) ────────────────────────
+        // ── Radial bounds ───────────────────────────────────────────────────
         const outerR = isActive
-          ? wheelRadius - 2                            // hits outer boundary
+          ? wheelRadius - 1                             // full boundary
           : isNeighbor_
-          ? wheelRadius - 2 - NEIGHBOR_OUTER_SHRINK    // pulls significantly back
+          ? wheelRadius - 1 - NEIGHBOR_OUTER_SHRINK     // subtle 4px pullback
           : isDimmed
-          ? wheelRadius - 2 - DIM_OUTER_SHRINK         // pulls slightly back
-          : wheelRadius - 2;
+          ? wheelRadius - 1 - DIM_OUTER_SHRINK          // subtle 2px pullback
+          : wheelRadius - 1;
 
         const innerR = isActive
-          ? deadZoneRadius + 6 - ACTIVE_INNER_SHRINK   // extends closer to hub
+          ? deadZoneRadius + 3 - ACTIVE_INNER_SHRINK    // subtle 3px expansion inward
           : isNeighbor_
-          ? deadZoneRadius + 6 + NEIGHBOR_INNER_GROW    // becomes shallower
+          ? deadZoneRadius + 3 + NEIGHBOR_INNER_GROW     // subtle 2px pullback
           : isDimmed
-          ? deadZoneRadius + 6 + DIM_INNER_GROW         // slightly shallower
-          : deadZoneRadius + 6;
+          ? deadZoneRadius + 3 + DIM_INNER_GROW          // subtle 1px pullback
+          : deadZoneRadius + 3;
 
         const sectorPath = annularSectorPath(cx, cy, innerR, outerR, startAngle, endAngle);
 
-        // ── Radial translate for active sector ──────────────────────────────
+        // ── Radial translate ────────────────────────────────────────────────
         const rad = (centre * Math.PI) / 180;
         const tx  = isActive ? Math.cos(rad) * EXPAND_PX : 0;
         const ty  = isActive ? Math.sin(rad) * EXPAND_PX : 0;
@@ -304,21 +296,21 @@ function WheelRenderer({
           : getActionTheme(displayName);
 
         // ── Content position ────────────────────────────────────────────────
-        const contentRAdj = baseContentR + (isActive ? 4 : isNeighbor_ ? -4 : 0);
+        const contentRAdj = baseContentR + (isActive ? 2 : 0);
         const contentPos  = polarToCartesian(cx, cy, contentRAdj, centre);
 
-        // ── Border colors ───────────────────────────────────────────────────
+        // ── Border colors & strokes ─────────────────────────────────────────
         const outerBorder = isActive
-          ? "rgba(255, 100, 130, 0.70)"
+          ? "rgba(255, 100, 130, 0.65)"
           : isNeighbor_
-          ? "rgba(255, 255, 255, 0.10)"
+          ? "rgba(255, 255, 255, 0.08)"
           : isDimmed
-          ? "rgba(255, 255, 255, 0.06)"
-          : "rgba(255, 255, 255, 0.14)";
+          ? "rgba(255, 255, 255, 0.05)"
+          : "rgba(255, 255, 255, 0.12)";
 
         const topBorder = isActive
-          ? "rgba(255, 200, 210, 0.45)"  // bright refractive top edge
-          : "rgba(255, 255, 255, 0.18)"; // glass top highlight
+          ? "rgba(255, 200, 210, 0.40)"
+          : "rgba(255, 255, 255, 0.14)";
 
         return (
           <g
@@ -327,55 +319,55 @@ function WheelRenderer({
             transform={groupTransform}
             style={{ transition: `transform ${EASE}, opacity ${EASE}` }}
           >
-            {/* ── Glass base fill ────────────────────────────────────────── */}
+            {/* Base glass fill */}
             <path
               d={sectorPath}
               fill={isActive ? "url(#active-fill)" : "url(#glass-dark)"}
               stroke={outerBorder}
-              strokeWidth={isActive ? "1.8" : "1.2"}
+              strokeWidth={isActive ? "1.2" : "0.8"}
               style={{
                 filter: isActive
-                  ? "drop-shadow(0 0 14px rgba(255,50,90,0.55))"
+                  ? "drop-shadow(0 0 10px rgba(255,50,90,0.45))"
                   : isNeighbor_
-                  ? "brightness(0.75)"
+                  ? "brightness(0.85)"
                   : isDimmed
-                  ? "brightness(0.80)"
+                  ? "brightness(0.88)"
                   : "none",
-                opacity: isNeighbor_ ? 0.82 : isDimmed ? 0.86 : 1,
+                opacity: isNeighbor_ ? 0.88 : isDimmed ? 0.90 : 1,
                 transition: `opacity ${EASE}, filter ${EASE}, stroke ${EASE}`,
               }}
             />
 
-            {/* ── Glass sheen overlay (same path, gradient on top) ─────────── */}
+            {/* Glass sheen overlay */}
             <path
               d={sectorPath}
               fill={isActive ? "url(#active-sheen)" : "url(#glass-sheen)"}
               stroke={topBorder}
-              strokeWidth="0.8"
-              style={{ pointerEvents: "none", opacity: isNeighbor_ ? 0.6 : 1 }}
+              strokeWidth="0.5"
+              style={{ pointerEvents: "none", opacity: isNeighbor_ ? 0.7 : 1 }}
             />
 
-            {/* ── Icon + Label ─────────────────────────────────────────────── */}
+            {/* Icon + Label */}
             {displayName && (
               <g
-                transform={`translate(${contentPos.x}, ${contentPos.y})`}
+                transform={`translate(${contentPos.x}, ${contentPos.y}) scale(${iconScale})`}
                 style={{ transition: `transform ${EASE}` }}
               >
                 {/* Icon */}
                 <svg
-                  x={isActive ? -14 : -11}
-                  y={isActive ? -26 : -21}
-                  width={isActive ? 28 : 22}
-                  height={isActive ? 28 : 22}
+                  x={isActive ? -13 : -11}
+                  y={isActive ? -24 : -20}
+                  width={isActive ? 26 : 22}
+                  height={isActive ? 26 : 22}
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(200,180,190,0.70)" : theme.color}
+                  stroke={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(210,195,200,0.75)" : theme.color}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   style={{
                     filter: isActive
-                      ? "drop-shadow(0 0 6px rgba(255,255,255,0.60))"
+                      ? "drop-shadow(0 0 5px rgba(255,255,255,0.60))"
                       : "none",
                     transition: `stroke ${EASE}`,
                   }}
@@ -386,17 +378,17 @@ function WheelRenderer({
                 {/* Label */}
                 <text
                   x={0}
-                  y={isActive ? 18 : 16}
+                  y={isActive ? 16 : 14}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fill={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(200,185,190,0.65)" : "#E0D8D4"}
-                  fontSize={isActive ? "11.5" : isNeighbor_ ? "9.5" : "10"}
+                  fill={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(210,195,200,0.70)" : "#E0D8D4"}
+                  fontSize={isActive ? "11" : "10"}
                   fontWeight={isActive ? "700" : "500"}
                   fontFamily="'Outfit','Inter',ui-sans-serif,system-ui,sans-serif"
                   style={{
                     userSelect: "none",
                     filter: isActive
-                      ? "drop-shadow(0 0 8px rgba(252,144,154,0.75))"
+                      ? "drop-shadow(0 0 6px rgba(252,144,154,0.70))"
                       : "none",
                     transition: `fill ${EASE}, font-size ${EASE}`,
                   }}
@@ -417,59 +409,52 @@ function WheelRenderer({
       <circle
         cx={cx} cy={cy} r={wheelRadius}
         fill="none"
-        stroke="rgba(255,255,255,0.07)"
-        strokeWidth="1.5"
-      />
-      {/* Inner ring — slight glass depth */}
-      <circle
-        cx={cx} cy={cy} r={wheelRadius - 3}
-        fill="none"
-        stroke="rgba(255,255,255,0.03)"
+        stroke="rgba(255,255,255,0.06)"
         strokeWidth="0.8"
       />
 
       {/* ------------------------------------------------------------------ */}
-      {/* Center Hub — clean glassmorphism circle                             */}
+      {/* Center Hub — strictly within deadZoneRadius                          */}
       {/* ------------------------------------------------------------------ */}
       <g filter="url(#hub-glow)">
-        {/* Wide ambient glow ring */}
+        {/* Soft glow ring strictly within deadZone bounds */}
         <circle
-          cx={cx} cy={cy} r={hubR + 14}
+          cx={cx} cy={cy} r={hubR + 3}
           fill="none"
-          stroke="rgba(255, 67, 101, 0.12)"
-          strokeWidth="10"
+          stroke="rgba(255, 67, 101, 0.15)"
+          strokeWidth="4"
         />
 
-        {/* Hub glass base */}
+        {/* Hub base */}
         <circle
           cx={cx} cy={cy} r={hubR}
           fill="url(#hub-fill)"
-          stroke={inDeadZone ? "rgba(255,80,115,0.75)" : "rgba(255,80,115,0.35)"}
-          strokeWidth={inDeadZone ? "2.5" : "1.8"}
+          stroke={inDeadZone ? "rgba(255,80,115,0.75)" : "rgba(255,80,115,0.30)"}
+          strokeWidth={inDeadZone ? "2" : "1.2"}
           style={{
             filter: inDeadZone
-              ? "drop-shadow(0 0 20px rgba(255,67,101,0.60))"
-              : "drop-shadow(0 0 12px rgba(255,67,101,0.28))",
+              ? "drop-shadow(0 0 16px rgba(255,67,101,0.55))"
+              : "drop-shadow(0 0 8px rgba(255,67,101,0.22))",
             transition: `stroke ${EASE}, stroke-width ${EASE}, filter ${EASE}`,
           }}
         />
 
-        {/* Hub glass sheen (top-left highlight) */}
+        {/* Hub glass sheen */}
         <circle
           cx={cx - hubR * 0.15}
           cy={cy - hubR * 0.18}
           r={hubR * 0.65}
           fill="none"
-          stroke="rgba(255,255,255,0.07)"
-          strokeWidth="0.8"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="0.5"
         />
 
-        {/* Hub inner ring accent */}
+        {/* Hub inner accent ring */}
         <circle
-          cx={cx} cy={cy} r={hubR - 7}
+          cx={cx} cy={cy} r={Math.max(8, hubR - 5)}
           fill="none"
           stroke={inDeadZone ? "rgba(255,100,130,0.30)" : "rgba(255,255,255,0.04)"}
-          strokeWidth="1"
+          strokeWidth="0.8"
           style={{ transition: `stroke ${EASE}` }}
         />
       </g>
