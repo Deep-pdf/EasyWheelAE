@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppConfig, GlobalSettings, Profile } from '../types';
 import { getConfig, saveConfig, reloadConfig as ipcReloadConfig } from '../../ipc/settings';
@@ -31,13 +31,11 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
   const [error, setError] = useState<string | null>(null);
   const [activePage, setActivePage] = useState<SettingsPage>('general');
 
-  // Prevent initial load triggering auto-save
-  const initialLoadRef = useRef(true);
 
   // Load configuration on mount
   const fetchConfig = useCallback(async () => {
     try {
-      initialLoadRef.current = true;
+
       const data = await getConfig();
       setConfig(data);
       setOriginalConfig(JSON.parse(JSON.stringify(data)));
@@ -91,7 +89,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
       .catch((err) => console.error("Failed to set window title:", err));
   }, [dirty]);
 
-  // Debounced auto-save effect
+  // Sync dirty state
   useEffect(() => {
     if (!config || !originalConfig) {
       setDirty(false);
@@ -100,36 +98,10 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
 
     const isDifferent = JSON.stringify(config) !== JSON.stringify(originalConfig);
     setDirty(isDifferent);
-
-    if (isDifferent) {
-      // If we are currently initialising/loading config, skip auto-saving
-      if (initialLoadRef.current) {
-        initialLoadRef.current = false;
-        return;
-      }
-
-      const timer = setTimeout(async () => {
-        setSaving(true);
-        setError(null);
-        try {
-          await saveConfig(config);
-          setOriginalConfig(JSON.parse(JSON.stringify(config)));
-          setDirty(false);
-          console.log("[ConfigContext] Auto-saved configuration successfully.");
-        } catch (e: unknown) {
-          const msg = typeof e === 'string' ? e : e instanceof Error ? e.message : String(e);
-          setError(`Auto-save failed: ${msg}`);
-        } finally {
-          setSaving(false);
-        }
-      }, 400); // 400ms debounce window
-
-      return () => clearTimeout(timer);
-    }
   }, [config, originalConfig]);
 
   const updateGlobal = useCallback((updatedFields: Partial<GlobalSettings>) => {
-    initialLoadRef.current = false;
+
     setConfig((prev) => {
       if (!prev) return null;
       return {
@@ -158,7 +130,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
 
       success = true;
       setError(null);
-      initialLoadRef.current = false;
+
       return {
         ...prev,
         profiles: [...prev.profiles, profile],
@@ -185,7 +157,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
 
       success = true;
       setError(null);
-      initialLoadRef.current = false;
+
       return {
         ...prev,
         profiles: prev.profiles.map((p) => {
@@ -211,7 +183,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }): Rea
         return prev;
       }
       setError(null);
-      initialLoadRef.current = false;
+
       return {
         ...prev,
         profiles: prev.profiles.filter((p) => p.name.toLowerCase() !== name.toLowerCase()),

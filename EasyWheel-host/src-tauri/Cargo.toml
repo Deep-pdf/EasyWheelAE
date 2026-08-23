@@ -47,5 +47,7 @@ winapi = { version = "0.3", features = [
     "minwinbase",
     "combaseapi",
     "objbase",
+    "wingdi",
+    "processenv",
 ] }
 

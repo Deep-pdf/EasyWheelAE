@@ -96,7 +96,18 @@ function nameToHue(s: string): number {
 function getAppTheme(exeName: string): ActionTheme {
   const n = exeName.toLowerCase().replace(/\.exe$/i, "").replace(/[_-]/g, " ").trim();
 
-  if (/^(chrome|google chrome)$/.test(n)) return { color: "#4285F4", icon: (<><circle cx="12" cy="12" r="10" /><path d="M12 2a10 10 0 0 1 8.66 5L12 7" strokeLinecap="round" /><path d="M3.34 7a10 10 0 0 0 0 10L12 12" strokeLinecap="round" /><path d="M12 22a10 10 0 0 0 8.66-5L12 12" strokeLinecap="round" /><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" /></>) };
+  if (/^(chrome|google chrome)$/.test(n)) return {
+    color: "#4285F4",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+        <line x1="12" y1="3" x2="12" y2="8" strokeLinecap="round" />
+        <line x1="4.5" y1="16" x2="8.8" y2="13.5" strokeLinecap="round" />
+        <line x1="19.5" y1="16" x2="15.2" y2="13.5" strokeLinecap="round" />
+      </>
+    ),
+  };
   if (/firefox/.test(n)) return { color: "#FF7139", icon: (<><circle cx="12" cy="12" r="9" /><path d="M12 3C7 3 3 7 3 12c0 5 4 9 9 9" strokeDasharray="4 2" /><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" /></>) };
   if (/edge|msedge/.test(n)) return { color: "#0F7ECA", icon: (<><path d="M5 8C5 5 8 3 12 3c5 0 8 3.5 8 7.5C20 15 16 18 12 18c-4 0-7-2-8-5" /><line x1="4" y1="13" x2="18" y2="13" strokeLinecap="round" /></>) };
   if (/^(code|vscode|visual studio code)$/.test(n)) return { color: "#007ACC", icon: (<><path d="M17 3L3 12l14 9 4-3-12-6 12-6-4-3z" /></>) };
@@ -161,6 +172,7 @@ export interface WheelRendererProps {
   wheelOpacity?: number;
   sectorLabels?: string[];
   labelToCommand?: Record<string, { commandType: string; exeName?: string }>;
+  appIcons?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,9 +187,12 @@ function WheelRenderer({
   wheelRadius    = DEFAULT_WHEEL_RADIUS,
   deadZoneRadius = DEFAULT_DEAD_ZONE_RADIUS,
   sectorCount    = DEFAULT_SECTOR_COUNT,
+  highlightColor,
+  defaultColor,
   wheelOpacity   = 1.0,
   sectorLabels   = [],
   labelToCommand = {},
+  appIcons       = {},
 }: WheelRendererProps): React.JSX.Element {
   const sectorSpan       = 360 / sectorCount;
   const isAnySectorActive = !inDeadZone && sector !== 255;
@@ -197,13 +212,13 @@ function WheelRenderer({
       className="overlay-svg"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      style={{ opacity: Math.max(wheelOpacity, 0.92) }}
+      style={{ opacity: wheelOpacity ?? 1.0 }}
     >
       <defs>
         {/* Glassmorphism: dark warm base */}
         <linearGradient id="glass-dark" x1="0%" y1="0%" x2="60%" y2="100%">
-          <stop offset="0%"   stopColor="rgba(42, 32, 37, 0.95)" />
-          <stop offset="100%" stopColor="rgba(18, 14, 16, 0.93)" />
+          <stop offset="0%"   stopColor={defaultColor || "rgba(42, 32, 37, 0.95)"} />
+          <stop offset="100%" stopColor={defaultColor || "rgba(18, 14, 16, 0.93)"} />
         </linearGradient>
 
         {/* Glassmorphism: light sheen */}
@@ -215,8 +230,8 @@ function WheelRenderer({
 
         {/* Active sector fill */}
         <radialGradient id="active-fill" cx="42%" cy="38%" r="62%">
-          <stop offset="0%"   stopColor="#FF4365" stopOpacity="0.94" />
-          <stop offset="100%" stopColor="#C0183A" stopOpacity="0.98" />
+          <stop offset="0%"   stopColor={highlightColor || "#FF4365"} stopOpacity="0.94" />
+          <stop offset="100%" stopColor={highlightColor || "#C0183A"} stopOpacity="0.98" />
         </radialGradient>
 
         {/* Active sector sheen */}
@@ -288,12 +303,17 @@ function WheelRenderer({
         const ty  = isActive ? Math.sin(rad) * EXPAND_PX : 0;
         const groupTransform = (tx !== 0 || ty !== 0) ? `translate(${tx}, ${ty})` : "";
 
-        // ── Icon / label theme ──────────────────────────────────────────────
+        // ── Icon / label theme & custom app icon resolution ────────────────
         const displayName = sectorLabels[i] ?? "";
         const cmdInfo = labelToCommand[displayName];
         const theme: ActionTheme = cmdInfo?.commandType === "launch_app" && cmdInfo.exeName
           ? getAppTheme(cmdInfo.exeName)
           : getActionTheme(displayName);
+
+        const customAppIconUrl =
+          appIcons[i.toString()] ||
+          appIcons[displayName] ||
+          (cmdInfo?.exeName && appIcons[cmdInfo.exeName]);
 
         // ── Content position ────────────────────────────────────────────────
         const contentRAdj = baseContentR + (isActive ? 2 : 0);
@@ -301,7 +321,7 @@ function WheelRenderer({
 
         // ── Border colors & strokes ─────────────────────────────────────────
         const outerBorder = isActive
-          ? "rgba(255, 100, 130, 0.65)"
+          ? highlightColor || "rgba(255, 100, 130, 0.65)"
           : isNeighbor_
           ? "rgba(255, 255, 255, 0.08)"
           : isDimmed
@@ -309,7 +329,7 @@ function WheelRenderer({
           : "rgba(255, 255, 255, 0.12)";
 
         const topBorder = isActive
-          ? "rgba(255, 200, 210, 0.40)"
+          ? highlightColor || "rgba(255, 200, 210, 0.40)"
           : "rgba(255, 255, 255, 0.14)";
 
         return (
@@ -327,7 +347,7 @@ function WheelRenderer({
               strokeWidth={isActive ? "1.2" : "0.8"}
               style={{
                 filter: isActive
-                  ? "drop-shadow(0 0 10px rgba(255,50,90,0.45))"
+                  ? `drop-shadow(0 0 10px ${highlightColor || "rgba(255,50,90,0.45)"})`
                   : isNeighbor_
                   ? "brightness(0.85)"
                   : isDimmed
@@ -353,27 +373,41 @@ function WheelRenderer({
                 transform={`translate(${contentPos.x}, ${contentPos.y}) scale(${iconScale})`}
                 style={{ transition: `transform ${EASE}` }}
               >
-                {/* Icon */}
-                <svg
-                  x={isActive ? -13 : -11}
-                  y={isActive ? -24 : -20}
-                  width={isActive ? 26 : 22}
-                  height={isActive ? 26 : 22}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(210,195,200,0.75)" : theme.color}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    filter: isActive
-                      ? "drop-shadow(0 0 5px rgba(255,255,255,0.60))"
-                      : "none",
-                    transition: `stroke ${EASE}`,
-                  }}
-                >
-                  {theme.icon}
-                </svg>
+                {/* Icon: Native extracted exe logo (no filter) or vector fallback */}
+                {customAppIconUrl ? (
+                  <image
+                    href={customAppIconUrl}
+                    x={isActive ? -14 : -12}
+                    y={isActive ? -26 : -22}
+                    width={isActive ? 28 : 24}
+                    height={isActive ? 28 : 24}
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{
+                      filter: "none",
+                    }}
+                  />
+                ) : (
+                  <svg
+                    x={isActive ? -13 : -11}
+                    y={isActive ? -24 : -20}
+                    width={isActive ? 26 : 22}
+                    height={isActive ? 26 : 22}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(210,195,200,0.75)" : theme.color}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      filter: isActive
+                        ? "drop-shadow(0 0 5px rgba(255,255,255,0.60))"
+                        : "none",
+                      transition: `stroke ${EASE}`,
+                    }}
+                  >
+                    {theme.icon}
+                  </svg>
+                )}
 
                 {/* Label */}
                 <text
@@ -421,7 +455,7 @@ function WheelRenderer({
         <circle
           cx={cx} cy={cy} r={hubR + 3}
           fill="none"
-          stroke="rgba(255, 67, 101, 0.15)"
+          stroke={highlightColor || "rgba(255, 67, 101, 0.15)"}
           strokeWidth="4"
         />
 
@@ -429,12 +463,12 @@ function WheelRenderer({
         <circle
           cx={cx} cy={cy} r={hubR}
           fill="url(#hub-fill)"
-          stroke={inDeadZone ? "rgba(255,80,115,0.75)" : "rgba(255,80,115,0.30)"}
+          stroke={inDeadZone ? (highlightColor || "rgba(255,80,115,0.75)") : "rgba(255,255,255,0.2)"}
           strokeWidth={inDeadZone ? "2" : "1.2"}
           style={{
             filter: inDeadZone
-              ? "drop-shadow(0 0 16px rgba(255,67,101,0.55))"
-              : "drop-shadow(0 0 8px rgba(255,67,101,0.22))",
+              ? `drop-shadow(0 0 16px ${highlightColor || "rgba(255,67,101,0.55)"})`
+              : `drop-shadow(0 0 8px ${highlightColor || "rgba(255,67,101,0.22)"})`,
             transition: `stroke ${EASE}, stroke-width ${EASE}, filter ${EASE}`,
           }}
         />
@@ -453,7 +487,7 @@ function WheelRenderer({
         <circle
           cx={cx} cy={cy} r={Math.max(8, hubR - 5)}
           fill="none"
-          stroke={inDeadZone ? "rgba(255,100,130,0.30)" : "rgba(255,255,255,0.04)"}
+          stroke={inDeadZone ? (highlightColor || "rgba(255,100,130,0.30)") : "rgba(255,255,255,0.04)"}
           strokeWidth="0.8"
           style={{ transition: `stroke ${EASE}` }}
         />

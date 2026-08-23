@@ -102,6 +102,7 @@ pub fn run() {
             commands::pick_file,
             commands::pick_folder,
             commands::get_command_registry,
+            commands::get_app_icon,
         ])
         .run(tauri::generate_context!())
         .expect("Fatal: Tauri application failed to start.");

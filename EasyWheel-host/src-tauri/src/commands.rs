@@ -517,3 +517,223 @@ pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>,
     Ok(crate::command_registry::get_commands().clone())
 }
 
+/// Extracts the native Windows application icon from an executable/file path
+/// and returns it as a base64 Data URL (`data:image/bmp;base64,...`).
+#[tauri::command]
+pub fn get_app_icon(path: String) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        extract_windows_icon(&path).ok_or_else(|| format!("Could not extract icon for path: {}", path))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Icon extraction is only supported on Windows".to_string())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn extract_windows_icon(path: &str) -> Option<String> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use winapi::shared::minwindef::DWORD;
+    use winapi::um::shellapi::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
+    use winapi::um::winuser::{DestroyIcon, GetIconInfo, ICONINFO};
+    use winapi::um::wingdi::{
+        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW,
+        BITMAP, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+    };
+    use winapi::um::processenv::ExpandEnvironmentStringsW;
+
+    if path.trim().is_empty() {
+        return None;
+    }
+
+    let path_os = OsStr::new(path);
+    let path_w: Vec<u16> = path_os.encode_wide().chain(std::iter::once(0)).collect();
+
+    let mut expanded_w = vec![0u16; 2048];
+    let len = unsafe {
+        ExpandEnvironmentStringsW(path_w.as_ptr(), expanded_w.as_mut_ptr(), expanded_w.len() as DWORD)
+    };
+    let target_w = if len > 0 && (len as usize) <= expanded_w.len() {
+        &expanded_w[..len as usize - 1]
+    } else {
+        &path_w[..path_w.len() - 1]
+    };
+    let target_w_null: Vec<u16> = target_w.iter().copied().chain(std::iter::once(0)).collect();
+
+    let mut shfi: SHFILEINFOW = unsafe { std::mem::zeroed() };
+    let res = unsafe {
+        SHGetFileInfoW(
+            target_w_null.as_ptr(),
+            0,
+            &mut shfi,
+            std::mem::size_of::<SHFILEINFOW>() as u32,
+            SHGFI_ICON | SHGFI_LARGEICON,
+        )
+    };
+
+    if res == 0 || shfi.hIcon.is_null() {
+        return None;
+    }
+    let hicon = shfi.hIcon;
+
+    let mut icon_info: ICONINFO = unsafe { std::mem::zeroed() };
+    if unsafe { GetIconInfo(hicon, &mut icon_info) } == 0 {
+        unsafe { DestroyIcon(hicon); }
+        return None;
+    }
+
+    let hbm_color = icon_info.hbmColor;
+    let hbm_mask = icon_info.hbmMask;
+
+    if hbm_color.is_null() {
+        unsafe {
+            if !hbm_mask.is_null() { DeleteObject(hbm_mask as _); }
+            DestroyIcon(hicon);
+        }
+        return None;
+    }
+
+    let mut bmp: BITMAP = unsafe { std::mem::zeroed() };
+    unsafe {
+        GetObjectW(hbm_color as _, std::mem::size_of::<BITMAP>() as i32, &mut bmp as *mut _ as _);
+    }
+
+    let width = bmp.bmWidth;
+    let height = bmp.bmHeight;
+
+    if width <= 0 || height <= 0 {
+        unsafe {
+            DeleteObject(hbm_color as _);
+            if !hbm_mask.is_null() { DeleteObject(hbm_mask as _); }
+            DestroyIcon(hicon);
+        }
+        return None;
+    }
+
+    let hdc = unsafe { CreateCompatibleDC(std::ptr::null_mut()) };
+    let mut bmi = BITMAPINFOHEADER {
+        biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+        biWidth: width,
+        biHeight: -height, // top-down
+        biPlanes: 1,
+        biBitCount: 32,
+        biCompression: BI_RGB,
+        biSizeImage: 0,
+        biXPelsPerMeter: 0,
+        biYPelsPerMeter: 0,
+        biClrUsed: 0,
+        biClrImportant: 0,
+    };
+
+    let mut pixels = vec![0u8; (width * height * 4) as usize];
+    let read_res = unsafe {
+        GetDIBits(
+            hdc,
+            hbm_color as _,
+            0,
+            height as u32,
+            pixels.as_mut_ptr() as _,
+            &mut bmi as *mut _ as _,
+            DIB_RGB_COLORS,
+        )
+    };
+
+    unsafe {
+        DeleteDC(hdc);
+        DeleteObject(hbm_color as _);
+        if !hbm_mask.is_null() { DeleteObject(hbm_mask as _); }
+        DestroyIcon(hicon);
+    }
+
+    if read_res == 0 {
+        return None;
+    }
+
+    // Fix up alpha channel if Windows icon returned 0 in alpha byte for 32-bit icon
+    let has_alpha = pixels.chunks_exact(4).any(|p| p[3] != 0);
+    if !has_alpha {
+        for p in pixels.chunks_exact_mut(4) {
+            p[3] = 255;
+        }
+    }
+
+    let bmp_data = build_32bit_bmp(width as u32, height as u32, &pixels);
+    let b64 = base64_encode(&bmp_data);
+    Some(format!("data:image/bmp;base64,{}", b64))
+}
+
+#[cfg(target_os = "windows")]
+fn build_32bit_bmp(width: u32, height: u32, pixels_bgra: &[u8]) -> Vec<u8> {
+    let file_header_size = 14u32;
+    let v5_header_size = 108u32;
+    let offset_bits = file_header_size + v5_header_size;
+    let image_size = (width * height * 4) as u32;
+    let file_size = offset_bits + image_size;
+
+    let mut out = Vec::with_capacity(file_size as usize);
+
+    // BITMAPFILEHEADER
+    out.extend_from_slice(b"BM");
+    out.extend_from_slice(&file_size.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes());
+    out.extend_from_slice(&offset_bits.to_le_bytes());
+
+    // BITMAPV5HEADER (108 bytes)
+    out.extend_from_slice(&v5_header_size.to_le_bytes());
+    out.extend_from_slice(&(width as i32).to_le_bytes());
+    out.extend_from_slice(&(-(height as i32)).to_le_bytes()); // top-down
+    out.extend_from_slice(&1u16.to_le_bytes());               // planes
+    out.extend_from_slice(&32u16.to_le_bytes());              // bit count
+    out.extend_from_slice(&3u32.to_le_bytes());               // BI_BITFIELDS
+    out.extend_from_slice(&image_size.to_le_bytes());
+    out.extend_from_slice(&0i32.to_le_bytes());
+    out.extend_from_slice(&0i32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    // Channel masks
+    out.extend_from_slice(&0x00FF0000u32.to_le_bytes());      // Red mask
+    out.extend_from_slice(&0x0000FF00u32.to_le_bytes());      // Green mask
+    out.extend_from_slice(&0x000000FFu32.to_le_bytes());      // Blue mask
+    out.extend_from_slice(&0xFF000000u32.to_le_bytes());      // Alpha mask
+    out.extend_from_slice(b"sRGB");                           // CSType
+    out.extend_from_slice(&[0u8; 36]);                        // Endpoints
+    out.extend_from_slice(&0u32.to_le_bytes());               // Gamma Red
+    out.extend_from_slice(&0u32.to_le_bytes());               // Gamma Green
+    out.extend_from_slice(&0u32.to_le_bytes());               // Gamma Blue
+    out.extend_from_slice(&4u32.to_le_bytes());               // Intent (LCS_GM_IMAGES)
+    out.extend_from_slice(&[0u8; 12]);                        // Profile padding
+
+    // Pixel data (BGRA)
+    out.extend_from_slice(pixels_bgra);
+    out
+}
+
+fn base64_encode(data: &[u8]) -> String {
+    const CHARSET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let triplet = (b0 << 16) | (b1 << 8) | b2;
+
+        result.push(CHARSET[((triplet >> 18) & 0x3F) as usize] as char);
+        result.push(CHARSET[((triplet >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 {
+            result.push(CHARSET[((triplet >> 6) & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+        if chunk.len() > 2 {
+            result.push(CHARSET[(triplet & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+    }
+    result
+}
+

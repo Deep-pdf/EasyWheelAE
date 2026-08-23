@@ -110,8 +110,8 @@ export function AppearancePage(): React.JSX.Element {
               />
               <div className="flex flex-col gap-2">
                 <Slider
-                  label="Opacity (Preview)"
-                  min={10}
+                  label="Wheel Opacity"
+                  min={0}
                   max={100}
                   value={bgOpacity}
                   onChange={setBgOpacity}

@@ -143,14 +143,44 @@ function Overlay(): React.JSX.Element {
   const [geo, setGeo] = useState<GeometryState>(DEFAULT_STATE);
   const [windowOffset, setWindowOffset] = useState<WindowOffset>({ x: 0, y: 0 });
   const [labelToCommand, setLabelToCommand] = useState<Record<string, SectorCommandInfo>>({});
+  const [appIcons, setAppIcons] = useState<Record<string, string>>({});
 
   // Stores the RAF cancellation ID for cleanup on unmount.
   const rafRef = useRef<number>(0);
 
-  // Load config once on mount to resolve launch_app labels → exe names.
+  // Load config once on mount to resolve launch_app labels → exe names & extract native icons.
   useEffect(() => {
     invoke<AppConfig>("get_config")
-      .then((cfg) => setLabelToCommand(buildLabelMap(cfg)))
+      .then((cfg) => {
+        setLabelToCommand(buildLabelMap(cfg));
+        // Extract native app icons for launch_app commands
+        for (const profile of cfg.profiles) {
+          for (const [sectorKey, raw] of Object.entries(profile.sector_assignments)) {
+            if (typeof raw === "object" && raw !== null) {
+              const cmd = raw as ConfiguredCommand;
+              if (cmd.command === "launch_app" && cmd.parameters?.path) {
+                const pathStr = String(cmd.parameters.path);
+                const label = (cmd.label ?? "").trim();
+                const exe = exeBasename(pathStr);
+
+                invoke<string>("get_app_icon", { path: pathStr })
+                  .then((iconUrl) => {
+                    setAppIcons((prev) => ({
+                      ...prev,
+                      [sectorKey]: iconUrl,
+                      [pathStr]: iconUrl,
+                      [exe]: iconUrl,
+                      ...(label ? { [label]: iconUrl } : {}),
+                    }));
+                  })
+                  .catch((err) => {
+                    console.log("[Overlay] App icon extraction fallback for:", pathStr, err);
+                  });
+              }
+            }
+          }
+        }
+      })
       .catch(() => {
         // Non-fatal: icons fall back to keyword-matched defaults.
       });
@@ -266,6 +296,7 @@ function Overlay(): React.JSX.Element {
           wheelOpacity={geo.wheel_opacity}
           sectorLabels={geo.sector_labels}
           labelToCommand={labelToCommand}
+          appIcons={appIcons}
         />
       )}
     </div>

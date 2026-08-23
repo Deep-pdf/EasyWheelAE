@@ -12,7 +12,7 @@ import type { Profile, RunningApp, ConfiguredCommand } from '../types';
 import { getSectorCommand, getCommandDisplayName, getCommandDescription } from '../utils/commandHelper';
 
 export function ProfilesPage(): React.JSX.Element {
-  const { config, addProfile, updateProfile, deleteProfile } = useConfig();
+  const { config, addProfile, updateProfile, deleteProfile, dirty, saveChanges, saving } = useConfig();
   const [selectedProfileName, setSelectedProfileName] = useState<string>('Desktop');
   const [selectedSector, setSelectedSector] = useState<number | null>(null);
   
@@ -459,6 +459,20 @@ export function ProfilesPage(): React.JSX.Element {
               )}
             </div>
           </div>
+
+          {/* Explicit Save button at bottom of profile details */}
+          {dirty && (
+            <div className="flex justify-end pt-4 border-t border-zinc-800" style={{ borderTop: '1px solid var(--color-border)' }}>
+              <Button
+                variant="primary"
+                disabled={saving}
+                onClick={saveChanges}
+                className="w-full md:w-auto"
+              >
+                {saving ? 'Saving changes...' : 'Save Configuration'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
