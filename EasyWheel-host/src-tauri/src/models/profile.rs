@@ -12,6 +12,10 @@ pub struct ConfiguredCommand {
     /// The customizable user display label for the sector.
     pub label: String,
 
+    /// Optional icon path or cached icon reference.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+
     /// Freeform JSON parameter key-value pairs.
     pub parameters: serde_json::Value,
 }
@@ -23,6 +27,7 @@ impl ConfiguredCommand {
         Self {
             command_id: command_id.to_string(),
             label: label.to_string(),
+            icon: None,
             parameters,
         }
     }
@@ -32,6 +37,7 @@ impl ConfiguredCommand {
         Self {
             command_id: command_id.to_string(),
             label: label.to_string(),
+            icon: None,
             parameters: serde_json::Value::Object(serde_json::Map::new()),
         }
     }
@@ -51,6 +57,8 @@ impl<'de> Deserialize<'de> for ConfiguredCommand {
                 command_id: String,
                 #[serde(default)]
                 label: String,
+                #[serde(default)]
+                icon: Option<String>,
                 #[serde(default = "empty_json_object")]
                 parameters: serde_json::Value,
             },
@@ -64,11 +72,13 @@ impl<'de> Deserialize<'de> for ConfiguredCommand {
             Helper::Legacy(id) => Ok(ConfiguredCommand {
                 command_id: id,
                 label: String::new(),
+                icon: None,
                 parameters: empty_json_object(),
             }),
-            Helper::New { command_id, label, parameters } => Ok(ConfiguredCommand {
+            Helper::New { command_id, label, icon, parameters } => Ok(ConfiguredCommand {
                 command_id,
                 label,
+                icon,
                 parameters,
             }),
         }

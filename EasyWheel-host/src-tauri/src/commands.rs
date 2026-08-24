@@ -518,17 +518,62 @@ pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>,
 }
 
 /// Extracts the native Windows application icon from an executable/file path
-/// and returns it as a base64 Data URL (`data:image/bmp;base64,...`).
+/// using a deterministic cache in `%APPDATA%\EasyWheelAE\icons\`.
 #[tauri::command]
 pub fn get_app_icon(path: String) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        extract_windows_icon(&path).ok_or_else(|| format!("Could not extract icon for path: {}", path))
+        get_cached_or_extracted_icon(&path).ok_or_else(|| format!("Could not extract icon for path: {}", path))
     }
     #[cfg(not(target_os = "windows"))]
     {
         Err("Icon extraction is only supported on Windows".to_string())
     }
+}
+
+#[cfg(target_os = "windows")]
+fn get_cached_or_extracted_icon(path: &str) -> Option<String> {
+    if path.trim().is_empty() {
+        return None;
+    }
+
+    let norm_path = path.trim().to_lowercase().replace('\\', "/");
+
+    // Simple 64-bit FNV-1a hash for deterministic filenames
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in norm_path.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    let hash_str = format!("{:016x}", hash);
+
+    let cache_dir = dirs::data_dir().map(|mut p| {
+        p.push("EasyWheelAE");
+        p.push("icons");
+        p
+    });
+
+    if let Some(dir) = &cache_dir {
+        let cache_file = dir.join(format!("{}.txt", hash_str));
+        if cache_file.exists() {
+            if let Ok(cached_data) = std::fs::read_to_string(&cache_file) {
+                if !cached_data.trim().is_empty() {
+                    return Some(cached_data);
+                }
+            }
+        }
+    }
+
+    // Extraction on cache miss
+    let extracted = extract_windows_icon(path)?;
+
+    if let Some(dir) = cache_dir {
+        let _ = std::fs::create_dir_all(&dir);
+        let cache_file = dir.join(format!("{}.txt", hash_str));
+        let _ = std::fs::write(cache_file, &extracted);
+    }
+
+    Some(extracted)
 }
 
 #[cfg(target_os = "windows")]

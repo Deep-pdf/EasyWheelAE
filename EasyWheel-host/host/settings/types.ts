@@ -38,6 +38,7 @@ export interface GlobalSettings {
 export interface ConfiguredCommand {
   command: string;
   label: string;
+  icon?: string | null;
   parameters: Record<string, any>;
 }
 

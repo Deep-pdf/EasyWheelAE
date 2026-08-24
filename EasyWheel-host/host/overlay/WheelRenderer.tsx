@@ -3,13 +3,12 @@
  *
  * Premium glassmorphism radial wheel renderer.
  *
- * Sizing & Animation Rules:
- * - Fully controllable via wheelRadius and deadZoneRadius props.
- * - Subtly refined hover expansion (6px push, 3px inner depth).
- * - Very subtle neighbor shrink (4px outer, 2px inner).
- * - Minimal gaps between sectors (0.8° base, 0.2° active).
- * - Sleek, thin glass borders (0.8px base, 1.2px active).
- * - Hub geometry stays strictly within deadZoneRadius bounds to avoid overlap.
+ * Icon & Container Rules:
+ * - Extracted Windows app icons rendered via <foreignObject> + flexbox + object-fit:contain
+ * - Built-in action sectors fallback to clean SVG vector paths
+ * - All icons centered in a fixed circular frosted container with sufficient internal padding
+ * - Hover state (+15% scale) maintains safe internal padding to prevent any clipping
+ * - Floating text tooltip pill shown for the currently active/hovered sector
  */
 
 import React from "react";
@@ -79,80 +78,131 @@ function annularSectorPath(
 }
 
 // ---------------------------------------------------------------------------
-// Action icon theme
+// Built-in action vector icons (used as default when there is NO app icon)
 // ---------------------------------------------------------------------------
 
-interface ActionTheme {
+interface ActionVector {
   color: string;
-  icon: React.JSX.Element;
+  paths: React.JSX.Element;
 }
 
-function nameToHue(s: string): number {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
-  return Math.abs(h) % 360;
-}
+function getActionVector(label: string): ActionVector {
+  const n = label.toLowerCase();
 
-function getAppTheme(exeName: string): ActionTheme {
-  const n = exeName.toLowerCase().replace(/\.exe$/i, "").replace(/[_-]/g, " ").trim();
+  if (n.includes("ease"))
+    return {
+      color: "#FF4365",
+      paths: (
+        <>
+          <path d="M3 12C6 12 7 4 12 4s6 8 9 8" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="3"  cy="12" r="1.8" fill="currentColor" stroke="none" />
+          <circle cx="21" cy="12" r="1.8" fill="currentColor" stroke="none" />
+        </>
+      ),
+    };
+  if (n.includes("compose") || n.includes("pre-comp"))
+    return {
+      color: "#F9CDAD",
+      paths: (
+        <>
+          <rect x="3"  y="7"  width="10" height="10" rx="2" />
+          <rect x="11" y="3"  width="10" height="10" rx="2" fillOpacity="0.25" fill="currentColor" />
+          <path d="M11 12V7l5 0" strokeDasharray="2 2" strokeLinecap="round" />
+        </>
+      ),
+    };
+  if (n.includes("trim"))
+    return {
+      color: "#83AF9B",
+      paths: (
+        <>
+          <path d="M21 12a9 9 0 1 1-4.5-7.8" strokeDasharray="14 6" strokeLinecap="round" />
+          <path d="M16.5 4.2l2.5-1.7.5 3" fill="currentColor" stroke="none" />
+        </>
+      ),
+    };
+  if (n.includes("duplicate") || n.includes("copy"))
+    return {
+      color: "#C8C8A9",
+      paths: (
+        <>
+          <rect x="9"  y="9"  width="11" height="11" rx="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </>
+      ),
+    };
+  if (n.includes("parent") || n.includes("child") || n.includes("link"))
+    return {
+      color: "#F9CDAD",
+      paths: (
+        <>
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </>
+      ),
+    };
+  if (n.includes("graph") || n.includes("editor"))
+    return {
+      color: "#C8C8A9",
+      paths: (
+        <>
+          <polyline points="3 18 9 12 13 16 21 7" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="3" y1="21" x2="21" y2="21" strokeLinecap="round" />
+        </>
+      ),
+    };
+  if (n.includes("folder") || n.includes("explorer") || n.includes("file"))
+    return {
+      color: "#FFD700",
+      paths: (
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      ),
+    };
+  if (n.includes("setting") || n.includes("easywheel") || n.includes("wheel"))
+    return {
+      color: "#C8C8A9",
+      paths: (
+        <>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </>
+      ),
+    };
+  if (n.includes("browser") || n.includes("website") || n.includes("web") || n.includes("url"))
+    return {
+      color: "#83AF9B",
+      paths: (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </>
+      ),
+    };
+  if (n.includes("terminal") || n.includes("shell") || n.includes("cmd") || n.includes("powershell"))
+    return {
+      color: "#00D2FF",
+      paths: (
+        <>
+          <polyline points="4 17 10 11 4 5" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="12" y1="19" x2="20" y2="19" strokeLinecap="round" />
+        </>
+      ),
+    };
 
-  if (/^(chrome|google chrome)$/.test(n)) return {
-    color: "#4285F4",
-    icon: (
+  // Default: generic radial icon
+  return {
+    color: "#C8C8A9",
+    paths: (
       <>
         <circle cx="12" cy="12" r="9" />
-        <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
-        <line x1="12" y1="3" x2="12" y2="8" strokeLinecap="round" />
-        <line x1="4.5" y1="16" x2="8.8" y2="13.5" strokeLinecap="round" />
-        <line x1="19.5" y1="16" x2="15.2" y2="13.5" strokeLinecap="round" />
+        <line x1="12" y1="3"  x2="12" y2="21" strokeLinecap="round" />
+        <line x1="3"  y1="12" x2="21" y2="12" strokeLinecap="round" />
+        <line x1="5.6"  y1="5.6"  x2="18.4" y2="18.4" strokeLinecap="round" />
+        <line x1="18.4" y1="5.6"  x2="5.6"  y2="18.4" strokeLinecap="round" />
       </>
     ),
   };
-  if (/firefox/.test(n)) return { color: "#FF7139", icon: (<><circle cx="12" cy="12" r="9" /><path d="M12 3C7 3 3 7 3 12c0 5 4 9 9 9" strokeDasharray="4 2" /><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" /></>) };
-  if (/edge|msedge/.test(n)) return { color: "#0F7ECA", icon: (<><path d="M5 8C5 5 8 3 12 3c5 0 8 3.5 8 7.5C20 15 16 18 12 18c-4 0-7-2-8-5" /><line x1="4" y1="13" x2="18" y2="13" strokeLinecap="round" /></>) };
-  if (/^(code|vscode|visual studio code)$/.test(n)) return { color: "#007ACC", icon: (<><path d="M17 3L3 12l14 9 4-3-12-6 12-6-4-3z" /></>) };
-  if (/photoshop|pshop/.test(n)) return { color: "#31A8FF", icon: (<><rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor" fillOpacity="0.15" /><rect x="2" y="2" width="20" height="20" rx="3" /><text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="bold" fontFamily="'Outfit','Inter',sans-serif" fill="currentColor" stroke="none">Ps</text></>) };
-  if (/afterfx|after.?effects/.test(n)) return { color: "#9B8BFF", icon: (<><rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor" fillOpacity="0.15" /><rect x="2" y="2" width="20" height="20" rx="3" /><text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="bold" fontFamily="'Outfit','Inter',sans-serif" fill="currentColor" stroke="none">Ae</text></>) };
-  if (/premiere|ppro/.test(n)) return { color: "#9B55FF", icon: (<><rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor" fillOpacity="0.15" /><rect x="2" y="2" width="20" height="20" rx="3" /><text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="bold" fontFamily="'Outfit','Inter',sans-serif" fill="currentColor" stroke="none">Pr</text></>) };
-  if (/illustrator/.test(n)) return { color: "#FF9A00", icon: (<><rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor" fillOpacity="0.15" /><rect x="2" y="2" width="20" height="20" rx="3" /><text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="bold" fontFamily="'Outfit','Inter',sans-serif" fill="currentColor" stroke="none">Ai</text></>) };
-  if (/blender/.test(n)) return { color: "#F5792A", icon: (<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" fill="currentColor" fillOpacity="0.25" stroke="none" /><path d="M12 3v4M12 17v4M3 12h4M17 12h4" strokeLinecap="round" /></>) };
-  if (/spotify/.test(n)) return { color: "#1DB954", icon: (<><circle cx="12" cy="12" r="9" /><path d="M7 9c4-2 8-1 10 2M7 12c3-1.5 7-1 9 2M8 15c3-1 6-.5 7.5 1.5" strokeLinecap="round" /></>) };
-  if (/discord/.test(n)) return { color: "#5865F2", icon: (<><path d="M20 4C18 3 15 2.5 12 2.5S6 3 4 4 2 7 3.5 15c1.5 2 4 3.5 6.5 4l2 2 2-2c2.5-.5 5-2 6.5-4C22 7 22 5 20 4z" /><circle cx="9" cy="11" r="1.5" fill="currentColor" stroke="none" /><circle cx="15" cy="11" r="1.5" fill="currentColor" stroke="none" /></>) };
-  if (/slack/.test(n)) return { color: "#E01E5A", icon: (<><circle cx="8.5" cy="7.5" r="2" /><circle cx="15.5" cy="7.5" r="2" /><circle cx="8.5" cy="14.5" r="2" /><circle cx="15.5" cy="14.5" r="2" /><line x1="8.5" y1="9.5" x2="8.5" y2="12.5" /><line x1="15.5" y1="9.5" x2="15.5" y2="12.5" /><line x1="10.5" y1="7.5" x2="13.5" y2="7.5" /><line x1="10.5" y1="14.5" x2="13.5" y2="14.5" /></>) };
-  if (/explorer|finder/.test(n)) return { color: "#FFD700", icon: (<><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></>) };
-  if (/terminal|powershell|cmd|wt\.?exe|alacritty|wezterm/.test(n)) return { color: "#00D2FF", icon: (<><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></>) };
-  if (/notepad/.test(n)) return { color: "#90E66E", icon: (<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>) };
-
-  const initial = (n[0] ?? "?").toUpperCase();
-  const hue = nameToHue(n);
-  return {
-    color: `hsl(${hue}, 65%, 65%)`,
-    icon: (<>
-      <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.20" stroke="currentColor" />
-      <text x="12" y="16" textAnchor="middle" fontSize="12" fontWeight="bold"
-        fontFamily="'Outfit','Inter',sans-serif" fill="currentColor" stroke="none">{initial}</text>
-    </>),
-  };
-}
-
-function getActionTheme(label: string): ActionTheme {
-  const n = label.toLowerCase();
-
-  if (n.includes("ease")) return { color: "#FF4365", icon: (<><path d="M3 12C6 12 7 4 12 4s6 8 9 8" strokeLinecap="round" /><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none" /><circle cx="21" cy="12" r="1.5" fill="currentColor" stroke="none" /></>) };
-  if (n.includes("compose")) return { color: "#F9CDAD", icon: (<><rect x="3" y="7" width="10" height="10" rx="1.5" /><rect x="11" y="3" width="10" height="10" rx="1.5" fill="currentColor" fillOpacity="0.2" /><path d="M11 12V7l5 0" strokeDasharray="2 2" /></>) };
-  if (n.includes("trim")) return { color: "#83AF9B", icon: (<><path d="M21 12a9 9 0 1 1-4.5-7.8" strokeDasharray="14 6" strokeLinecap="round" /><path d="M16.5 4.2l2.5-1.7.5 3" fill="currentColor" stroke="none" /></>) };
-  if (n.includes("duplicate") || n.includes("copy")) return { color: "#C8C8A9", icon: (<><rect x="9" y="9" width="11" height="11" rx="1.5" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>) };
-  if (n.includes("parent") || n.includes("child")) return { color: "#F9CDAD", icon: (<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></>) };
-  if (n.includes("graph")) return { color: "#C8C8A9", icon: (<><line x1="18" y1="20" x2="18" y2="10" strokeLinecap="round" /><line x1="12" y1="20" x2="12" y2="4" strokeLinecap="round" /><line x1="6" y1="20" x2="6" y2="14" strokeLinecap="round" /><line x1="3" y1="20" x2="21" y2="20" /></>) };
-  if (n.includes("setting") || n.includes("easywheel")) return { color: "#C8C8A9", icon: (<><circle cx="12" cy="12" r="3" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></>) };
-  if (n.includes("folder") || n.includes("explorer")) return { color: "#FFD700", icon: (<><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></>) };
-  if (n.includes("browser") || n.includes("website") || n.includes("web")) return { color: "#83AF9B", icon: (<><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>) };
-  if (n.includes("undo")) return { color: "#83AF9B", icon: (<><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-3.27" /></>) };
-  if (n.includes("ae") || n.includes("after effect")) return { color: "#9B8BFF", icon: (<><rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor" fillOpacity="0.15" /><rect x="2" y="2" width="20" height="20" rx="3" /><text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="bold" fontFamily="'Outfit','Inter',sans-serif" fill="currentColor" stroke="none">Ae</text></>) };
-  if (n.includes("clipboard") || n.includes("paste")) return { color: "#F9CDAD", icon: (<><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /></>) };
-  if (n.includes("cut")) return { color: "#FF4365", icon: (<><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><line x1="20" y1="4" x2="8.12" y2="15.88" /><line x1="14.47" y1="14.47" x2="20" y2="20" /><line x1="8.12" y1="8.12" x2="12" y2="12" /></>) };
-
-  return { color: "#C8C8A9", icon: (<><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>) };
 }
 
 // ---------------------------------------------------------------------------
@@ -194,18 +244,21 @@ function WheelRenderer({
   labelToCommand = {},
   appIcons       = {},
 }: WheelRendererProps): React.JSX.Element {
-  const sectorSpan       = 360 / sectorCount;
+  const sectorSpan        = 360 / sectorCount;
   const isAnySectorActive = !inDeadZone && sector !== 255;
-  
+
   // Hub radius strictly stays within deadZoneRadius
   const hubR = Math.max(16, deadZoneRadius - 3);
 
-  // Content midpoint radius dynamically placed between deadZoneRadius and wheelRadius
+  // Ring thickness drives container sizing
   const ringThickness = wheelRadius - deadZoneRadius;
-  const baseContentR  = deadZoneRadius + ringThickness * 0.52;
 
-  // Calculate icon scaling factor if the wheel ring is small
-  const iconScale = Math.min(1.0, Math.max(0.65, ringThickness / 80));
+  // Icon size & container size — capped so icons fit comfortably
+  const iconSize = Math.max(16, Math.min(44, ringThickness * 0.40));
+  const containerSize = iconSize + 14;
+
+  // Content midpoint radius
+  const baseContentR = deadZoneRadius + ringThickness * 0.50;
 
   return (
     <svg
@@ -261,12 +314,12 @@ function WheelRenderer({
       {/* Sectors                                                              */}
       {/* ------------------------------------------------------------------ */}
       {Array.from({ length: sectorCount }, (_, i) => {
-        const centre     = i * sectorSpan;
-        const isActive   = isAnySectorActive && sector === i;
+        const centre      = i * sectorSpan;
+        const isActive    = isAnySectorActive && sector === i;
         const isNeighbor_ = isAnySectorActive && !isActive && isNeighbor(i, sector, sectorCount);
-        const isDimmed   = isAnySectorActive && !isActive;
+        const isDimmed    = isAnySectorActive && !isActive;
 
-        // ── Angular gaps ────────────────────────────────────────────────────
+        // ── Angular gaps ──────────────────────────────────────────────────
         const gap = isActive
           ? ACTIVE_GAP
           : isNeighbor_
@@ -278,48 +331,32 @@ function WheelRenderer({
         const startAngle = centre - sectorSpan / 2 + gap;
         const endAngle   = centre + sectorSpan / 2 - gap;
 
-        // ── Radial bounds ───────────────────────────────────────────────────
+        // ── Radial bounds ─────────────────────────────────────────────────
         const outerR = isActive
-          ? wheelRadius - 1                             // full boundary
+          ? wheelRadius - 1
           : isNeighbor_
-          ? wheelRadius - 1 - NEIGHBOR_OUTER_SHRINK     // subtle 4px pullback
+          ? wheelRadius - 1 - NEIGHBOR_OUTER_SHRINK
           : isDimmed
-          ? wheelRadius - 1 - DIM_OUTER_SHRINK          // subtle 2px pullback
+          ? wheelRadius - 1 - DIM_OUTER_SHRINK
           : wheelRadius - 1;
 
         const innerR = isActive
-          ? deadZoneRadius + 3 - ACTIVE_INNER_SHRINK    // subtle 3px expansion inward
+          ? deadZoneRadius + 3 - ACTIVE_INNER_SHRINK
           : isNeighbor_
-          ? deadZoneRadius + 3 + NEIGHBOR_INNER_GROW     // subtle 2px pullback
+          ? deadZoneRadius + 3 + NEIGHBOR_INNER_GROW
           : isDimmed
-          ? deadZoneRadius + 3 + DIM_INNER_GROW          // subtle 1px pullback
+          ? deadZoneRadius + 3 + DIM_INNER_GROW
           : deadZoneRadius + 3;
 
         const sectorPath = annularSectorPath(cx, cy, innerR, outerR, startAngle, endAngle);
 
-        // ── Radial translate ────────────────────────────────────────────────
+        // ── Radial translate ──────────────────────────────────────────────
         const rad = (centre * Math.PI) / 180;
         const tx  = isActive ? Math.cos(rad) * EXPAND_PX : 0;
         const ty  = isActive ? Math.sin(rad) * EXPAND_PX : 0;
         const groupTransform = (tx !== 0 || ty !== 0) ? `translate(${tx}, ${ty})` : "";
 
-        // ── Icon / label theme & custom app icon resolution ────────────────
-        const displayName = sectorLabels[i] ?? "";
-        const cmdInfo = labelToCommand[displayName];
-        const theme: ActionTheme = cmdInfo?.commandType === "launch_app" && cmdInfo.exeName
-          ? getAppTheme(cmdInfo.exeName)
-          : getActionTheme(displayName);
-
-        const customAppIconUrl =
-          appIcons[i.toString()] ||
-          appIcons[displayName] ||
-          (cmdInfo?.exeName && appIcons[cmdInfo.exeName]);
-
-        // ── Content position ────────────────────────────────────────────────
-        const contentRAdj = baseContentR + (isActive ? 2 : 0);
-        const contentPos  = polarToCartesian(cx, cy, contentRAdj, centre);
-
-        // ── Border colors & strokes ─────────────────────────────────────────
+        // ── Border colors & strokes ───────────────────────────────────────
         const outerBorder = isActive
           ? highlightColor || "rgba(255, 100, 130, 0.65)"
           : isNeighbor_
@@ -332,10 +369,42 @@ function WheelRenderer({
           ? highlightColor || "rgba(255, 200, 210, 0.40)"
           : "rgba(255, 255, 255, 0.14)";
 
+        // ── Icon resolution ───────────────────────────────────────────────
+        const displayName = sectorLabels[i] ?? "";
+        const cmdInfo     = labelToCommand[displayName];
+        const isLaunchApp = cmdInfo?.commandType === "launch_app";
+
+        const appIconUrl: string | undefined | false =
+          isLaunchApp && (
+            appIcons[i.toString()] ||
+            appIcons[displayName] ||
+            (cmdInfo?.exeName && appIcons[cmdInfo.exeName])
+          );
+
+        const actionVector = !isLaunchApp && displayName
+          ? getActionVector(displayName)
+          : null;
+
+        const displayIconSize = iconSize;
+        const displayContainerSize = isActive ? containerSize + 4 : containerSize;
+
+        const contentRAdj = baseContentR + (isActive ? 2 : 0);
+        const contentPos  = polarToCartesian(cx, cy, contentRAdj, centre);
+
+        const halfContainer = displayContainerSize / 2;
+        const halfIcon      = displayIconSize / 2;
+
+        const iconPadding = 6;
+        const foSize = displayContainerSize;
+
+        const labelR   = contentRAdj + displayContainerSize / 2 + 11;
+        const labelPos = polarToCartesian(cx, cy, labelR, centre);
+
+        const shortLabel = displayName.length > 13 ? displayName.slice(0, 11) + "…" : displayName;
+
         return (
           <g
             key={i}
-            className={`wheel-sector-group${isActive ? " wheel-sector-group--active" : ""}${isDimmed ? " wheel-sector-group--dimmed" : ""}`}
             transform={groupTransform}
             style={{ transition: `transform ${EASE}, opacity ${EASE}` }}
           >
@@ -367,70 +436,122 @@ function WheelRenderer({
               style={{ pointerEvents: "none", opacity: isNeighbor_ ? 0.7 : 1 }}
             />
 
-            {/* Icon + Label */}
+            {/* ── Icon container + icon ── */}
             {displayName && (
-              <g
-                transform={`translate(${contentPos.x}, ${contentPos.y}) scale(${iconScale})`}
-                style={{ transition: `transform ${EASE}` }}
-              >
-                {/* Icon: Native extracted exe logo (no filter) or vector fallback */}
-                {customAppIconUrl ? (
-                  <image
-                    href={customAppIconUrl}
-                    x={isActive ? -14 : -12}
-                    y={isActive ? -26 : -22}
-                    width={isActive ? 28 : 24}
-                    height={isActive ? 28 : 24}
-                    preserveAspectRatio="xMidYMid meet"
-                    style={{
-                      filter: "none",
-                    }}
-                  />
-                ) : (
+              <g style={{ transition: `opacity ${EASE}`, opacity: isNeighbor_ ? 0.80 : isDimmed ? 0.82 : 1 }}>
+                {/* Circular frosted container */}
+                <circle
+                  cx={contentPos.x}
+                  cy={contentPos.y}
+                  r={halfContainer}
+                  fill={isActive ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)"}
+                  stroke={isActive ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.15)"}
+                  strokeWidth={isActive ? "1.2" : "0.7"}
+                  style={{
+                    transition: `fill ${EASE}, stroke ${EASE}, r ${EASE}`,
+                    filter: isActive ? "drop-shadow(0 0 5px rgba(255,255,255,0.25))" : "none",
+                  }}
+                />
+
+                {appIconUrl ? (
+                  /* Real extracted app icon — rendered via foreignObject + HTML img */
+                  <foreignObject
+                    x={contentPos.x - foSize / 2}
+                    y={contentPos.y - foSize / 2}
+                    width={foSize}
+                    height={foSize}
+                    style={{ overflow: "visible" }}
+                  >
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: `${iconPadding}px`,
+                        boxSizing: "border-box" as const,
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        pointerEvents: "none" as const,
+                      }}
+                    >
+                      <img
+                        src={appIconUrl as string}
+                        alt=""
+                        draggable={false}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          width: "auto",
+                          height: "auto",
+                          objectFit: "contain" as const,
+                          display: "block",
+                          imageRendering: "auto" as const,
+                          userSelect: "none" as const,
+                        }}
+                      />
+                    </div>
+                  </foreignObject>
+                ) : actionVector ? (
+                  /* Built-in action SVG vector */
                   <svg
-                    x={isActive ? -13 : -11}
-                    y={isActive ? -24 : -20}
-                    width={isActive ? 26 : 22}
-                    height={isActive ? 26 : 22}
+                    x={contentPos.x - halfIcon}
+                    y={contentPos.y - halfIcon}
+                    width={displayIconSize}
+                    height={displayIconSize}
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(210,195,200,0.75)" : theme.color}
-                    strokeWidth="2"
+                    stroke={
+                      isActive
+                        ? "#FFFFFF"
+                        : isNeighbor_
+                        ? `rgba(210,195,200,0.70)`
+                        : actionVector.color
+                    }
+                    strokeWidth={isActive ? "2.2" : "1.8"}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     style={{
                       filter: isActive
-                        ? "drop-shadow(0 0 5px rgba(255,255,255,0.60))"
+                        ? "drop-shadow(0 0 6px rgba(255,255,255,0.65))"
                         : "none",
-                      transition: `stroke ${EASE}`,
+                      transition: `stroke ${EASE}, opacity ${EASE}`,
+                      overflow: "visible",
                     }}
                   >
-                    {theme.icon}
+                    {actionVector.paths}
                   </svg>
-                )}
+                ) : null}
 
-                {/* Label */}
-                <text
-                  x={0}
-                  y={isActive ? 16 : 14}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fill={isActive ? "#FFFFFF" : isNeighbor_ ? "rgba(210,195,200,0.70)" : "#E0D8D4"}
-                  fontSize={isActive ? "11" : "10"}
-                  fontWeight={isActive ? "700" : "500"}
-                  fontFamily="'Outfit','Inter',ui-sans-serif,system-ui,sans-serif"
-                  style={{
-                    userSelect: "none",
-                    filter: isActive
-                      ? "drop-shadow(0 0 6px rgba(252,144,154,0.70))"
-                      : "none",
-                    transition: `fill ${EASE}, font-size ${EASE}`,
-                  }}
-                >
-                  {displayName.length > 13
-                    ? `${displayName.substring(0, 10)}\u2026`
-                    : displayName}
-                </text>
+                {/* Tooltip label on active hover */}
+                {isActive && (
+                  <>
+                    <rect
+                      x={labelPos.x - (shortLabel.length * 3.8 + 8)}
+                      y={labelPos.y - 8}
+                      width={shortLabel.length * 7.6 + 16}
+                      height={16}
+                      rx={8}
+                      fill="rgba(20,14,18,0.82)"
+                      stroke="rgba(255,255,255,0.18)"
+                      strokeWidth="0.6"
+                    />
+                    <text
+                      x={labelPos.x}
+                      y={labelPos.y + 4.5}
+                      textAnchor="middle"
+                      fill="rgba(255,255,255,0.92)"
+                      fontSize="9.5"
+                      fontFamily="Inter, -apple-system, Segoe UI, sans-serif"
+                      fontWeight="500"
+                      letterSpacing="0.3"
+                      style={{ pointerEvents: "none", userSelect: "none" }}
+                    >
+                      {shortLabel}
+                    </text>
+                  </>
+                )}
               </g>
             )}
           </g>
@@ -451,7 +572,6 @@ function WheelRenderer({
       {/* Center Hub — strictly within deadZoneRadius                          */}
       {/* ------------------------------------------------------------------ */}
       <g filter="url(#hub-glow)">
-        {/* Soft glow ring strictly within deadZone bounds */}
         <circle
           cx={cx} cy={cy} r={hubR + 3}
           fill="none"
@@ -459,7 +579,6 @@ function WheelRenderer({
           strokeWidth="4"
         />
 
-        {/* Hub base */}
         <circle
           cx={cx} cy={cy} r={hubR}
           fill="url(#hub-fill)"
@@ -473,7 +592,6 @@ function WheelRenderer({
           }}
         />
 
-        {/* Hub glass sheen */}
         <circle
           cx={cx - hubR * 0.15}
           cy={cy - hubR * 0.18}
@@ -483,7 +601,6 @@ function WheelRenderer({
           strokeWidth="0.5"
         />
 
-        {/* Hub inner accent ring */}
         <circle
           cx={cx} cy={cy} r={Math.max(8, hubR - 5)}
           fill="none"
