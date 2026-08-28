@@ -34,8 +34,8 @@ const WheelPreview = ({ sectors, selectedSectorIndex, onSelectSector, commands, 
     const sectorSpan = 360 / 8;
     const sectorGap = 1.5;
     return ((0, jsx_runtime_1.jsxs)("div", { className: "wheel-preview-container", children: [(0, jsx_runtime_1.jsx)("div", { className: "wheel-svg-wrapper", children: (0, jsx_runtime_1.jsxs)("svg", { width: size, height: size, viewBox: `0 0 ${size} ${size}`, className: "wheel-svg", children: [sectors.map((sector, i) => {
-                            // Offset by -90 so Sector 0 (index 0) is at 12 o'clock (pointing straight up)
-                            const centre = i * sectorSpan - 90;
+                            // Sector i is centred at i * sectorSpan degrees, matching host settings and overlay
+                            const centre = i * sectorSpan;
                             const startAngle = centre - sectorSpan / 2 + sectorGap;
                             const endAngle = centre + sectorSpan / 2 - sectorGap;
                             const isSelected = selectedSectorIndex === i;

@@ -35060,6 +35060,30 @@ var executeNativeCommand = {
       case 2007:
         script = 'EasyWheel.execute("duplicate_layer")';
         break;
+      case 2500:
+        script = 'EasyWheel.execute("align_left")';
+        break;
+      case 2501:
+        script = 'EasyWheel.execute("align_center_horizontal")';
+        break;
+      case 2502:
+        script = 'EasyWheel.execute("align_right")';
+        break;
+      case 2503:
+        script = 'EasyWheel.execute("align_top")';
+        break;
+      case 2504:
+        script = 'EasyWheel.execute("align_center_vertical")';
+        break;
+      case 2505:
+        script = 'EasyWheel.execute("align_bottom")';
+        break;
+      case 2508:
+        script = 'EasyWheel.execute("distribute_horizontal")';
+        break;
+      case 2509:
+        script = 'EasyWheel.execute("distribute_vertical")';
+        break;
       case 2525:
         script = `try {
           app.activate();
@@ -35080,6 +35104,11 @@ var executeNativeCommand = {
           if (comp && comp instanceof CompItem) {
             app.beginUndoGroup("EasyWheel: New Shape Layer");
             comp.layers.addShape();
+            try {
+              app.project.toolType = ToolType.Tool_Rect;
+            } catch(toolErr) {
+              // Ignore if ToolType is not supported in this AE version
+            }
             app.endUndoGroup();
             "OK";
           } else {
@@ -35128,9 +35157,10 @@ var executeNativeCommand = {
         break;
     }
     const res = await jsxExecutor.execute(script);
-    const success = res.success && (res.result === "OK" || res.result === void 0 || res.result === "undefined" || res.result === "");
+    const isEvalError = res.result === "EvalScript error.";
+    const success = res.success && !isEvalError && (res.result === "OK" || res.result === void 0 || res.result === "undefined" || res.result === "");
     const isError = res.result && typeof res.result === "string" && res.result.indexOf("ERROR:") === 0;
-    const errorMsg = isError ? res.result.substring(6).trim() : res.message || "Execution failed.";
+    const errorMsg = isError ? res.result.substring(6).trim() : isEvalError ? "ExtendScript engine error. Please restart After Effects." : res.message || "Execution failed.";
     return {
       success: success && !isError,
       message: success && !isError ? `Command ID ${commandId} executed successfully.` : errorMsg

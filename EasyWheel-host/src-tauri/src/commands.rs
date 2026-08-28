@@ -517,6 +517,36 @@ pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>,
     Ok(crate::command_registry::get_commands().clone())
 }
 
+/// Helper to extract base domain from URLs.
+fn extract_domain_name(url: &str) -> Option<String> {
+    let mut s = url;
+    if s.starts_with("https://") {
+        s = &s[8..];
+    } else if s.starts_with("http://") {
+        s = &s[7..];
+    }
+    if let Some(p) = s.find('/') { s = &s[..p]; }
+    if let Some(p) = s.find(':') { s = &s[..p]; }
+    
+    let parts: Vec<&str> = s.split('.').collect();
+    if parts.is_empty() {
+        return None;
+    }
+    
+    if parts.len() >= 2 {
+        let _last = parts[parts.len() - 1];
+        let snd = parts[parts.len() - 2];
+        if snd == "co" || snd == "com" || snd == "net" || snd == "org" {
+            if parts.len() >= 3 {
+                return Some(parts[parts.len() - 3].to_string());
+            }
+        }
+        return Some(snd.to_string());
+    }
+    
+    Some(parts[0].to_string())
+}
+
 /// Locates a matching icon from the pre-installed icon folder
 /// `C:\Users\Deep\Documents\Test Files\EasyWheelAE\icons pack`
 /// based on path/executable name and label, and returns it as a base64 encoded data URI.
@@ -535,11 +565,20 @@ pub fn get_app_icon(path: String, label: Option<String>) -> Result<String, Strin
     };
 
     // 1. Get targets to search for.
-    let exe_name = Path::new(&path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or(&path);
-    let mut targets = vec![clean_name(exe_name)];
+    let mut targets = Vec::new();
+
+    let is_url = path.starts_with("http://") || path.starts_with("https://") || path.contains("www.") || path.contains(".com") || path.contains(".org") || path.contains(".net") || path.contains(".ai") || path.contains(".io");
+    if is_url {
+        if let Some(domain) = extract_domain_name(&path) {
+            targets.push(clean_name(&domain));
+        }
+    } else {
+        let exe_name = Path::new(&path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(&path);
+        targets.push(clean_name(exe_name));
+    }
 
     targets.push(clean_name(&path));
 
@@ -557,11 +596,14 @@ pub fn get_app_icon(path: String, label: Option<String>) -> Result<String, Strin
         if target == "code" || target == "vscode" {
             resolved_targets.push("vscode".to_string());
         }
-        if target == "ae" || target == "aftereffects" || target == "aftereffects" {
+        if target == "ae" || target == "aftereffects" || target == "afterfx" {
             resolved_targets.push("aftereffects".to_string());
         }
         if target == "premiere" || target == "premierepro" || target == "premierepro" {
             resolved_targets.push("premierepro".to_string());
+        }
+        if target == "msedge" || target == "edge" {
+            resolved_targets.push("chrome".to_string()); // fallback to chrome icon for edge
         }
     }
 
@@ -599,15 +641,20 @@ pub fn get_app_icon(path: String, label: Option<String>) -> Result<String, Strin
         }
     }
 
-    // If no match is found, fallback to folder.png
+    // If no match is found, fallback to logo.png, then folder.png
     let icon_to_read = match matched_file_path {
         Some(path) => path,
         None => {
-            let fallback = icons_dir.join("folder.png");
-            if fallback.exists() {
-                fallback
+            let logo_fallback = icons_dir.join("logo.png");
+            if logo_fallback.exists() {
+                logo_fallback
             } else {
-                return Err("No matching icon found and fallback folder.png does not exist".to_string());
+                let folder_fallback = icons_dir.join("folder.png");
+                if folder_fallback.exists() {
+                    folder_fallback
+                } else {
+                    return Err("No matching icon found and fallback logo.png/folder.png do not exist".to_string());
+                }
             }
         }
     };

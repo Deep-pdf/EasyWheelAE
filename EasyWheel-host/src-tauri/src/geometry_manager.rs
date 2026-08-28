@@ -96,6 +96,8 @@ pub struct GeometryState {
 
     /// Array of display labels for the active profile sectors.
     pub sector_labels: Vec<String>,
+    /// The executable filename of the active foreground application.
+    pub active_executable: String,
 }
 
 impl Default for GeometryState {
@@ -115,6 +117,7 @@ impl Default for GeometryState {
             default_color: "#FFFFFF11".to_string(),
             wheel_opacity: 0.8,
             sector_labels: Vec::new(),
+            active_executable: String::new(),
         }
     }
 }
@@ -242,6 +245,7 @@ impl GeometryManager {
             default_color: config.global.default_color.clone(),
             wheel_opacity: config.global.wheel_opacity,
             sector_labels,
+            active_executable: exe,
         }
     }
 }

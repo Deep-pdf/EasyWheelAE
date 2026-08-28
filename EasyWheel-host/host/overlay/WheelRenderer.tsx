@@ -221,8 +221,9 @@ export interface WheelRendererProps {
   defaultColor?: string;
   wheelOpacity?: number;
   sectorLabels?: string[];
-  labelToCommand?: Record<string, { commandType: string; exeName?: string }>;
+  labelToCommand?: Record<string, { commandType: string; exeName?: string; url?: string }>;
   appIcons?: Record<string, string>;
+  hubIconUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,6 +244,7 @@ function WheelRenderer({
   sectorLabels   = [],
   labelToCommand = {},
   appIcons       = {},
+  hubIconUrl     = "",
 }: WheelRendererProps): React.JSX.Element {
   const sectorSpan        = 360 / sectorCount;
   const isAnySectorActive = !inDeadZone && sector !== 255;
@@ -372,16 +374,17 @@ function WheelRenderer({
         // ── Icon resolution ───────────────────────────────────────────────
         const displayName = sectorLabels[i] ?? "";
         const cmdInfo     = labelToCommand[displayName];
-        const isLaunchApp = cmdInfo?.commandType === "launch_app";
-
+        const isAppOrWeb  = cmdInfo?.commandType === "launch_app" || cmdInfo?.commandType === "open_website";
+ 
         const appIconUrl: string | undefined | false =
-          isLaunchApp && (
+          isAppOrWeb && (
             appIcons[i.toString()] ||
             appIcons[displayName] ||
-            (cmdInfo?.exeName && appIcons[cmdInfo.exeName])
+            (cmdInfo?.exeName && appIcons[cmdInfo.exeName]) ||
+            (cmdInfo?.url && appIcons[cmdInfo.url])
           );
 
-        const actionVector = !isLaunchApp && displayName
+        const actionVector = !isAppOrWeb && displayName
           ? getActionVector(displayName)
           : null;
 
@@ -593,22 +596,54 @@ function WheelRenderer({
           }}
         />
 
-        <circle
-          cx={cx - hubR * 0.15}
-          cy={cy - hubR * 0.18}
-          r={hubR * 0.65}
-          fill="none"
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth="0.5"
-        />
-
-        <circle
-          cx={cx} cy={cy} r={Math.max(8, hubR - 5)}
-          fill="none"
-          stroke={inDeadZone ? (highlightColor || "rgba(255,100,130,0.30)") : "rgba(255,255,255,0.04)"}
-          strokeWidth="0.8"
-          style={{ transition: `stroke ${EASE}` }}
-        />
+        {hubIconUrl ? (
+          <foreignObject
+            x={cx - (hubR * 1.0) / 2}
+            y={cy - (hubR * 1.0) / 2}
+            width={hubR * 1.0}
+            height={hubR * 1.0}
+            style={{ pointerEvents: "none" }}
+          >
+            <div style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "4px",
+              boxSizing: "border-box",
+            }}>
+              <img
+                src={hubIconUrl}
+                alt=""
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.4))",
+                }}
+              />
+            </div>
+          </foreignObject>
+        ) : (
+          <>
+            <circle
+              cx={cx - hubR * 0.15}
+              cy={cy - hubR * 0.18}
+              r={hubR * 0.65}
+              fill="none"
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth="0.5"
+            />
+            <circle
+              cx={cx} cy={cy} r={Math.max(8, hubR - 5)}
+              fill="none"
+              stroke={inDeadZone ? (highlightColor || "rgba(255,100,130,0.30)") : "rgba(255,255,255,0.04)"}
+              strokeWidth="0.8"
+              style={{ transition: `stroke ${EASE}` }}
+            />
+          </>
+        )}
       </g>
     </svg>
   );

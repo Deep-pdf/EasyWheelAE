@@ -29,6 +29,7 @@ interface SectorCommandInfo {
   commandType: string;
   /** Basename of the exe without extension, e.g. "chrome" for chrome.exe */
   exeName?: string;
+  url?: string;
 }
 
 /** Extract exe basename (without path or .exe) from a Windows file path. */
@@ -51,6 +52,11 @@ function buildLabelMap(config: AppConfig): Record<string, SectorCommandInfo> {
           map[label] = {
             commandType: "launch_app",
             exeName: exeBasename(cmd.parameters.path as string),
+          };
+        } else if (cmd.command === "open_website" && cmd.parameters?.url) {
+          map[label] = {
+            commandType: "open_website",
+            url: cmd.parameters.url as string,
           };
         } else {
           map[label] = { commandType: cmd.command };
@@ -83,6 +89,8 @@ interface GeometryState {
   wheel_opacity: number;
   /** Array of display labels for each sector. */
   sector_labels: string[];
+  /** Active executable filename of the focused application. */
+  active_executable: string;
 }
 
 const DEFAULT_STATE: GeometryState = {
@@ -100,6 +108,7 @@ const DEFAULT_STATE: GeometryState = {
   default_color: "#FFFFFF11",
   wheel_opacity: 0.8,
   sector_labels: [],
+  active_executable: "",
 };
 
 // ---------------------------------------------------------------------------
@@ -144,6 +153,7 @@ function Overlay(): React.JSX.Element {
   const [windowOffset, setWindowOffset] = useState<WindowOffset>({ x: 0, y: 0 });
   const [labelToCommand, setLabelToCommand] = useState<Record<string, SectorCommandInfo>>({});
   const [appIcons, setAppIcons] = useState<Record<string, string>>({});
+  const [hubIconUrl, setHubIconUrl] = useState<string>("");
 
   // Stores the RAF cancellation ID for cleanup on unmount.
   const rafRef = useRef<number>(0);
@@ -153,15 +163,17 @@ function Overlay(): React.JSX.Element {
     invoke<AppConfig>("get_config")
       .then((cfg) => {
         setLabelToCommand(buildLabelMap(cfg));
-        // Extract native app icons for launch_app commands
+        // Extract app and web icons
         for (const profile of cfg.profiles) {
           for (const [sectorKey, raw] of Object.entries(profile.sector_assignments)) {
             if (typeof raw === "object" && raw !== null) {
               const cmd = raw as ConfiguredCommand;
-              if (cmd.command === "launch_app" && cmd.parameters?.path) {
-                const pathStr = String(cmd.parameters.path);
+              const isLaunchApp = cmd.command === "launch_app" && cmd.parameters?.path;
+              const isOpenWebsite = cmd.command === "open_website" && cmd.parameters?.url;
+              if (isLaunchApp || isOpenWebsite) {
+                const pathStr = isLaunchApp ? String(cmd.parameters.path) : String(cmd.parameters.url);
                 const label = (cmd.label ?? "").trim();
-                const exe = exeBasename(pathStr);
+                const exe = isLaunchApp ? exeBasename(pathStr) : "";
 
                 invoke<string>("get_app_icon", { path: pathStr, label: label })
                   .then((iconUrl) => {
@@ -169,12 +181,12 @@ function Overlay(): React.JSX.Element {
                       ...prev,
                       [sectorKey]: iconUrl,
                       [pathStr]: iconUrl,
-                      [exe]: iconUrl,
+                      ...(exe ? { [exe]: iconUrl } : {}),
                       ...(label ? { [label]: iconUrl } : {}),
                     }));
                   })
                   .catch((err) => {
-                    console.log("[Overlay] App icon extraction fallback for:", pathStr, err);
+                    console.log("[Overlay] Icon loading failed for:", pathStr, err);
                   });
               }
             }
@@ -222,6 +234,21 @@ function Overlay(): React.JSX.Element {
       mediaQuery.removeEventListener("change", handleThemeChange);
     };
   }, []);
+
+  // Hub icon loading effect
+  useEffect(() => {
+    if (geo.active_executable) {
+      invoke<string>("get_app_icon", { path: geo.active_executable })
+        .then((iconUrl) => {
+          setHubIconUrl(iconUrl);
+        })
+        .catch(() => {
+          setHubIconUrl("");
+        });
+    } else {
+      setHubIconUrl("");
+    }
+  }, [geo.active_executable]);
 
   useEffect(() => {
     // Fetch the window's physical-pixel position once on mount.
@@ -297,6 +324,7 @@ function Overlay(): React.JSX.Element {
           sectorLabels={geo.sector_labels}
           labelToCommand={labelToCommand}
           appIcons={appIcons}
+          hubIconUrl={hubIconUrl}
         />
       )}
     </div>
