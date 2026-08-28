@@ -31,6 +31,7 @@ const filesToClean = [
   'EasyWheel_Setup.exe',
   'Browser Extension',
   'EasyWheelAE',
+  'icons pack',
   'README_FIRST.txt',
   'VERSION.txt',
   'LICENSE'
@@ -81,6 +82,17 @@ if (fs.existsSync(aeSrc)) {
   copyFolderSync(aeSrc, aeDest);
 } else {
   console.warn(`[Post-Build] Warning: After Effects extension source directory not found at ${aeSrc}`);
+}
+
+
+// 7.5. Copy Icons Pack folder recursively
+const iconsSrc = path.join(repoRoot, 'icons pack');
+const iconsDest = path.join(installerDir, 'icons pack');
+if (fs.existsSync(iconsSrc)) {
+  console.log('[Post-Build] Copying Icons Pack folder recursively...');
+  copyFolderSync(iconsSrc, iconsDest);
+} else {
+  console.warn(`[Post-Build] Warning: Icons pack source directory not found at ${iconsSrc}`);
 }
 
 // 8. Copy License file
