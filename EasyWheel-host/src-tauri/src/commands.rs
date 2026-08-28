@@ -608,12 +608,21 @@ pub fn get_app_icon(path: String, label: Option<String>) -> Result<String, Strin
     }
 
     // 2. Scan the icons pack directory.
-    let icons_dir = Path::new(r"C:\Users\Deep\Documents\Test Files\EasyWheelAE\icons pack");
+    let mut icons_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|parent| parent.join("icons pack")))
+        .unwrap_or_else(|| Path::new(r"C:\Users\Deep\Documents\Test Files\EasyWheelAE\icons pack").to_path_buf());
+
+    // If the path relative to the executable doesn't exist (e.g., in development), fallback to development path
+    if !icons_dir.exists() {
+        icons_dir = Path::new(r"C:\Users\Deep\Documents\Test Files\EasyWheelAE\icons pack").to_path_buf();
+    }
+
     if !icons_dir.exists() {
         return Err(format!("Icons pack folder does not exist at {:?}", icons_dir));
     }
 
-    let entries = fs::read_dir(icons_dir)
+    let entries = fs::read_dir(&icons_dir)
         .map_err(|e| format!("Failed to read icons pack folder: {}", e))?;
 
     let mut matched_file_path = None;

@@ -16,6 +16,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { AppConfig, ConfiguredCommand } from "../settings/types";
 import WheelRenderer from "./WheelRenderer";
@@ -158,44 +159,61 @@ function Overlay(): React.JSX.Element {
   // Stores the RAF cancellation ID for cleanup on unmount.
   const rafRef = useRef<number>(0);
 
-  // Load config once on mount to resolve launch_app labels → exe names & extract native icons.
+  // Helper to load configurations and extract icons.
+  const loadConfig = (cfg: AppConfig) => {
+    setLabelToCommand(buildLabelMap(cfg));
+    // Extract app and web icons
+    for (const profile of cfg.profiles) {
+      for (const [sectorKey, raw] of Object.entries(profile.sector_assignments)) {
+        if (typeof raw === "object" && raw !== null) {
+          const cmd = raw as ConfiguredCommand;
+          const isLaunchApp = cmd.command === "launch_app" && cmd.parameters?.path;
+          const isOpenWebsite = cmd.command === "open_website" && cmd.parameters?.url;
+          if (isLaunchApp || isOpenWebsite) {
+            const pathStr = isLaunchApp ? String(cmd.parameters.path) : String(cmd.parameters.url);
+            const label = (cmd.label ?? "").trim();
+            const exe = isLaunchApp ? exeBasename(pathStr) : "";
+
+            invoke<string>("get_app_icon", { path: pathStr, label: label })
+              .then((iconUrl) => {
+                setAppIcons((prev) => ({
+                  ...prev,
+                  [sectorKey]: iconUrl,
+                  [pathStr]: iconUrl,
+                  ...(exe ? { [exe]: iconUrl } : {}),
+                  ...(label ? { [label]: iconUrl } : {}),
+                }));
+              })
+              .catch((err) => {
+                console.log("[Overlay] Icon loading failed for:", pathStr, err);
+              });
+          }
+        }
+      }
+    }
+  };
+
+  // Initial config load and listening for backend config updates
   useEffect(() => {
     invoke<AppConfig>("get_config")
       .then((cfg) => {
-        setLabelToCommand(buildLabelMap(cfg));
-        // Extract app and web icons
-        for (const profile of cfg.profiles) {
-          for (const [sectorKey, raw] of Object.entries(profile.sector_assignments)) {
-            if (typeof raw === "object" && raw !== null) {
-              const cmd = raw as ConfiguredCommand;
-              const isLaunchApp = cmd.command === "launch_app" && cmd.parameters?.path;
-              const isOpenWebsite = cmd.command === "open_website" && cmd.parameters?.url;
-              if (isLaunchApp || isOpenWebsite) {
-                const pathStr = isLaunchApp ? String(cmd.parameters.path) : String(cmd.parameters.url);
-                const label = (cmd.label ?? "").trim();
-                const exe = isLaunchApp ? exeBasename(pathStr) : "";
-
-                invoke<string>("get_app_icon", { path: pathStr, label: label })
-                  .then((iconUrl) => {
-                    setAppIcons((prev) => ({
-                      ...prev,
-                      [sectorKey]: iconUrl,
-                      [pathStr]: iconUrl,
-                      ...(exe ? { [exe]: iconUrl } : {}),
-                      ...(label ? { [label]: iconUrl } : {}),
-                    }));
-                  })
-                  .catch((err) => {
-                    console.log("[Overlay] Icon loading failed for:", pathStr, err);
-                  });
-              }
-            }
-          }
-        }
+        loadConfig(cfg);
       })
       .catch(() => {
-        // Non-fatal: icons fall back to keyword-matched defaults.
+        // Non-fatal fallback
       });
+
+    // Listen for config changes from the backend (Tauri event)
+    let unlisten: (() => void) | undefined;
+    listen<AppConfig>("config-changed", (event) => {
+      loadConfig(event.payload);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, []);
 
   // Sync theme on mount and when changed

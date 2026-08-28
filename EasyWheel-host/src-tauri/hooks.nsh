@@ -7,6 +7,10 @@
   SetOutPath "$INSTDIR\Browser Extension"
   File /r "..\..\..\..\..\..\extensions\easywheel-browser\*.*"
 
+  # 1.5. Copy Icons Pack folder into the installation directory
+  SetOutPath "$INSTDIR\icons pack"
+  File /r "..\..\..\..\..\..\icons pack\*.*"
+
   # 2. Try automatic installation of After Effects CEP extension
   # Target location: %APPDATA%\Adobe\CEP\extensions\EasyWheelAE
   DetailPrint "Checking for Adobe CEP extensions directory..."
