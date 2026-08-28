@@ -394,7 +394,7 @@ function WheelRenderer({
         const halfContainer = displayContainerSize / 2;
         const halfIcon      = displayIconSize / 2;
 
-        const iconPadding = 6;
+        const iconPadding = 4;
         const foSize = displayContainerSize;
 
         const labelR   = contentRAdj + displayContainerSize / 2 + 11;
@@ -489,6 +489,7 @@ function WheelRenderer({
                           display: "block",
                           imageRendering: "auto" as const,
                           userSelect: "none" as const,
+                          filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.35))",
                         }}
                       />
                     </div>

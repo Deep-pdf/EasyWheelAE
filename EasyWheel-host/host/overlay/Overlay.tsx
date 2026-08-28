@@ -163,7 +163,7 @@ function Overlay(): React.JSX.Element {
                 const label = (cmd.label ?? "").trim();
                 const exe = exeBasename(pathStr);
 
-                invoke<string>("get_app_icon", { path: pathStr })
+                invoke<string>("get_app_icon", { path: pathStr, label: label })
                   .then((iconUrl) => {
                     setAppIcons((prev) => ({
                       ...prev,

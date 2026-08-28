@@ -517,243 +517,113 @@ pub fn get_command_registry() -> Result<Vec<crate::command_registry::AECommand>,
     Ok(crate::command_registry::get_commands().clone())
 }
 
-/// Extracts the native Windows application icon from an executable/file path
-/// using a deterministic cache in `%APPDATA%\EasyWheelAE\icons\`.
+/// Locates a matching icon from the pre-installed icon folder
+/// `C:\Users\Deep\Documents\Test Files\EasyWheelAE\icons pack`
+/// based on path/executable name and label, and returns it as a base64 encoded data URI.
 #[tauri::command]
-pub fn get_app_icon(path: String) -> Result<String, String> {
-    #[cfg(target_os = "windows")]
-    {
-        get_cached_or_extracted_icon(&path).ok_or_else(|| format!("Could not extract icon for path: {}", path))
+pub fn get_app_icon(path: String, label: Option<String>) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+
+    // Helper to clean a name to only alphanumeric characters.
+    // For example, "after-effects" -> "aftereffects", "VS Code" -> "vscode"
+    let clean_name = |s: &str| -> String {
+        s.to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect()
+    };
+
+    // 1. Get targets to search for.
+    let exe_name = Path::new(&path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&path);
+    let mut targets = vec![clean_name(exe_name)];
+
+    targets.push(clean_name(&path));
+
+    if let Some(lbl) = &label {
+        targets.push(clean_name(lbl));
     }
-    #[cfg(not(target_os = "windows"))]
-    {
-        Err("Icon extraction is only supported on Windows".to_string())
+
+    // Add manual aliases/mappings for common names to ensure robust lookup
+    let mut resolved_targets = Vec::new();
+    for target in &targets {
+        if target.is_empty() {
+            continue;
+        }
+        resolved_targets.push(target.clone());
+        if target == "code" || target == "vscode" {
+            resolved_targets.push("vscode".to_string());
+        }
+        if target == "ae" || target == "aftereffects" || target == "aftereffects" {
+            resolved_targets.push("aftereffects".to_string());
+        }
+        if target == "premiere" || target == "premierepro" || target == "premierepro" {
+            resolved_targets.push("premierepro".to_string());
+        }
     }
-}
 
-#[cfg(target_os = "windows")]
-fn get_cached_or_extracted_icon(path: &str) -> Option<String> {
-    if path.trim().is_empty() {
-        return None;
+    // 2. Scan the icons pack directory.
+    let icons_dir = Path::new(r"C:\Users\Deep\Documents\Test Files\EasyWheelAE\icons pack");
+    if !icons_dir.exists() {
+        return Err(format!("Icons pack folder does not exist at {:?}", icons_dir));
     }
 
-    let norm_path = path.trim().to_lowercase().replace('\\', "/");
+    let entries = fs::read_dir(icons_dir)
+        .map_err(|e| format!("Failed to read icons pack folder: {}", e))?;
 
-    // Simple 64-bit FNV-1a hash for deterministic filenames
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for byte in norm_path.bytes() {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    let hash_str = format!("{:016x}", hash);
+    let mut matched_file_path = None;
 
-    let cache_dir = dirs::data_dir().map(|mut p| {
-        p.push("EasyWheelAE");
-        p.push("icons");
-        p
-    });
-
-    if let Some(dir) = &cache_dir {
-        let cache_file = dir.join(format!("{}.txt", hash_str));
-        if cache_file.exists() {
-            if let Ok(cached_data) = std::fs::read_to_string(&cache_file) {
-                if !cached_data.trim().is_empty() {
-                    return Some(cached_data);
+    for entry in entries.flatten() {
+        let file_path = entry.path();
+        if file_path.is_file() {
+            if let Some(ext) = file_path.extension().and_then(|e| e.to_str()) {
+                if ext.eq_ignore_ascii_case("png") || ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg") {
+                    if let Some(stem) = file_path.file_stem().and_then(|s| s.to_str()) {
+                        let cleaned_stem = clean_name(stem);
+                        // Check if any of our resolved targets match the cleaned file stem
+                        for rt in &resolved_targets {
+                            if rt == &cleaned_stem || cleaned_stem.contains(rt) || rt.contains(&cleaned_stem) {
+                                matched_file_path = Some(file_path.clone());
+                                break;
+                            }
+                        }
+                        if matched_file_path.is_some() {
+                            break;
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Extraction on cache miss
-    let extracted = extract_windows_icon(path)?;
-
-    if let Some(dir) = cache_dir {
-        let _ = std::fs::create_dir_all(&dir);
-        let cache_file = dir.join(format!("{}.txt", hash_str));
-        let _ = std::fs::write(cache_file, &extracted);
-    }
-
-    Some(extracted)
-}
-
-#[cfg(target_os = "windows")]
-fn extract_windows_icon(path: &str) -> Option<String> {
-    use std::ffi::OsStr;
-    use std::os::windows::ffi::OsStrExt;
-    use winapi::shared::minwindef::DWORD;
-    use winapi::um::shellapi::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
-    use winapi::um::winuser::{DestroyIcon, GetIconInfo, ICONINFO};
-    use winapi::um::wingdi::{
-        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW,
-        BITMAP, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
-    };
-    use winapi::um::processenv::ExpandEnvironmentStringsW;
-
-    if path.trim().is_empty() {
-        return None;
-    }
-
-    let path_os = OsStr::new(path);
-    let path_w: Vec<u16> = path_os.encode_wide().chain(std::iter::once(0)).collect();
-
-    let mut expanded_w = vec![0u16; 2048];
-    let len = unsafe {
-        ExpandEnvironmentStringsW(path_w.as_ptr(), expanded_w.as_mut_ptr(), expanded_w.len() as DWORD)
-    };
-    let target_w = if len > 0 && (len as usize) <= expanded_w.len() {
-        &expanded_w[..len as usize - 1]
-    } else {
-        &path_w[..path_w.len() - 1]
-    };
-    let target_w_null: Vec<u16> = target_w.iter().copied().chain(std::iter::once(0)).collect();
-
-    let mut shfi: SHFILEINFOW = unsafe { std::mem::zeroed() };
-    let res = unsafe {
-        SHGetFileInfoW(
-            target_w_null.as_ptr(),
-            0,
-            &mut shfi,
-            std::mem::size_of::<SHFILEINFOW>() as u32,
-            SHGFI_ICON | SHGFI_LARGEICON,
-        )
-    };
-
-    if res == 0 || shfi.hIcon.is_null() {
-        return None;
-    }
-    let hicon = shfi.hIcon;
-
-    let mut icon_info: ICONINFO = unsafe { std::mem::zeroed() };
-    if unsafe { GetIconInfo(hicon, &mut icon_info) } == 0 {
-        unsafe { DestroyIcon(hicon); }
-        return None;
-    }
-
-    let hbm_color = icon_info.hbmColor;
-    let hbm_mask = icon_info.hbmMask;
-
-    if hbm_color.is_null() {
-        unsafe {
-            if !hbm_mask.is_null() { DeleteObject(hbm_mask as _); }
-            DestroyIcon(hicon);
+    // If no match is found, fallback to folder.png
+    let icon_to_read = match matched_file_path {
+        Some(path) => path,
+        None => {
+            let fallback = icons_dir.join("folder.png");
+            if fallback.exists() {
+                fallback
+            } else {
+                return Err("No matching icon found and fallback folder.png does not exist".to_string());
+            }
         }
-        return None;
-    }
-
-    let mut bmp: BITMAP = unsafe { std::mem::zeroed() };
-    unsafe {
-        GetObjectW(hbm_color as _, std::mem::size_of::<BITMAP>() as i32, &mut bmp as *mut _ as _);
-    }
-
-    let width = bmp.bmWidth;
-    let height = bmp.bmHeight;
-
-    if width <= 0 || height <= 0 {
-        unsafe {
-            DeleteObject(hbm_color as _);
-            if !hbm_mask.is_null() { DeleteObject(hbm_mask as _); }
-            DestroyIcon(hicon);
-        }
-        return None;
-    }
-
-    let hdc = unsafe { CreateCompatibleDC(std::ptr::null_mut()) };
-    let mut bmi = BITMAPINFOHEADER {
-        biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-        biWidth: width,
-        biHeight: -height, // top-down
-        biPlanes: 1,
-        biBitCount: 32,
-        biCompression: BI_RGB,
-        biSizeImage: 0,
-        biXPelsPerMeter: 0,
-        biYPelsPerMeter: 0,
-        biClrUsed: 0,
-        biClrImportant: 0,
     };
 
-    let mut pixels = vec![0u8; (width * height * 4) as usize];
-    let read_res = unsafe {
-        GetDIBits(
-            hdc,
-            hbm_color as _,
-            0,
-            height as u32,
-            pixels.as_mut_ptr() as _,
-            &mut bmi as *mut _ as _,
-            DIB_RGB_COLORS,
-        )
+    // 3. Read the image file and encode it as base64.
+    let data = fs::read(&icon_to_read)
+        .map_err(|e| format!("Failed to read icon file {:?}: {}", icon_to_read, e))?;
+
+    let b64 = base64_encode(&data);
+    let mime_type = match icon_to_read.extension().and_then(|e| e.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("png") => "image/png",
+        Some(ext) if ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg") => "image/jpeg",
+        _ => "image/png", // default
     };
 
-    unsafe {
-        DeleteDC(hdc);
-        DeleteObject(hbm_color as _);
-        if !hbm_mask.is_null() { DeleteObject(hbm_mask as _); }
-        DestroyIcon(hicon);
-    }
-
-    if read_res == 0 {
-        return None;
-    }
-
-    // Fix up alpha channel if Windows icon returned 0 in alpha byte for 32-bit icon
-    let has_alpha = pixels.chunks_exact(4).any(|p| p[3] != 0);
-    if !has_alpha {
-        for p in pixels.chunks_exact_mut(4) {
-            p[3] = 255;
-        }
-    }
-
-    let bmp_data = build_32bit_bmp(width as u32, height as u32, &pixels);
-    let b64 = base64_encode(&bmp_data);
-    Some(format!("data:image/bmp;base64,{}", b64))
-}
-
-#[cfg(target_os = "windows")]
-fn build_32bit_bmp(width: u32, height: u32, pixels_bgra: &[u8]) -> Vec<u8> {
-    let file_header_size = 14u32;
-    let v5_header_size = 108u32;
-    let offset_bits = file_header_size + v5_header_size;
-    let image_size = (width * height * 4) as u32;
-    let file_size = offset_bits + image_size;
-
-    let mut out = Vec::with_capacity(file_size as usize);
-
-    // BITMAPFILEHEADER
-    out.extend_from_slice(b"BM");
-    out.extend_from_slice(&file_size.to_le_bytes());
-    out.extend_from_slice(&0u16.to_le_bytes());
-    out.extend_from_slice(&0u16.to_le_bytes());
-    out.extend_from_slice(&offset_bits.to_le_bytes());
-
-    // BITMAPV5HEADER (108 bytes)
-    out.extend_from_slice(&v5_header_size.to_le_bytes());
-    out.extend_from_slice(&(width as i32).to_le_bytes());
-    out.extend_from_slice(&(-(height as i32)).to_le_bytes()); // top-down
-    out.extend_from_slice(&1u16.to_le_bytes());               // planes
-    out.extend_from_slice(&32u16.to_le_bytes());              // bit count
-    out.extend_from_slice(&3u32.to_le_bytes());               // BI_BITFIELDS
-    out.extend_from_slice(&image_size.to_le_bytes());
-    out.extend_from_slice(&0i32.to_le_bytes());
-    out.extend_from_slice(&0i32.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
-    // Channel masks
-    out.extend_from_slice(&0x00FF0000u32.to_le_bytes());      // Red mask
-    out.extend_from_slice(&0x0000FF00u32.to_le_bytes());      // Green mask
-    out.extend_from_slice(&0x000000FFu32.to_le_bytes());      // Blue mask
-    out.extend_from_slice(&0xFF000000u32.to_le_bytes());      // Alpha mask
-    out.extend_from_slice(b"sRGB");                           // CSType
-    out.extend_from_slice(&[0u8; 36]);                        // Endpoints
-    out.extend_from_slice(&0u32.to_le_bytes());               // Gamma Red
-    out.extend_from_slice(&0u32.to_le_bytes());               // Gamma Green
-    out.extend_from_slice(&0u32.to_le_bytes());               // Gamma Blue
-    out.extend_from_slice(&4u32.to_le_bytes());               // Intent (LCS_GM_IMAGES)
-    out.extend_from_slice(&[0u8; 12]);                        // Profile padding
-
-    // Pixel data (BGRA)
-    out.extend_from_slice(pixels_bgra);
-    out
+    Ok(format!("data:{};base64,{}", mime_type, b64))
 }
 
 fn base64_encode(data: &[u8]) -> String {

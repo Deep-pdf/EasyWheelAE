@@ -45,6 +45,15 @@ pub fn run() {
 
             println!("[EasyWheel Host] Info: Application started.");
 
+            // Clean up old cached icon files and folder.
+            if let Some(mut cache_dir) = dirs::data_dir() {
+                cache_dir.push("EasyWheelAE");
+                cache_dir.push("icons");
+                if cache_dir.exists() {
+                    let _ = std::fs::remove_dir_all(&cache_dir);
+                }
+            }
+
             // Step 1 — Load configuration.
             config_manager::ConfigManager::load();
 
