@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { ConfiguredCommand } from '../../types';
+import type { ConfiguredCommand, ActionDefinition } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 
@@ -9,6 +9,8 @@ interface ActionPickerProps {
   onClose: () => void;
   onSelectCommand: (cmd: ConfiguredCommand) => void;
   currentCommand: ConfiguredCommand | null;
+  activeProfileName?: string;
+  actionLibrary?: ActionDefinition[];
 }
 
 interface CommandTypeOption {
@@ -27,9 +29,10 @@ const COMMAND_TYPES: CommandTypeOption[] = [
   { id: 'send_shortcut', name: 'Send Keyboard Shortcut', description: 'Record and simulate a key sequence sequence (e.g. Ctrl + Shift + S).', category: 'Macros' },
   { id: 'after_effects_command', name: 'After Effects Command', description: 'Trigger built-in After Effects radial functions.', category: 'Adobe Integration' },
   { id: 'photoshop_command', name: 'Photoshop Command', description: 'Trigger built-in Photoshop editor functions.', category: 'Adobe Integration' },
+  { id: 'blender_command', name: 'Blender Command', description: 'Trigger built-in Blender operations.', category: '3D Integration' },
 ];
 
-function generateDefaultLabel(commandId: string, params: Record<string, any>): string {
+function generateDefaultLabel(commandId: string, params: Record<string, any>, actionLibrary?: ActionDefinition[]): string {
   switch (commandId) {
     case 'launch_app': {
       if (!params.path) return '';
@@ -104,6 +107,11 @@ function generateDefaultLabel(commandId: string, params: Record<string, any>): s
         default: return cmd;
       }
     }
+    case 'blender_command': {
+      const cmd = params.command || 'blender.test_connection';
+      const def = actionLibrary?.find(a => a.id === cmd);
+      return def ? def.display_name : cmd;
+    }
     default:
       return '';
   }
@@ -114,6 +122,8 @@ export function ActionPicker({
   onClose,
   onSelectCommand,
   currentCommand,
+  activeProfileName,
+  actionLibrary,
 }: ActionPickerProps): React.JSX.Element {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -143,12 +153,18 @@ export function ActionPicker({
 
   const [aeCommand, setAeCommand] = useState('easy_ease');
   const [psCommand, setPsCommand] = useState('brush');
+  const [blenderCommand, setBlenderCommand] = useState('blender.test_connection');
 
   // Pre-fill fields if we are editing an existing command of the active type
   useEffect(() => {
     if (isOpen) {
       if (currentCommand) {
-        setSelectedType(currentCommand.command);
+        if (currentCommand.command.startsWith('blender.')) {
+          setSelectedType('blender_command');
+          setBlenderCommand(currentCommand.command);
+        } else {
+          setSelectedType(currentCommand.command);
+        }
         setCustomLabel(currentCommand.label || '');
         setIsLabelCustomized(!!currentCommand.label);
         const p = currentCommand.parameters || {};
@@ -203,6 +219,7 @@ export function ActionPicker({
     setIsRecording(false);
     setAeCommand('easy_ease');
     setPsCommand('brush');
+    setBlenderCommand('blender.test_connection');
     setErrorMsg(null);
   };
 
@@ -218,7 +235,8 @@ export function ActionPicker({
     else if (selectedType === 'send_shortcut') params = { keys: shortcutKeys };
     else if (selectedType === 'after_effects_command') params = { command: aeCommand };
     else if (selectedType === 'photoshop_command') params = { command: psCommand };
-    return generateDefaultLabel(selectedType, params);
+    else if (selectedType === 'blender_command') params = { command: blenderCommand };
+    return generateDefaultLabel(selectedType, params, actionLibrary);
   };
 
   // Automatically update the display label if the user has not overridden it
@@ -236,7 +254,9 @@ export function ActionPicker({
     shortcutKeys,
     aeCommand,
     psCommand,
-    isLabelCustomized
+    blenderCommand,
+    isLabelCustomized,
+    actionLibrary
   ]);
 
   // Browse click handlers invoking native Tauri file dialogs
@@ -379,6 +399,9 @@ export function ActionPicker({
         parameters = { command: psCommand };
         break;
 
+      case 'blender_command':
+        break;
+
       default:
         break;
     }
@@ -386,7 +409,7 @@ export function ActionPicker({
     const finalLabel = customLabel.trim() || computeDefaultLabel();
 
     onSelectCommand({
-      command: selectedType,
+      command: selectedType === 'blender_command' ? blenderCommand : selectedType,
       label: finalLabel,
       parameters,
     });
@@ -416,7 +439,7 @@ export function ActionPicker({
               <div key={cat} className="flex flex-col gap-2">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{cat}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {COMMAND_TYPES.filter((c) => c.category === cat).map((opt) => (
+                  {COMMAND_TYPES.filter((c) => c.category === cat && (c.id !== 'blender_command' || activeProfileName === 'Blender')).map((opt) => (
                     <div
                       key={opt.id}
                       onClick={() => setSelectedType(opt.id)}
@@ -709,6 +732,21 @@ export function ActionPicker({
                   <option value="gradient">Gradient Tool</option>
                   <option value="crop">Crop Tool</option>
                   <option value="duplicate">Duplicate Item</option>
+                </select>
+              </div>
+            )}
+
+            {selectedType === 'blender_command' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-zinc-400 font-medium">Blender Operation</label>
+                <select
+                  value={blenderCommand}
+                  onChange={(e) => setBlenderCommand(e.target.value)}
+                  className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 focus:border-brand-primary rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-primary cursor-pointer"
+                >
+                  {actionLibrary?.filter(a => a.id.startsWith('blender.')).map(a => (
+                    <option key={a.id} value={a.id}>{a.display_name}</option>
+                  ))}
                 </select>
               </div>
             )}

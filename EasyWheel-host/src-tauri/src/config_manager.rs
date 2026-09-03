@@ -367,11 +367,36 @@ impl ConfigManager {
     fn read_from_disk(path: &PathBuf) -> AppConfig {
         match std::fs::read_to_string(path) {
             Ok(contents) => match serde_json::from_str::<AppConfig>(&contents) {
-                Ok(config) => {
+                Ok(mut config) => {
                     println!(
                         "[ConfigManager] Info: Configuration loaded from {:?}.",
                         path
                     );
+                    
+                    let default = AppConfig::default();
+                    let mut needs_save = false;
+
+                    // Merge missing actions
+                    for def_action in default.action_library {
+                        if !config.action_library.iter().any(|a| a.id == def_action.id) {
+                            config.action_library.push(def_action);
+                            needs_save = true;
+                        }
+                    }
+
+                    // Merge missing profiles
+                    for def_profile in default.profiles {
+                        if !config.profiles.iter().any(|p| p.name == def_profile.name) {
+                            config.profiles.push(def_profile);
+                            needs_save = true;
+                        }
+                    }
+
+                    if needs_save {
+                        println!("[ConfigManager] Info: Merged missing default profiles/actions into config.");
+                        Self::write_to_disk(path, &config);
+                    }
+
                     config
                 }
                 Err(e) => {
