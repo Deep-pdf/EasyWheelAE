@@ -245,6 +245,46 @@ impl Default for AppConfig {
                 category: "System".to_string(),
                 icon: None, shortcut: None, parameters: None,
             },
+            // -------------------------------------------------------------------
+            // Blender (Phase 3) — dispatched by BlenderProvider to the Blender
+            // add-on over WebSocket on port 23437.  These IDs are NOT in the
+            // embedded command_registry.json because that registry is AE-only.
+            // -------------------------------------------------------------------
+            ActionDefinition {
+                id: "blender.test_connection".to_string(),
+                display_name: "Test Blender Connection".to_string(),
+                description: "Confirms the EasyWheel Blender bridge is connected.".to_string(),
+                category: "Blender".to_string(),
+                icon: None, shortcut: None, parameters: None,
+            },
+            ActionDefinition {
+                id: "blender.add_cube".to_string(),
+                display_name: "Add Cube".to_string(),
+                description: "Adds a default cube mesh at the world origin.".to_string(),
+                category: "Blender".to_string(),
+                icon: None, shortcut: None, parameters: None,
+            },
+            ActionDefinition {
+                id: "blender.delete_selected".to_string(),
+                display_name: "Delete Selected".to_string(),
+                description: "Deletes all currently selected objects.".to_string(),
+                category: "Blender".to_string(),
+                icon: None, shortcut: None, parameters: None,
+            },
+            ActionDefinition {
+                id: "blender.duplicate".to_string(),
+                display_name: "Duplicate".to_string(),
+                description: "Duplicates the currently selected object(s).".to_string(),
+                category: "Blender".to_string(),
+                icon: None, shortcut: None, parameters: None,
+            },
+            ActionDefinition {
+                id: "blender.frame_selected".to_string(),
+                display_name: "Frame Selected".to_string(),
+                description: "Frames selected objects in the active 3D viewport.".to_string(),
+                category: "Blender".to_string(),
+                icon: None, shortcut: None, parameters: None,
+            },
         ];
 
         // -----------------------------------------------------------------------
@@ -330,8 +370,11 @@ impl Default for AppConfig {
                 name: "Blender".to_string(),
                 executable: "blender.exe".to_string(),
                 sector_assignments: HashMap::from([
-                    (0, ConfiguredCommand::legacy("duplicate", "Duplicate")),
-                    (7, ConfiguredCommand::legacy("settings", "EasyWheel Settings")),
+                    (0, ConfiguredCommand::legacy("blender.add_cube",        "Add Cube")),
+                    (1, ConfiguredCommand::legacy("blender.duplicate",       "Duplicate")),
+                    (2, ConfiguredCommand::legacy("blender.delete_selected", "Delete")),
+                    (3, ConfiguredCommand::legacy("blender.frame_selected",  "Frame Selected")),
+                    (7, ConfiguredCommand::legacy("settings",                "EasyWheel Settings")),
                 ]),
                 ..Default::default()
             },

@@ -569,6 +569,8 @@ export function ProfilesPage(): React.JSX.Element {
         onClose={() => setIsActionPickerOpen(false)}
         onSelectCommand={handleActionSelect}
         currentCommand={currentCommand}
+        activeProfileName={activeProfile.name}
+        actionLibrary={config.action_library}
       />
 
       {/* Searchable After Effects Command Picker */}
